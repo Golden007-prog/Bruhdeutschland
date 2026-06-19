@@ -8,11 +8,9 @@ import { SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { APS_INDIA } from "@/lib/facts";
+import { APS_INDIA, APS_REQUIRED_COUNTRIES } from "@/lib/facts";
 import { APS_STEPS } from "@/lib/seed/visa";
 import { source } from "@/lib/sources";
-
-const APS_COUNTRIES = ["India", "China", "Vietnam"];
 
 /** APS guide — what the Akademische Prüfstelle is, who needs it, and the process to obtain it. */
 export default function VisaAps() {
@@ -57,7 +55,7 @@ export default function VisaAps() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              {APS_COUNTRIES.map((country) => (
+              {APS_REQUIRED_COUNTRIES.map((country) => (
                 <Badge key={country} variant="warning" className="gap-1">
                   <AlertTriangle className="h-3 w-3" aria-hidden />
                   {country}
@@ -65,9 +63,9 @@ export default function VisaAps() {
               ))}
             </div>
             <p className="text-sm text-muted-foreground">
-              If you studied in India, China, or Vietnam, you must obtain the APS certificate before
-              applying. Each country has its own APS office with its own portal, fee, and processing
-              time — follow your country office's checklist exactly.
+              If you studied in {APS_REQUIRED_COUNTRIES.join(", ")}, you must obtain the APS
+              certificate before applying. Each country has its own APS office with its own portal,
+              fee, and processing time — follow your country office's checklist exactly.
             </p>
           </CardContent>
         </Card>

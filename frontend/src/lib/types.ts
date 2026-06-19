@@ -83,6 +83,8 @@ export interface OfficialFact {
   source?: Source;
   needsVerification: boolean;
   note?: string;
+  /** ISO date (YYYY-MM-DD) the seed value was gathered; drives the "re-verify" affordance. */
+  retrievedAt?: string;
 }
 
 /* ------------------------------------------------------------------ *

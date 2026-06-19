@@ -10,6 +10,20 @@
 import type { OfficialFact } from "@/lib/types";
 import { source } from "@/lib/sources";
 
+/** When these seed figures were gathered. The re-verify affordance shows this and lets the user re-check. */
+export const FACTS_RETRIEVED_AT = "2026-06-19";
+
+/* ── Structured constants (single source of truth — prose must derive from these, never restate) ── */
+
+/** Non-EU student work allowance. Page prose derives from this so it can't drift (page-audit §3.4). */
+export const WORK_LIMIT_DAYS = { full: 140, half: 280 } as const;
+
+/** Anmeldung (address registration) deadline, in days after moving in. */
+export const ANMELDUNG_DAYS = 14 as const;
+
+/** Countries whose applicants need an APS certificate (official APS rule). India-primary. */
+export const APS_REQUIRED_COUNTRIES = ["India", "China", "Vietnam"] as const;
+
 /* ── Finance ───────────────────────────────────────────────────────────────── */
 
 export const SPERRKONTO_AMOUNT: OfficialFact = {
@@ -62,7 +76,7 @@ export const DEUTSCHLANDTICKET_PRICE: OfficialFact = {
 
 export const WORK_LIMIT: OfficialFact = {
   label: "Work limit — international (non-EU) students",
-  value: "140 full or 280 half days / year",
+  value: `${WORK_LIMIT_DAYS.full} full or ${WORK_LIMIT_DAYS.half} half days / year`,
   source: source("daadSideJobs"),
   needsVerification: true,
   note: "Raised from 120/240. A half day is up to 4 hours. University student-assistant (HiWi) jobs are generally unrestricted. Verify your residence-permit conditions.",
@@ -122,7 +136,7 @@ export const APS_INDIA: OfficialFact = {
 
 export const ANMELDUNG_WINDOW: OfficialFact = {
   label: "Anmeldung (address registration) deadline",
-  value: "Within 14 days of moving in",
+  value: `Within ${ANMELDUNG_DAYS} days of moving in`,
   source: source("bundesmeldegesetz"),
   needsVerification: false,
   note: "Register at the local Bürgeramt. Bring your passport and the landlord's Wohnungsgeberbestätigung.",

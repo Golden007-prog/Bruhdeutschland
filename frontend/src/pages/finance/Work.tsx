@@ -8,7 +8,7 @@ import { SourceLink } from "@/components/common/SourceLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WORK_LIMIT } from "@/lib/facts";
+import { WORK_LIMIT, WORK_LIMIT_DAYS } from "@/lib/facts";
 import { source } from "@/lib/sources";
 
 interface JobType {
@@ -78,10 +78,12 @@ export default function FinanceWork() {
 
       <Alert variant="info">
         <BookOpen aria-hidden />
-        <AlertTitle>The 140 / 280-day rule, in plain terms</AlertTitle>
+        <AlertTitle>
+          The {WORK_LIMIT_DAYS.full} / {WORK_LIMIT_DAYS.half}-day rule, in plain terms
+        </AlertTitle>
         <AlertDescription>
-          As a non-EU student you may work up to <strong>140 full days</strong> or{" "}
-          <strong>280 half days</strong> per year without separate permission. A half day counts as up
+          As a non-EU student you may work up to <strong>{WORK_LIMIT_DAYS.full} full days</strong> or{" "}
+          <strong>{WORK_LIMIT_DAYS.half} half days</strong> per year without separate permission. A half day counts as up
           to four hours of work; two half days make a full day. Going over the limit needs approval
           from the foreigners&apos; authority and the employment agency. The exact conditions are
           written into your residence permit, so always check yours.
@@ -134,7 +136,7 @@ export default function FinanceWork() {
         <AlertTitle>University assistant jobs are the flexible exception</AlertTitle>
         <AlertDescription>
           Academic student-assistant (HiWi) jobs at your own university are generally unrestricted and
-          usually do not count against your 140/280-day allowance — which makes them the easiest job to
+          usually do not count against your {WORK_LIMIT_DAYS.full}/{WORK_LIMIT_DAYS.half}-day allowance — which makes them the easiest job to
           take on while keeping within the rules. Even so, tell the foreigners&apos; authority and
           confirm it against the conditions on your residence permit.
         </AlertDescription>

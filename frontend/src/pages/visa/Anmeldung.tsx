@@ -8,7 +8,7 @@ import { StepList } from "@/components/common/StepList";
 import { Checklist } from "@/components/common/Checklist";
 import { SourceLink } from "@/components/common/SourceLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ANMELDUNG_WINDOW } from "@/lib/facts";
+import { ANMELDUNG_DAYS, ANMELDUNG_WINDOW } from "@/lib/facts";
 import { ANMELDUNG_DOCS, ANMELDUNG_STEPS } from "@/lib/seed/visa";
 import { source } from "@/lib/sources";
 
@@ -66,8 +66,8 @@ export default function VisaAnmeldung() {
             Registering your address (Anmeldung) records you in the local population register and
             produces a <strong className="text-foreground">Meldebescheinigung</strong> — the
             confirmation almost every other step depends on. Do it within{" "}
-            <span className="official-figure font-medium text-foreground">14 days</span> of moving
-            in.
+            <span className="official-figure font-medium text-foreground">{ANMELDUNG_DAYS} days</span>{" "}
+            of moving in.
           </p>
           <ul className="grid gap-3 sm:grid-cols-2">
             {UNLOCKS.map((item) => {
@@ -97,13 +97,13 @@ export default function VisaAnmeldung() {
         </CardContent>
       </Card>
 
-      <Checklist items={ANMELDUNG_DOCS} title="What to bring to the Bürgeramt" />
+      <Checklist items={ANMELDUNG_DOCS} title="What to bring to the Bürgeramt" storageKey="anmeldung-docs" />
 
       <div className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
         <p>
           Anmeldung is a legal obligation under Germany&apos;s Federal Registration Act
-          (Bundesmeldegesetz). The 14-day window is fixed nationally, but Bürgeramt appointment
-          waits vary by city — book your Termin as soon as you have a move-in date.
+          (Bundesmeldegesetz). The {ANMELDUNG_DAYS}-day window is fixed nationally, but Bürgeramt
+          appointment waits vary by city — book your Termin as soon as you have a move-in date.
         </p>
         <p className="mt-2">
           <SourceLink source={source("bundesmeldegesetz")} />
