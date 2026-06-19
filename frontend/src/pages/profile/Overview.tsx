@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { ResumeAnalyzer } from "@/components/ResumeAnalyzer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockParsedProfile } from "@/lib/mockData";
+import { isProfileStarted, toParsedProfile } from "@/lib/profile/profile";
+import { useProfile } from "@/lib/profile/useProfile";
 import { cn } from "@/lib/utils";
 
 interface ProfileTool {
@@ -56,6 +58,9 @@ const TOOLS: ProfileTool[] = [
 
 /** Profile & Assessment — category landing. Links to the five tools + a parsed-profile snapshot. */
 export default function ProfileOverview() {
+  const { profile } = useProfile();
+  const started = isProfileStarted(profile);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -111,16 +116,17 @@ export default function ProfileOverview() {
 
       <section aria-labelledby="profile-snapshot-heading">
         <div className="mb-3">
-          <p className="eyebrow">Beispiel · Sample output</p>
+          <p className="eyebrow">{started ? "Dein Profil · Your profile" : "Beispiel · Sample output"}</p>
           <h2 id="profile-snapshot-heading" className="mt-1 text-lg font-semibold tracking-tight">
-            What a parsed profile looks like
+            {started ? "Your profile so far" : "What a parsed profile looks like"}
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            A snapshot of a finished evaluation. The German grade is computed deterministically and
-            stamped; figures that depend on the specific program or year stay flagged for verification.
+            {started
+              ? "Built from your intake details. The German grade is computed deterministically and stamped; figures that depend on the specific program or year stay flagged for verification. Update it any time in Settings."
+              : "A snapshot of a finished evaluation. The German grade is computed deterministically and stamped; figures that depend on the specific program or year stay flagged for verification."}
           </p>
         </div>
-        <ResumeAnalyzer profile={mockParsedProfile} />
+        <ResumeAnalyzer profile={started ? toParsedProfile(profile) : mockParsedProfile} />
       </section>
     </div>
   );

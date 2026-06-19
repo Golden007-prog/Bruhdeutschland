@@ -1,0 +1,58 @@
+/**
+ * The user's intake profile — the single personalization source for the whole app (page-audit §3.1).
+ * Persisted via {@link useProfile} (localStorage-first, Supabase `profiles`/`settings` when signed in).
+ * Replaces the old hardcoded `lib/mockData` profile on the dashboard and profile pages.
+ *
+ * India-primary defaults (master work order §7 / task #14): `homeCountry` starts at "India" and the
+ * grade scale defaults to the 10-point CGPA common at Indian universities.
+ */
+import type { GradeScale } from "@/lib/calc/gpa";
+
+export type GermanLevel = "" | "none" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+export type TargetIntake = "" | "WS" | "SS";
+
+/** Keys into {@link COMMON_SCALES} plus an explicit custom scale. */
+export type GradeScaleKey = "percent" | "cgpa10" | "gpa4" | "custom";
+
+export interface UserProfile {
+  name: string;
+  /** ISO-ish country name. Drives APS/visa logic (India-primary). */
+  homeCountry: string;
+  currentDegree: string;
+  institution: string;
+  /** Raw numeric grade as typed (kept as string for controlled inputs). */
+  gradeValue: string;
+  /** Which scale `gradeValue` is on, so GPA conversion is deterministic, not guessed. */
+  gradeScale: GradeScaleKey | "";
+  /** Only used when `gradeScale === "custom"`. */
+  customBest: string;
+  customMinPass: string;
+  targetIntake: TargetIntake;
+  targetField: string;
+  germanLevel: GermanLevel;
+  /** ISO timestamp of the last edit; null when never saved. */
+  updatedAt: string | null;
+}
+
+export const DEFAULT_PROFILE: UserProfile = {
+  name: "",
+  homeCountry: "India",
+  currentDegree: "",
+  institution: "",
+  gradeValue: "",
+  gradeScale: "",
+  customBest: "",
+  customMinPass: "",
+  targetIntake: "",
+  targetField: "",
+  germanLevel: "",
+  updatedAt: null,
+};
+
+/** A selectable grade scale for the intake form (label + resolver handled in profile.ts). */
+export interface ScaleOption {
+  key: GradeScaleKey;
+  label: string;
+}
+
+export type { GradeScale };

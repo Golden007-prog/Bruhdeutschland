@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BellRing, ClipboardCheck, FolderCheck, Map } from "lucide-react";
+import { ArrowRight, BellRing, ClipboardCheck, FolderCheck, Map, ScanLine, UserCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DeadlineList } from "@/components/common/DeadlineList";
@@ -7,10 +7,14 @@ import { StatusBoard } from "@/components/common/StatusBoard";
 import { FeatureModuleGrid } from "@/components/FeatureModuleGrid";
 import { ResumeAnalyzer } from "@/components/ResumeAnalyzer";
 import { RoadmapTracker } from "@/components/RoadmapTracker";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { alertable } from "@/lib/calc/deadlines";
 import type { FeatureCategoryKey } from "@/lib/types";
-import { mockFeatureModules, mockParsedProfile, mockRoadmapItems } from "@/lib/mockData";
+import { mockFeatureModules, mockRoadmapItems } from "@/lib/mockData";
+import { isProfileStarted, toParsedProfile } from "@/lib/profile/profile";
+import { useProfile } from "@/lib/profile/useProfile";
 import { SEED_EVENTS } from "@/lib/seed/events";
 import { APPLICATION_STAGES } from "@/lib/seed/process";
 
@@ -35,6 +39,8 @@ const QUICK_LINKS: { to: string; label: string; hint: string; icon: typeof Map }
 export default function Dashboard() {
   const navigate = useNavigate();
   const alerts = alertable(SEED_EVENTS);
+  const { profile } = useProfile();
+  const started = isProfileStarted(profile);
 
   return (
     <div className="space-y-6">
@@ -42,12 +48,16 @@ export default function Dashboard() {
         eyebrow="Übersicht · Overview"
         title="Application dashboard"
         description="Your German Master's application at a glance — profile, roadmap, deadlines, and progress across all six areas."
-        fileRef="DPR-2026-0042"
+        fileRef={started && profile.name.trim() ? profile.name.trim() : undefined}
       />
 
       {/* Profile review (signature seal) + roadmap, side by side on large screens. */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <ResumeAnalyzer profile={mockParsedProfile} />
+        {started ? (
+          <ResumeAnalyzer profile={toParsedProfile(profile)} />
+        ) : (
+          <ProfileSetupCard />
+        )}
         <RoadmapTracker items={mockRoadmapItems} />
       </div>
 
@@ -113,5 +123,37 @@ export default function Dashboard() {
         onSelect={(key) => navigate(CATEGORY_ROUTE[key])}
       />
     </div>
+  );
+}
+
+/**
+ * Shown in place of the profile review until the user has entered intake details — an honest empty
+ * state with a primary action, never a fabricated sample presented as the user's own data.
+ */
+function ProfileSetupCard() {
+  return (
+    <section
+      className="flex flex-col justify-center rounded-lg border border-dashed bg-muted/30 p-6"
+      aria-labelledby="profile-setup-heading"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <UserCircle className="h-5 w-5" aria-hidden />
+      </span>
+      <h2 id="profile-setup-heading" className="mt-3 text-lg font-semibold tracking-tight">
+        Set up your profile
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Add your degree, grade, and target field and DeutschPrep computes your German grade
+        (deterministically) and personalizes this dashboard. Nothing here is real until it's yours.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link to="/settings" className={cn(buttonVariants())}>
+          <UserCircle aria-hidden /> Complete your profile
+        </Link>
+        <Link to="/profile/parse" className={cn(buttonVariants({ variant: "outline" }))}>
+          <ScanLine aria-hidden /> Parse a resume
+        </Link>
+      </div>
+    </section>
   );
 }
