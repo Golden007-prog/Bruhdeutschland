@@ -43,6 +43,8 @@ export const SOURCES = {
   krankenkassenZentrale: { name: "German statutory health insurance overview", url: "https://www.make-it-in-germany.com/en/living-in-germany/insurance/health-insurance" },
   deutschlandstipendium: { name: "Deutschlandstipendium", url: "https://www.deutschlandstipendium.de/" },
   erasmus: { name: "Erasmus+", url: "https://erasmus-plus.ec.europa.eu/" },
+  daadEpos: { name: "DAAD — EPOS (Development-Related Postgraduate Courses)", url: "https://www.daad.de/en/study-and-research-in-germany/scholarships/epos/" },
+  daadHelmutSchmidt: { name: "DAAD — Helmut-Schmidt-Programme (Public Policy & Good Governance)", url: "https://www.daad.de/en/study-and-research-in-germany/scholarships/helmut-schmidt-programme/" },
 } as const satisfies Record<string, Source>;
 
 export type SourceKey = keyof typeof SOURCES;

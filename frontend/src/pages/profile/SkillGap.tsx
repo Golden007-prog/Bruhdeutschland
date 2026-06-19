@@ -10,6 +10,8 @@ import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiN
 import { skillGapAnalysisSchema, type SkillGapAnalysisResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
 import { mockParsedProfile } from "@/lib/mockData";
+import { useProfile } from "@/lib/profile/useProfile";
+import { currentYM, formatYearsMonths, summarizeExperience } from "@/lib/profile/experience";
 import type { SkillGap } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +99,8 @@ const SEED_GAPS: DisplayGap[] = mockParsedProfile.skillGaps.map((g) => ({
 /** Feature 04 — Skill-gap analysis. Groups the profile's gaps by severity with concrete guidance. */
 export default function ProfileSkillGap() {
   const [field, setField] = useState("");
+  const { profile } = useProfile();
+  const exp = summarizeExperience(profile, currentYM());
   const ai = useGenerate<SkillGapAnalysisResult>();
 
   const aiGaps: DisplayGap[] | null = ai.result
@@ -112,14 +116,18 @@ export default function ProfileSkillGap() {
   const usingAi = aiGaps !== null;
 
   const analyzeWithAi = async () => {
+    const evidenced = exp.skills.length ? exp.skills.join(", ") : "";
     const prompt = [
       "Analyse skill gaps for a candidate applying to a Master's at a German public university.",
       "Return gaps a typical programme expects that this profile may not yet evidence, each with a",
       "severity (low/medium/high) and a concrete, actionable howToClose. This is reasoning, not an",
       "official admission requirement — do not state thresholds, grades, or guaranteed outcomes.",
+      exp.hasExperience
+        ? `CREDIT skills already evidenced by ${formatYearsMonths(exp.totalMonths)} of work experience — do NOT list these as gaps: ${evidenced || "(roles given without explicit skills)"}.`
+        : "",
       "",
-      `Candidate field / background / target: ${field.trim() || "CS bachelor, 1 yr backend experience, targeting a data-engineering Master's"}`,
-    ].join("\n");
+      `Candidate field / background / target: ${field.trim() || (exp.hasExperience ? `${profile.currentDegree || "graduate"}, ${formatYearsMonths(exp.totalMonths)} experience in ${exp.domains.join("/") || "industry"}, targeting ${profile.targetField || "a Master's"}` : "CS bachelor, 1 yr backend experience, targeting a data-engineering Master's")}`,
+    ].filter(Boolean).join("\n");
     await ai.generate(
       skillGapAnalysisSchema,
       prompt,
@@ -182,6 +190,11 @@ export default function ProfileSkillGap() {
         <p className="sr-only" role="status" aria-live="polite">
           {ai.loading ? "Analyzing your skill gaps with AI." : ""}
         </p>
+        {exp.hasExperience && (
+          <p className="text-xs text-emerald-700">
+            Crediting {formatYearsMonths(exp.totalMonths)} of work experience — skills your roles prove won&apos;t be listed as gaps.
+          </p>
+        )}
         {usingAi && <AiGeneratedBadge />}
         {ai.noProvider && <NoProviderAlert />}
         {ai.error && <RetryAlert message={ai.error} onRetry={analyzeWithAi} />}

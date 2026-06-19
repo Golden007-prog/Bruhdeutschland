@@ -14,6 +14,37 @@ export type TargetIntake = "" | "WS" | "SS";
 /** Keys into {@link COMMON_SCALES} plus an explicit custom scale. */
 export type GradeScaleKey = "percent" | "cgpa10" | "gpa4" | "custom";
 
+/** Kind of role — kept distinct so EPOS-style "post-degree professional" rules can be precise. */
+export type EmploymentType =
+  | "full_time"
+  | "part_time"
+  | "internship"
+  | "working_student"
+  | "freelance"
+  | "research"
+  | "volunteer";
+
+/**
+ * One user-confirmed work experience (addendum §1). A FIRST-CLASS profile dimension, SEPARATE from the
+ * academic GPA — it never alters the German grade. Dates are "YYYY-MM" (month precision is enough for
+ * year/month totals and the EPOS "degree within N years" rule).
+ */
+export interface WorkExperience {
+  id: string;
+  title: string;
+  employer: string;
+  country: string;
+  employmentType: EmploymentType;
+  startDate: string; // "YYYY-MM"
+  endDate: string; // "YYYY-MM" — ignored when ongoing
+  ongoing: boolean;
+  domain: string;
+  skills: string[];
+  description: string;
+  /** User/parse flag: does this role relate to the target field? Drives "relevant experience". */
+  relevantToTarget: boolean;
+}
+
 export interface UserProfile {
   name: string;
   /** ISO-ish country name. Drives APS/visa logic (India-primary). */
@@ -30,6 +61,10 @@ export interface UserProfile {
   targetIntake: TargetIntake;
   targetField: string;
   germanLevel: GermanLevel;
+  /** Month the current degree was (or will be) obtained, "YYYY-MM". Drives "degree within N years". */
+  graduationDate: string;
+  /** Professional history (addendum §1). Empty for a new user → no fake experience value shown. */
+  workExperiences: WorkExperience[];
   /** ISO timestamp of the last edit; null when never saved. */
   updatedAt: string | null;
 }
@@ -46,6 +81,8 @@ export const DEFAULT_PROFILE: UserProfile = {
   targetIntake: "",
   targetField: "",
   germanLevel: "",
+  graduationDate: "",
+  workExperiences: [],
   updatedAt: null,
 };
 

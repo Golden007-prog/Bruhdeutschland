@@ -27,6 +27,10 @@ export interface Scholarship {
   /** Whether it is primarily merit-based, need-based, or mobility/exchange-based. */
   basis: "merit" | "need" | "mobility";
   source: Source;
+  /** Minimum years of professional experience required after the first degree (EPOS-style), if any. */
+  requiresExperienceYears?: number;
+  /** The first degree must have been obtained within the last N years, if specified. */
+  degreeWithinYears?: number;
   /** Optional caveats; always present results as needing confirmation per call. */
   note?: string;
 }
@@ -79,6 +83,34 @@ export const SCHOLARSHIPS: Scholarship[] = [
     basis: "mobility",
     source: source("erasmus"),
     note: "Covers exchange mobility rather than a full degree. Availability depends on agreements between your home and host universities.",
+  },
+  {
+    id: "daad-epos",
+    name: "DAAD EPOS — Development-Related Postgraduate Courses",
+    funder: "DAAD (German Academic Exchange Service)",
+    amount: "Full monthly stipend + travel, insurance, and study/research allowances",
+    eligibility:
+      "Graduates from eligible developing countries with a first degree (normally 4 years) AND at least 2 years of professional experience, with the degree obtained within the last 6 years.",
+    openToAllNationalities: false,
+    basis: "merit",
+    requiresExperienceYears: 2,
+    degreeWithinYears: 6,
+    source: source("daadEpos"),
+    note: "Eligible countries and the list of development-related Master's/PhD courses are defined per call. The 2-year experience and 6-year recency rules are indicative — verify against the official EPOS criteria.",
+  },
+  {
+    id: "daad-helmut-schmidt",
+    name: "Helmut-Schmidt-Programme (Master of Public Policy & Good Governance)",
+    funder: "DAAD (funded by the Federal Foreign Office)",
+    amount: "Full monthly stipend + allowances for selected public-policy Master's programmes",
+    eligibility:
+      "Graduates from developing countries pursuing public policy / good governance; typically at least 2 years of relevant professional experience and a recent first degree.",
+    openToAllNationalities: false,
+    basis: "merit",
+    requiresExperienceYears: 2,
+    degreeWithinYears: 6,
+    source: source("daadHelmutSchmidt"),
+    note: "Eligible programmes and countries are defined per call. Experience and recency rules are indicative — verify against the official programme page.",
   },
   {
     id: "studienstiftung",

@@ -10,15 +10,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DAAD_STIPEND, DEUTSCHLANDSTIPENDIUM } from "@/lib/facts";
 import { source } from "@/lib/sources";
 import { SCHOLARSHIPS, type Scholarship } from "@/lib/seed/finance";
+import { useProfile } from "@/lib/profile/useProfile";
+import { currentYM, formatYearsMonths, summarizeExperience, yearsFrom } from "@/lib/profile/experience";
 
-type Filter = "all" | "open-to-all" | "merit" | "mobility";
+type Filter = "all" | "open-to-all" | "merit" | "mobility" | "experience";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All schemes" },
   { key: "open-to-all", label: "Open to all nationalities" },
   { key: "merit", label: "Merit-based" },
   { key: "mobility", label: "Exchange / mobility" },
+  { key: "experience", label: "Requires work experience" },
 ];
+
+/** Honest match of the user's experience against an experience-required scheme (never asserts eligibility). */
+function experienceMatch(
+  s: Scholarship,
+  expMonths: number,
+  monthsSinceGrad: number | null,
+): { tone: "ok" | "warn" | "muted"; text: string } | null {
+  if (s.requiresExperienceYears == null) return null;
+  const req = s.requiresExperienceYears;
+  const have = formatYearsMonths(expMonths);
+  const tooOld =
+    s.degreeWithinYears != null && monthsSinceGrad != null && monthsSinceGrad > s.degreeWithinYears * 12;
+  const recency = tooOld ? ` (note: your degree is older than ${s.degreeWithinYears} yrs — may not qualify)` : "";
+  if (expMonths === 0) return { tone: "muted", text: `Requires ~${req} yrs experience — add your work history to check.` };
+  if (yearsFrom(expMonths) >= req) return { tone: "ok", text: `You meet the indicative ${req}-yr experience bar (you have ${have})${recency}.` };
+  return { tone: "warn", text: `Unlock at ${req} yrs — you have ${have}${recency}.` };
+}
 
 const BASIS_LABEL: Record<Scholarship["basis"], string> = {
   merit: "Merit-based",
@@ -34,6 +54,8 @@ function matches(s: Scholarship, filter: Filter): boolean {
       return s.basis === "merit";
     case "mobility":
       return s.basis === "mobility";
+    case "experience":
+      return s.requiresExperienceYears != null;
     default:
       return true;
   }
@@ -42,6 +64,8 @@ function matches(s: Scholarship, filter: Filter): boolean {
 /** Feature 20 — Scholarship finder. */
 export default function FinanceScholarships() {
   const [filter, setFilter] = useState<Filter>("all");
+  const { profile } = useProfile();
+  const exp = useMemo(() => summarizeExperience(profile, currentYM()), [profile]);
 
   const results = useMemo(() => SCHOLARSHIPS.filter((s) => matches(s, filter)), [filter]);
 
@@ -115,7 +139,18 @@ export default function FinanceScholarships() {
                   ) : (
                     <Badge variant="outline">Eligibility restricted</Badge>
                   )}
+                  {s.requiresExperienceYears != null && <Badge variant="warning">Needs ~{s.requiresExperienceYears} yrs experience</Badge>}
                 </div>
+
+                {(() => {
+                  const m = experienceMatch(s, exp.totalMonths, exp.monthsSinceGraduation);
+                  if (!m) return null;
+                  const cls =
+                    m.tone === "ok" ? "border-emerald-200 bg-emerald-50/50 text-emerald-800"
+                      : m.tone === "warn" ? "border-amber-200 bg-amber-50/50 text-amber-800"
+                        : "border-dashed bg-muted/30 text-muted-foreground";
+                  return <p className={`rounded-md border p-2 text-xs ${cls}`}>{m.text}</p>;
+                })()}
 
                 <dl className="space-y-2 text-sm">
                   <div>

@@ -38,6 +38,10 @@ export interface Program {
   jointDoubleDegree?: boolean;
   scholarships?: string[];
   testsRequired?: Record<string, string>; // e.g. { ielts: "6.5", gre: "recommended" }
+  /** Years of professional experience the programme requires (0/undefined = none — most consecutive MSc). */
+  workExperienceRequired?: number;
+  /** True when experience is valued/recommended (MBA, management, executive) — a plus, not a gate. */
+  experienceRecommended?: boolean;
   needsVerification: boolean;
   description?: string;
 }

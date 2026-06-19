@@ -91,8 +91,12 @@ export default function ProfileParse() {
   async function autofillWithAi() {
     const prompt = [
       "Extract a structured profile from this résumé / LinkedIn text for German Master's admissions.",
-      "Return only facts present in the text — never invent degrees, dates, employers, or grades.",
+      "Return only facts present in the text — never invent degrees, dates, employers, grades, or jobs.",
       "facts: short label/value pairs (e.g. Name, Degree, Institution, Field).",
+      "workExperiences: each job/internship in the text — title, employer, country, employmentType",
+      "(full_time|part_time|internship|working_student|freelance|research|volunteer), startDate &",
+      "endDate as 'YYYY-MM' when known (else empty), ongoing (true if current), domain, skills[], and",
+      "relevantToTarget (true if it relates to the target field). Omit a field if the text doesn't say.",
       "skillGaps: skills a German Master's programme typically expects that this profile does not yet",
       "evidence, each with severity low/medium/high. Do not assert official requirements.",
       "",
@@ -102,10 +106,32 @@ export default function ProfileParse() {
     const result = await ai.generate(
       parsedProfileSchema,
       prompt,
-      "{ facts: {label,value}[], skillGaps: {skill, severity: low|medium|high}[] }",
+      '{ facts: {label,value}[], workExperiences: {title,employer,country,employmentType,startDate,endDate,ongoing,domain,skills,relevantToTarget}[], skillGaps: {skill, severity: low|medium|high}[] }',
       0.3,
     );
-    if (result) setDraft((d) => ({ ...d, ...applyAiFacts(d, result) }));
+    if (result) {
+      setDraft((d) => {
+        const next: UserProfile = { ...d, ...applyAiFacts(d, result) };
+        // Only adopt parsed roles when the user hasn't entered any (never overwrite their edits).
+        if (next.workExperiences.length === 0 && result.workExperiences.length > 0) {
+          next.workExperiences = result.workExperiences.map((w, i) => ({
+            id: `ai-we-${i}`,
+            title: w.title,
+            employer: w.employer,
+            country: w.country,
+            employmentType: w.employmentType,
+            startDate: w.startDate,
+            endDate: w.endDate,
+            ongoing: w.ongoing,
+            domain: w.domain,
+            skills: w.skills,
+            description: "",
+            relevantToTarget: w.relevantToTarget,
+          }));
+        }
+        return next;
+      });
+    }
   }
 
   function save() {

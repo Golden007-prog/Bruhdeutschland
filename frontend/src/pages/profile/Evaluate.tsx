@@ -4,6 +4,7 @@ import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { OfficialFactRow } from "@/components/common/OfficialFact";
 import { SourceLink } from "@/components/common/SourceLink";
+import { ProfessionalPanel } from "@/features/profile/ProfessionalPanel";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -311,6 +312,9 @@ export default function ProfileEvaluate() {
           </div>
         </div>
       </section>
+
+      {/* Professional profile — a separate dimension that never alters the academic grade (addendum §2). */}
+      <ProfessionalPanel />
     </div>
   );
 }

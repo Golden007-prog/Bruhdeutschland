@@ -7,6 +7,7 @@
 import { formatGermanGrade } from "@/lib/calc/gpa";
 import { apsStatusFor } from "@/lib/country/country";
 import { deriveGermanGpa } from "@/lib/profile/profile";
+import { currentYM, formatYearsMonths, summarizeExperience, yearsFrom } from "@/lib/profile/experience";
 import type { UserProfile } from "@/lib/profile/types";
 import type { Program } from "./types";
 
@@ -73,6 +74,37 @@ function apsCriterion(profile: UserProfile): Criterion {
   return { key: "aps", label: "APS certificate", status: "unknown", detail: "Set your country to check whether APS applies.", gapHref: "/settings" };
 }
 
+/**
+ * Experience criterion — only shown for programmes that require or value experience (real signal:
+ * `workExperienceRequired`, `experienceRecommended`, or a part-time mode). Most consecutive MSc/MA
+ * require none, so the criterion is omitted there. Never gates on a guessed threshold.
+ */
+function experienceCriterion(profile: UserProfile, p: Program): Criterion | null {
+  const req = p.workExperienceRequired ?? 0;
+  const recommended = p.experienceRecommended || p.mode === "part_time";
+  if (req <= 0 && !recommended) return null;
+
+  const s = summarizeExperience(profile, currentYM());
+  if (req <= 0) {
+    return {
+      key: "experience",
+      label: "Work experience",
+      status: "meets",
+      detail: s.totalMonths > 0
+        ? `Experience is valued here — your ${formatYearsMonths(s.totalMonths)} is a plus (not a gate).`
+        : "Experience is valued here (not required) — a plus if you have it.",
+    };
+  }
+  if (s.totalMonths === 0) {
+    return { key: "experience", label: "Work experience", status: "unknown", detail: `Indicates ~${req}+ yrs experience. Add your work history to check.`, gapHref: "/settings" };
+  }
+  const yrs = yearsFrom(s.postDegreeFullTimeMonths > 0 ? s.postDegreeFullTimeMonths : s.totalMonths);
+  if (yrs >= req) {
+    return { key: "experience", label: "Work experience", status: "meets", detail: `You have ${formatYearsMonths(s.totalMonths)} — meets the indicative ${req}-yr bar (verify on the official page).` };
+  }
+  return { key: "experience", label: "Work experience", status: "maybe", detail: `You have ${formatYearsMonths(s.totalMonths)}; this programme indicates ~${req}+ yrs. Verify the exact rule on the official page.` };
+}
+
 function rollupOf(criteria: Criterion[]): EligibilityRollup {
   if (criteria.some((c) => c.status === "doesnt_meet")) return "stretch";
   const known = criteria.filter((c) => c.status !== "unknown");
@@ -89,6 +121,7 @@ export function eligibility(profile: UserProfile, p: Program): Eligibility {
     languageCriterion(profile, p),
     gradeCriterion(profile),
     englishTestCriterion(p),
+    experienceCriterion(profile, p),
     apsCriterion(profile),
   ].filter((c): c is Criterion => c !== null);
   return { rollup: rollupOf(criteria), criteria };

@@ -41,6 +41,26 @@ export const parsedProfileSchema = z.object({
       }),
     )
     .max(8),
+  /** Work experience extracted from the résumé (addendum §1). Only roles present in the text. */
+  workExperiences: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        employer: z.string().default(""),
+        country: z.string().default(""),
+        employmentType: z
+          .enum(["full_time", "part_time", "internship", "working_student", "freelance", "research", "volunteer"])
+          .default("full_time"),
+        startDate: z.string().default(""), // "YYYY-MM" if known
+        endDate: z.string().default(""),
+        ongoing: z.boolean().default(false),
+        domain: z.string().default(""),
+        skills: z.array(z.string()).default([]),
+        relevantToTarget: z.boolean().default(false),
+      }),
+    )
+    .max(12)
+    .default([]),
 });
 export type ParsedProfileResult = z.infer<typeof parsedProfileSchema>;
 

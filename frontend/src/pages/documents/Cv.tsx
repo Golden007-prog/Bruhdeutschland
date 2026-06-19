@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
+import { ExternalLink, Loader2, Mail, MapPin, Phone, Sparkles, User, Wand2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DocActions } from "@/components/common/DocActions";
@@ -14,7 +14,28 @@ import { cvPolishSchema, type CvPolishResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
 import { fileSlug } from "@/lib/doc/export";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useProfile } from "@/lib/profile/useProfile";
+import type { UserProfile } from "@/lib/profile/types";
 import { source } from "@/lib/sources";
+
+/** "2024-03" → "03/2024" (EU date format). */
+function ymToEu(ym: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym ?? "");
+  return m ? `${m[2]}/${m[1]}` : ym ?? "";
+}
+
+/** Render the profile's work experience as reverse-chronological Europass lines. */
+function experienceLines(p: UserProfile): string {
+  return [...(p.workExperiences ?? [])]
+    .sort((a, b) => (b.ongoing ? "9999-99" : b.endDate || b.startDate).localeCompare(a.ongoing ? "9999-99" : a.endDate || a.startDate))
+    .map((w) => {
+      const end = w.ongoing ? "present" : ymToEu(w.endDate);
+      const dates = [ymToEu(w.startDate), end].filter(Boolean).join("–");
+      const place = [w.employer, w.country].filter(Boolean).join(", ");
+      return [dates, w.title, place, w.description].filter(Boolean).join(" · ");
+    })
+    .join("\n");
+}
 
 interface CvForm {
   fullName: string;
@@ -86,7 +107,27 @@ function PreviewSection({ title, items }: { title: string; items: string[] }) {
 /** Europass CV builder (Feature 07). Form sections in state → live preview. */
 export default function DocumentsCv() {
   const [form, setForm] = useSyncedState<CvForm>("doc:cv:form", EMPTY);
+  const { profile } = useProfile();
   const ai = useGenerate<CvPolishResult>();
+
+  /** Pull structured profile data into empty CV fields (never overwrites what you've typed). */
+  const fillFromProfile = () => {
+    const expLines = experienceLines(profile);
+    const eduLine = [profile.graduationDate ? ymToEu(profile.graduationDate) : "", profile.currentDegree, profile.institution]
+      .filter(Boolean)
+      .join(" · ");
+    const expSkills = [...new Set((profile.workExperiences ?? []).flatMap((w) => w.skills))].join(", ");
+    const lang = profile.germanLevel && profile.germanLevel !== "none" ? `German — ${profile.germanLevel}` : "";
+    setForm((prev) => ({
+      ...prev,
+      fullName: prev.fullName || profile.name,
+      education: prev.education || eduLine,
+      experience: prev.experience || expLines,
+      skills: prev.skills || expSkills,
+      languages: prev.languages || lang,
+    }));
+  };
+  const hasProfileData = Boolean(profile.name || (profile.workExperiences ?? []).length || profile.currentDegree);
 
   const set =
     <K extends keyof CvForm>(key: K) =>
@@ -163,7 +204,14 @@ export default function DocumentsCv() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">CV details</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">CV details</CardTitle>
+              {hasProfileData && (
+                <Button variant="outline" size="sm" onClick={fillFromProfile}>
+                  <Wand2 aria-hidden /> Fill from my profile
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-5">
             <fieldset className="space-y-3">

@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { formatGermanGrade } from "@/lib/calc/gpa";
 import { SCALE_OPTIONS, deriveGermanGpa } from "@/lib/profile/profile";
 import type { UserProfile } from "@/lib/profile/types";
+import { WorkExperienceEditor } from "./WorkExperienceEditor";
 import { cn } from "@/lib/utils";
 
 const selectClass = cn(
@@ -29,6 +30,7 @@ export function IntakeFields({
   const id = (s: string) => `${idPrefix}-${s}`;
 
   return (
+    <div className="space-y-6">
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1.5">
         <label htmlFor={id("name")} className="text-sm font-medium">Full name</label>
@@ -73,6 +75,19 @@ export function IntakeFields({
           onChange={(e) => onChange({ institution: e.target.value })}
           placeholder="IIT Delhi"
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor={id("graduation")} className="text-sm font-medium">Degree obtained (month)</label>
+        <Input
+          id={id("graduation")}
+          type="month"
+          value={value.graduationDate}
+          onChange={(e) => onChange({ graduationDate: e.target.value })}
+        />
+        <p className="text-xs text-muted-foreground">
+          Used for scholarship rules like &ldquo;degree within the last 6 years&rdquo; (DAAD EPOS).
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -184,6 +199,13 @@ export function IntakeFields({
           CEFR self-assessment — sets your language-prep starting point.
         </p>
       </div>
+    </div>
+
+    <WorkExperienceEditor
+      value={value.workExperiences}
+      graduationDate={value.graduationDate}
+      onChange={(workExperiences) => onChange({ workExperiences })}
+    />
     </div>
   );
 }

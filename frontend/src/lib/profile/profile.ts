@@ -11,6 +11,7 @@ import {
   type GradeScale,
 } from "@/lib/calc/gpa";
 import type { ParsedProfile } from "@/lib/types";
+import { currentYM, formatYearsMonths, summarizeExperience } from "./experience";
 import type { GradeScaleKey, ScaleOption, UserProfile } from "./types";
 
 /** Intake scale choices, in display order. Custom lets the user enter best/min-pass directly. */
@@ -81,6 +82,14 @@ export function toParsedProfile(p: UserProfile): ParsedProfile {
     facts.push({ label: "German level", value: p.germanLevel });
   } else if (p.germanLevel === "none") {
     facts.push({ label: "German level", value: "Beginner" });
+  }
+  // Work experience is a first-class fact (addendum §3) — shown only when real (no fake value).
+  const exp = summarizeExperience(p, currentYM());
+  if (exp.hasExperience && exp.totalMonths > 0) {
+    facts.push({
+      label: "Work experience",
+      value: `${formatYearsMonths(exp.totalMonths)}${exp.relevantMonths > 0 ? ` (${formatYearsMonths(exp.relevantMonths)} relevant)` : ""}`,
+    });
   }
 
   return {

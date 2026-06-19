@@ -12,6 +12,8 @@ import { sopSchema, type SopResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
 import { fileSlug } from "@/lib/doc/export";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useProfile } from "@/lib/profile/useProfile";
+import { currentYM, formatYearsMonths, summarizeExperience } from "@/lib/profile/experience";
 import { anyProviderConfigured } from "@/lib/llm/registry";
 
 interface SopForm {
@@ -116,6 +118,8 @@ function assembleAi(f: SopForm, ai: SopResult): string {
 export default function DocumentsSop() {
   const [form, setForm] = useSyncedState<SopForm>("doc:sop:form", EMPTY);
   const [draft, setDraft] = useSyncedState<string>("doc:sop:draft", "");
+  const { profile } = useProfile();
+  const exp = summarizeExperience(profile, currentYM());
   const ai = useGenerate<SopResult>();
   const configured = anyProviderConfigured();
 
@@ -127,6 +131,16 @@ export default function DocumentsSop() {
   const generate = () => setDraft(composeDraft(form));
 
   const generateWithAi = async () => {
+    const roles = (profile.workExperiences ?? [])
+      .map((w) => `${w.title}${w.employer ? ` at ${w.employer}` : ""}${w.ongoing ? " (current)" : ""}${w.domain ? ` — ${w.domain}` : ""}`)
+      .join("; ");
+    const expLine = exp.hasExperience
+      ? `Work experience (${formatYearsMonths(exp.totalMonths)} total, ${formatYearsMonths(exp.relevantMonths)} relevant): ${roles}. Weave a clear career-narrative arc — experience → motivation → fit with this programme.`
+      : "";
+    const gapLine =
+      exp.gapMonths != null && exp.gapMonths >= 6
+        ? `There is roughly ${formatYearsMonths(exp.gapMonths)} since graduation not covered by a role — address it briefly and positively (e.g. preparation, self-study, family), never apologetically.`
+        : "";
     const prompt = [
       "Write a Statement of Purpose for a Master's application at a German public university.",
       "Use only the applicant-provided facts below — do not invent achievements, names, or figures.",
@@ -134,13 +148,15 @@ export default function DocumentsSop() {
       "",
       `Target program: ${form.program.trim() || "(not given)"}`,
       `University: ${form.university.trim() || "(not given)"}`,
-      `Applicant background: ${form.background.trim() || "(not given)"}`,
+      `Applicant background: ${form.background.trim() || profile.currentDegree || "(not given)"}`,
+      expLine,
       `Motivation points: ${form.motivation.trim() || "(not given)"}`,
       `Why this program: ${form.whyProgram.trim() || "(not given)"}`,
       `Career goal: ${form.careerGoal.trim() || "(not given)"}`,
+      gapLine,
       "",
-      "Return an introduction, 2–4 body paragraphs (motivation, background, program fit), and a conclusion about career goals.",
-    ].join("\n");
+      "Return an introduction, 2–4 body paragraphs (motivation, background→experience→fit), and a conclusion about career goals.",
+    ].filter(Boolean).join("\n");
     const result = await ai.generate(
       sopSchema,
       prompt,
