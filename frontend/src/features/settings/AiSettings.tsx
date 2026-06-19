@@ -20,6 +20,8 @@ import type { ProviderId } from "@/lib/llm/types";
 
 type TestState = "idle" | "testing" | "ok" | "fail";
 
+const INSTALLER_URL = "https://github.com/Golden007-prog/Bruhdeutschland/releases/latest";
+
 /**
  * AI provider settings (work-order §3). BYOK: the user's key lives only in this browser. Owner Mode
  * is detected when the local bridge answers. Google sign-in (Account panel) is for the account only —
@@ -33,6 +35,9 @@ export function AiSettings() {
   const [geminiTest, setGeminiTest] = useState<TestState>("idle");
   const [bridgeTest, setBridgeTest] = useState<TestState>("idle");
   const [testMsg, setTestMsg] = useState("");
+  const [bridgeMsg, setBridgeMsg] = useState("");
+
+  const bridgeDetected = providers.find((p) => p.id === "claude-bridge")?.available ?? false;
 
   const refresh = () => listProviders().then(setProviders);
   useEffect(() => {
@@ -73,8 +78,23 @@ export function AiSettings() {
   async function testBridge() {
     setBridgeUrl(bridgeUrl);
     setBridgeTest("testing");
+    setBridgeMsg("");
     const ok = await new ClaudeBridgeProvider().isAvailable();
     setBridgeTest(ok ? "ok" : "fail");
+    if (!ok) {
+      const url = getBridgeUrl();
+      const onHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+      const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(url);
+      if (onHttps && url.startsWith("http://")) {
+        setBridgeMsg(
+          "This site is HTTPS, so the browser blocks calls to http://localhost (mixed content). Run `npm run owner` and open http://localhost:8787 directly, or expose the bridge over an HTTPS tunnel (e.g. cloudflared) and paste that URL.",
+        );
+      } else if (isLocal) {
+        setBridgeMsg("Couldn't reach the bridge — start it with `npm run owner`, or use the installer below.");
+      } else {
+        setBridgeMsg("Couldn't reach the bridge at that URL. Check it's running and reachable over HTTPS.");
+      }
+    }
     void refresh();
   }
 
@@ -130,9 +150,20 @@ export function AiSettings() {
 
       {/* Owner-Mode bridge */}
       <div className="rounded-md border p-4">
-        <div className="flex items-center gap-2">
-          <Radio className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="font-medium">Claude (your plan) — Owner Mode</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <h3 className="font-medium">Claude (your plan) — Owner Mode</h3>
+          </div>
+          {bridgeDetected ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+              <CheckCircle2 className="h-3 w-3" aria-hidden /> Detected — using Claude (your plan)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              <XCircle className="h-3 w-3" aria-hidden /> Not detected
+            </span>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Run the local bridge (<code>npm run owner</code>) to use your own Claude plan — no API key,
@@ -154,6 +185,26 @@ export function AiSettings() {
           </Button>
           <TestBadge state={bridgeTest} />
         </div>
+        {bridgeTest === "fail" && bridgeMsg && (
+          <p className="mt-2 text-xs text-amber-700" role="status">{bridgeMsg}</p>
+        )}
+        {!bridgeDetected && (
+          <div className="mt-3 rounded-md border border-dashed bg-muted/30 p-3 text-xs">
+            <p className="font-medium">No bridge running? Use the one-click installer.</p>
+            <p className="mt-0.5 text-muted-foreground">
+              It installs Node + Claude Code and starts Owner Mode on your machine. Windows will warn
+              about an unsigned app — that&apos;s expected; verify the published SHA-256.
+            </p>
+            <a
+              href={INSTALLER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 font-medium text-primary hover:underline"
+            >
+              Download the one-click installer <ExternalLink className="h-3 w-3" aria-hidden />
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Active provider */}

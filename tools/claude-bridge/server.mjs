@@ -52,7 +52,15 @@ function extractJson(text) {
 /** Run the prompt through the Claude CLI on the operator's plan and return parsed JSON. */
 function runClaude(prompt) {
   return new Promise((resolveP, reject) => {
-    const child = spawn(CLAUDE_BIN, ["-p", "--output-format", "json"], { stdio: ["pipe", "pipe", "pipe"] });
+    // Force the SUBSCRIPTION credential: if ANTHROPIC_API_KEY is set in the shell, Claude Code would
+    // bill the API instead of the user's Pro/Max plan. Strip it from the child env. (We never pass
+    // --bare, which would skip the OAuth/keychain read and demand an API key.)
+    const childEnv = { ...process.env };
+    delete childEnv.ANTHROPIC_API_KEY;
+    const child = spawn(CLAUDE_BIN, ["-p", "--output-format", "json"], {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: childEnv,
+    });
     let out = "";
     let err = "";
     child.stdout.on("data", (d) => (out += d));
@@ -133,9 +141,14 @@ const server = createServer(async (req, res) => {
     req.on("data", (c) => (body += c));
     req.on("end", async () => {
       try {
-        const { prompt } = JSON.parse(body || "{}");
+        const { prompt, schemaHint } = JSON.parse(body || "{}");
         if (!prompt) throw new Error("Missing 'prompt'");
-        const json = await runClaude(prompt);
+        // Steer Claude to emit ONLY JSON matching the requested shape; the client still Zod-validates,
+        // so providers (Gemini/Claude) stay interchangeable.
+        const fullPrompt = schemaHint
+          ? `${prompt}\n\nReturn ONLY a single valid JSON value matching this shape — no prose, comments, or code fences:\n${schemaHint}`
+          : prompt;
+        const json = await runClaude(fullPrompt);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ json }));
       } catch (e) {
