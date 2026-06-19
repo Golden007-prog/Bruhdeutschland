@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
+import { LogIn, UserCircle } from "lucide-react";
 
 import { CATEGORY_ACCENT } from "@/lib/categories";
 import { navByGroup } from "@/lib/nav";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,6 +13,7 @@ import { cn } from "@/lib/utils";
  */
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const groups = navByGroup();
+  const { user, configured } = useAuth();
   return (
     <nav aria-label="Primary" className="flex h-full flex-col">
       <div className="bg-dossier-grid border-b px-4 py-4">
@@ -57,9 +60,35 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </div>
 
-      <div className="border-t px-4 py-3">
-        <p className="eyebrow">Aktenzeichen</p>
-        <p className="official-figure text-xs font-medium">DPR-2026-0042</p>
+      <div className="border-t px-2 py-3">
+        {configured ? (
+          user ? (
+            <NavLink
+              to="/settings"
+              onClick={onNavigate}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <UserCircle className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate" title={user.email ?? undefined}>
+                {user.email ?? "Account"}
+              </span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/login"
+              onClick={onNavigate}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+              Sign in to sync
+            </NavLink>
+          )
+        ) : (
+          <div className="px-2">
+            <p className="eyebrow">German Master&apos;s copilot</p>
+            <p className="text-xs text-muted-foreground">Guest — saved on this device</p>
+          </div>
+        )}
       </div>
     </nav>
   );
