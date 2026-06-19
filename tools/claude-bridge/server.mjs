@@ -16,7 +16,7 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, join, normalize, resolve, sep } from "node:path";
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -86,12 +86,27 @@ function runClaude(prompt) {
   });
 }
 
+// Only these origins may call the bridge cross-origin. This blunts drive-by / DNS-rebinding: while the
+// bridge holds no secret (it only drives the operator's own Claude and returns model output), an
+// unrestricted ACAO would let ANY open tab spend the operator's Claude quota. Same-origin `npm run
+// owner` (the app served on :8787) needs no ACAO; the hosted-site + tunnel modes are covered below.
+const ALLOWED_ORIGINS = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https:\/\/golden007-prog\.github\.io$/,
+  /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/,
+];
+
 function cors(req, res) {
-  const origin = req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.some((re) => re.test(origin))) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  // Allow Chrome Private Network Access preflight (public HTTPS page -> localhost).
+  // Allow Chrome Private Network Access preflight (public HTTPS page -> localhost). Note: newer Chrome
+  // may still show a Local Network Access permission prompt the user must approve — no header suppresses it.
   res.setHeader("Access-Control-Allow-Private-Network", "true");
 }
 
@@ -100,7 +115,8 @@ async function serveStatic(req, res, url) {
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === "/") pathname = "/index.html";
   const filePath = normalize(join(SERVE_DIR, pathname));
-  if (!filePath.startsWith(SERVE_DIR)) {
+  // Trailing-separator containment so a sibling dir like `<dir>-evil` can't satisfy a bare prefix.
+  if (filePath !== SERVE_DIR && !filePath.startsWith(SERVE_DIR + sep)) {
     res.writeHead(403).end("Forbidden");
     return true;
   }
