@@ -74,7 +74,7 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
 
   async function submit() {
     setPhase("scoring");
-    const result = scoreExam(exam, answers, spec.rawToBand);
+    const result = scoreExam(exam, answers, { bandTable: spec.rawToBand, scale: spec.scale });
     setScore(result);
 
     // Best-effort AI rubric for answered open tasks.
@@ -182,7 +182,7 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
                 <QuestionView
                   q={q}
                   index={i}
-                  selected={answers[q.id]}
+                  selected={typeof answers[q.id] === "string" ? (answers[q.id] as string) : undefined}
                   flagged={flagged.has(q.id)}
                   onSelect={(cid) => setAnswers((a) => ({ ...a, [q.id]: cid }))}
                   onFlag={() => toggleFlag(q.id)}

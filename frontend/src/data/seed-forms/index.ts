@@ -139,7 +139,15 @@ const SEED_FORMS: Record<string, GeneratedExam> = {
     IELTS_WRITING,
     IELTS_SPEAKING,
   ]),
-  toefl: makeExam("toefl", "TOEFL iBT — offline practice", "en", [
+  toefl: makeExam("toefl", "TOEFL iBT (2026) — offline practice", "en", [
+    genericSection("reading", "Reading", [
+      mc("In a 'Complete the Words' item, you must supply the word that…", ["fits the blank in meaning and form", "is the longest option", "appears first in the text", "rhymes with the title"], 0, "Cloze items reward the contextually correct word.", "Complete the Words"),
+      mc("'Read in Daily Life' passages are typically…", ["academic journal articles", "ads, menus, and forms", "poetry", "lab reports"], 1, "Daily-life items use everyday texts.", "Read in Daily Life"),
+      mc("A short academic passage item rewards identifying the…", ["main idea and key details", "font size", "author's age", "page number"], 0, "Comprehension targets the main idea and details.", "Read an Academic Passage"),
+      mc("The 2026 Reading section is…", ["fixed-form", "multistage-adaptive", "untimed", "oral"], 1, "Reading is multistage-adaptive in 2026.", "Format"),
+    ]),
+  ]),
+  "toefl-legacy": makeExam("toefl-legacy", "TOEFL iBT (legacy 0–120) — offline practice", "en", [
     genericSection("reading", "Reading", [
       mc("The word 'mitigate' most nearly means…", ["worsen", "lessen", "ignore", "repeat"], 1, "'Mitigate' means to make less severe.", "Vocabulary in context"),
       mc("A passage's main idea is best described as its…", ["smallest detail", "central argument", "first word", "footnote"], 1, "The main idea is the central argument.", "Main idea"),
