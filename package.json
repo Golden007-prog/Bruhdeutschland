@@ -1,0 +1,14 @@
+{
+  "name": "deutschprep",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DeutschPrep — German Master's admission copilot. Monorepo: /frontend (SPA), /backend (FastAPI pro target), /tools/claude-bridge (Owner-Mode, local only).",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend run test",
+    "bridge": "node tools/claude-bridge/server.mjs",
+    "owner": "npm --prefix frontend run build && node tools/claude-bridge/server.mjs --serve frontend/dist --open"
+  },
+  "engines": { "node": ">=18" }
+}

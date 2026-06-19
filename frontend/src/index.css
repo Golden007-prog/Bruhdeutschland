@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 222 89% 55%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 89% 55%;
+    --radius: 0.5rem;
+
+    /* "Dossier" page surface — a faint cool paper behind white cards. */
+    --paper: 210 40% 98%;
+    /* Verified-stamp ink + ungrounded (needs-verification) ink. */
+    --stamp: 222 70% 42%;
+    --unstamped: 35 92% 42%;
+
+    /* Six feature-category accents */
+    --cat-profile: 222 89% 55%;
+    --cat-documents: 262 83% 58%;
+    --cat-language: 160 84% 39%;
+    --cat-finance: 35 92% 50%;
+    --cat-visa: 0 84% 60%;
+    --cat-campus: 199 89% 48%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground;
+    background-color: hsl(var(--paper));
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Small uppercase administrative label ("Aktenzeichen" style). */
+  .eyebrow {
+    @apply font-mono text-[0.68rem] font-medium uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Deterministic / official values render as stamped, tabular monospace. */
+  .official-figure {
+    @apply font-mono tabular-nums;
+  }
+
+  /* Signature element: the German grade rendered as an official seal. */
+  .stamp-seal {
+    border: 2px solid hsl(var(--stamp));
+    color: hsl(var(--stamp));
+    box-shadow: inset 0 0 0 2px hsl(var(--stamp) / 0.12);
+  }
+  .stamp-seal--unverified {
+    border-style: dashed;
+    border-color: hsl(var(--unstamped));
+    color: hsl(var(--unstamped));
+    box-shadow: none;
+  }
+
+  /* Faint dossier grid for the page header band. */
+  .bg-dossier-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

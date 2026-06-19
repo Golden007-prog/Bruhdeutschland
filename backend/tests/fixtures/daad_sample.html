@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- Recorded fixture mimicking a DAAD "International Programmes" listing. Structure is
+     representative for testing the parser; not a live capture. -->
+<html lang="en">
+<head><title>International Programmes in Germany — results</title></head>
+<body>
+  <div class="js-course-list">
+
+    <article class="course" data-daad-id="DA-10001">
+      <h3 class="course__title">M.Sc. Data Engineering and Analytics</h3>
+      <div class="course__institution">Technical University of Munich</div>
+      <ul class="course__meta">
+        <li class="course__degree">M.Sc.</li>
+        <li class="course__language" data-lang="en">English</li>
+        <li class="course__city">Munich</li>
+      </ul>
+      <p class="course__description">A program focusing on machine learning, big data systems,
+        and statistics, taught entirely in English.</p>
+      <ul class="course__deadlines">
+        <li data-kind="application" data-intake="winter_2027" data-date="2026-05-31">Application: 31 May 2026</li>
+        <li data-kind="uni_assist" data-intake="winter_2027" data-date="2026-05-15">Uni-Assist: 15 May 2026</li>
+      </ul>
+      <ul class="course__requirements">
+        <li data-kind="language">IELTS 6.5 / TOEFL 88</li>
+        <li data-kind="gpa">Above-average bachelor's degree in a related field</li>
+      </ul>
+    </article>
+
+    <article class="course" data-daad-id="DA-10002">
+      <h3 class="course__title">M.Sc. Maschinenbau</h3>
+      <div class="course__institution">RWTH Aachen University</div>
+      <ul class="course__meta">
+        <li class="course__degree">M.Sc.</li>
+        <li class="course__language" data-lang="de">Deutsch</li>
+        <li class="course__city">Aachen</li>
+      </ul>
+      <p class="course__description">Maschinenbau-Masterstudiengang mit den Schwerpunkten
+        Konstruktionstechnik, Thermodynamik und Produktionstechnik.</p>
+      <ul class="course__deadlines">
+        <li data-kind="application" data-intake="winter_2027" data-date="2026-07-15">Bewerbung: 15 Juli 2026</li>
+      </ul>
+      <ul class="course__requirements">
+        <li data-kind="language">DSH-2 / TestDaF 4x4</li>
+        <li data-kind="aps">APS-Zertifikat erforderlich</li>
+      </ul>
+    </article>
+
+    <!-- Malformed-on-purpose: missing institution + an unparseable deadline date.
+         Parser must FLAG (needs_verification), not drop or fabricate. -->
+    <article class="course" data-daad-id="DA-10003">
+      <h3 class="course__title">M.A. Internationale Beziehungen</h3>
+      <ul class="course__meta">
+        <li class="course__degree">M.A.</li>
+        <li class="course__language" data-lang="mixed">bilingual</li>
+        <li class="course__city">Berlin</li>
+      </ul>
+      <p class="course__description">Interdisziplinärer Studiengang.</p>
+      <ul class="course__deadlines">
+        <li data-kind="application" data-intake="winter_2027" data-date="rolling">Application: rolling</li>
+      </ul>
+      <ul class="course__requirements"></ul>
+    </article>
+
+  </div>
+</body>
+</html>

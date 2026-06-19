@@ -1,0 +1,13 @@
+# Embedding + fine-tune spike (ADR-0003). Python 3.11/3.12.
+#
+# torch must be installed FIRST with a CUDA build (PyPI default is CPU-only on Windows):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+#
+# Then:
+#   pip install -r backend/requirements-embeddings.txt
+
+sentence-transformers>=3.0
+datasets>=2.19
+accelerate>=0.30
+numpy>=1.26
+pytest>=8.0

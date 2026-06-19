@@ -1,0 +1,81 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; cancel in-progress runs on new pushes.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Project repo → base "/<repo>/". For a user/org page or custom domain, set to "/".
+      VITE_BASE_PATH: /Bruhdeutschland/
+      VITE_HASH_ROUTER: "true"
+      # Public anon config (protected by RLS). Set these as repo secrets; never a service key.
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Guard against leaked secrets in the bundle
+        run: |
+          echo "Scanning dist/ for provider API keys / service keys…"
+          # The Supabase ANON key (a JWT, eyJ...) is public by design and allowed.
+          # Fail if a Google API key, OpenAI/Anthropic-style key, or service role leaks in.
+          if grep -rEn 'AIza[0-9A-Za-z_\-]{20,}|sk-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_\-]{20,}|service_role|SUPABASE_SERVICE' dist; then
+            echo "::error::A secret-looking value was found in the build output. Aborting deploy."
+            exit 1
+          fi
+          echo "No leaked secrets found."
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

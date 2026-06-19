@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+backend/.venv/
+venv/
+
+# ML artifacts & model caches (never commit weights or fine-tuned outputs)
+backend/artifacts/
+.cache/
+*.safetensors
+*.bin
+
+# Secrets & local config (CLAUDE.md §6: no secrets in git)
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.local
+coverage/
+frontend/.env.local
+
+# Playwright (E2E)
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Supabase local artifacts (never commit service keys or local state)
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Owner-Mode bridge local state (never deployed; never committed)
+tools/claude-bridge/node_modules/
+tools/claude-bridge/.env
+
+# Reference scans (IELTS prep-book images) — not redistributable; keep out of the public repo.
+/ilets/
+
+# Build/audit scratch
+*.tsbuildinfo
+
+# Desktop launcher build artifacts (PyInstaller; dist/ already ignored above)
+desktop/build/
+desktop/*.spec
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,4 @@
+{"query": "English-taught data science master in Munich", "positive": "M.Sc. Data Engineering and Analytics at TUM, taught in English, Munich.", "negative": "Lebenshaltungskosten und Sperrkonto fuer Studierende in Muenchen."}
+{"query": "Maschinenbau Master an einer deutschen Universitaet", "positive": "M.Sc. Maschinenbau an der RWTH Aachen, deutschsprachig.", "negative": "Master of Arts Germanistik an der Universitaet Hamburg."}
+{"query": "computer science master near Berlin in English", "positive": "M.Sc. Computer Science at HPI / University of Potsdam, English-taught.", "negative": "Bewerbungsfristen und VPD-Verfahren bei Uni-Assist."}
+{"query": "Studiengang deutsche Literatur und Sprachwissenschaft", "positive": "Master of Arts Germanistik an der Universitaet Hamburg.", "negative": "M.Sc. Data Engineering and Analytics at TUM."}

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DeutschPrep</title>
+    <script>
+      // GitHub Pages SPA fallback. The app uses HashRouter, so any non-hash deep link that 404s is
+      // bounced to the app root with the path preserved as a hash route. Fork note: change BASE to
+      // your repo's Pages base ("/" for a user/org page or a custom domain).
+      var BASE = "/Bruhdeutschland/";
+      var p = location.pathname.indexOf(BASE) === 0 ? location.pathname.slice(BASE.length) : "";
+      location.replace(BASE + (p ? "#/" + p : "") + location.search);
+    </script>
+  </head>
+  <body>
+    Redirecting…
+  </body>
+</html>

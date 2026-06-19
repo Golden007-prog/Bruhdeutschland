@@ -1,0 +1,13 @@
+{
+  "name": "deutschprep-claude-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Owner-Mode local bridge: drives DeutschPrep exam generation via your own Claude plan (Agent SDK / claude -p). Never deployed.",
+  "bin": { "deutschprep-bridge": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "serve": "node server.mjs --serve ../../frontend/dist --open"
+  },
+  "engines": { "node": ">=18" }
+}
