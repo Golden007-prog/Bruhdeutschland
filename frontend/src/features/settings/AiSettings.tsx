@@ -20,11 +20,10 @@ import {
 import { listProviders, type ProviderStatus } from "@/lib/llm/registry";
 import { getPreferredTier, setPreferredTier, type TtsTier } from "@/lib/speech/provider";
 import { CHIRP_KEY_SERVICE } from "@/lib/speech/chirp-tts";
+import { InstallerDownload } from "./InstallerDownload";
 import type { ProviderId } from "@/lib/llm/types";
 
 type TestState = "idle" | "testing" | "ok" | "fail";
-
-const INSTALLER_URL = "https://github.com/Golden007-prog/Bruhdeutschland/releases/latest";
 
 /**
  * AI provider settings (work-order §3). BYOK: the user's key lives only in this browser. Owner Mode
@@ -194,23 +193,7 @@ export function AiSettings() {
         {bridgeTest === "fail" && bridgeMsg && (
           <p className="mt-2 text-xs text-amber-700" role="status">{bridgeMsg}</p>
         )}
-        {!bridgeDetected && (
-          <div className="mt-3 rounded-md border border-dashed bg-muted/30 p-3 text-xs">
-            <p className="font-medium">No bridge running? Use the one-click installer.</p>
-            <p className="mt-0.5 text-muted-foreground">
-              It installs Node + Claude Code and starts Owner Mode on your machine. Windows will warn
-              about an unsigned app — that&apos;s expected; verify the published SHA-256.
-            </p>
-            <a
-              href={INSTALLER_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 font-medium text-primary hover:underline"
-            >
-              Download the one-click installer <ExternalLink className="h-3 w-3" aria-hidden />
-            </a>
-          </div>
-        )}
+        {!bridgeDetected && <InstallerDownload />}
       </div>
 
       {/* Listening voice (TTS tiers) */}

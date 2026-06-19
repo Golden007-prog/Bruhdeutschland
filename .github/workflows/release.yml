@@ -1,0 +1,82 @@
+name: Build & publish Owner-Mode installer
+
+# Canonical, reproducible build of the unsigned Owner-Mode installer (.exe) and its publication as a
+# GitHub Release asset, so `…/releases/latest` resolves and the app's download button can link to it.
+# The installer is a small BOOTSTRAPPER (Inno Setup ships only install.ps1, which downloads the app at
+# runtime) — no app binary is committed; the .exe lives only as a Release asset.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+# Least privilege: the job only needs to create the Release + upload assets.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (.exe)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after install." }
+          & $iscc "installer\windows\DeutschPrep-Owner-Setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+
+      - name: Stage assets + SHA-256
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-installer | Out-Null
+          Copy-Item "installer\windows\Output\DeutschPrep-Owner-Setup.exe" "dist-installer\DeutschPrep-Owner-Setup.exe"
+          Copy-Item "installer\unix\install.sh"        "dist-installer\install.sh"
+          Copy-Item "installer\windows\install.ps1"    "dist-installer\install.ps1"
+          $h = Get-FileHash "dist-installer\DeutschPrep-Owner-Setup.exe" -Algorithm SHA256
+          "$($h.Hash)  DeutschPrep-Owner-Setup.exe" | Out-File -Encoding ascii "dist-installer\SHA256SUMS.txt"
+          Write-Host "Published checksum:"; Get-Content "dist-installer\SHA256SUMS.txt"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: DeutschPrep Owner Mode ${{ github.event.inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            **DeutschPrep Owner-Mode installer** — a small bootstrapper that sets up Owner Mode (running
+            the app against **your own Claude subscription**, no API key) on a Windows PC.
+
+            ### Downloads
+            - **`DeutschPrep-Owner-Setup.exe`** — Windows wizard (runs `install.ps1` on finish)
+            - **`install.sh`** — macOS / Linux bootstrapper
+            - **`install.ps1`** — the auditable script the wizard runs (read it before running)
+            - **`SHA256SUMS.txt`** — checksum
+
+            ### ⚠️ Unsigned — this is expected
+            The `.exe` is **unsigned**, so Windows SmartScreen will warn:
+            **"Windows protected your PC" → More info → Run anyway**. That is normal for an unsigned
+            download, not a malware indicator. Verify the file first:
+            ```powershell
+            Get-FileHash .\DeutschPrep-Owner-Setup.exe -Algorithm SHA256
+            ```
+            and compare the hash against `SHA256SUMS.txt`. The installer stores **no credentials** — your
+            Claude login is kept by Claude Code itself. It's fully removable (delete the folder +
+            `npm uninstall -g @anthropic-ai/claude-code`).
+          files: |
+            dist-installer/DeutschPrep-Owner-Setup.exe
+            dist-installer/install.sh
+            dist-installer/install.ps1
+            dist-installer/SHA256SUMS.txt
