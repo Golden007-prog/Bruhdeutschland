@@ -3,10 +3,14 @@
  * + position are written to localStorage as the candidate works, so an accidental refresh or tab close
  * doesn't lose the attempt. Keyed by examId (one in-progress attempt per exam). Cleared on submit.
  */
+import { scopedKey } from "@/lib/persist/userScope";
 import type { GeneratedExam } from "./schema";
 import type { AnswerMap } from "./scoring";
 
-const PREFIX = "deutschprep:exam:progress:";
+const BASE = "deutschprep:exam:progress";
+/** Per-user, per-exam key so an in-progress attempt never bleeds across accounts (data-isolation P0). */
+const key = (examId: string): string => `${scopedKey(BASE)}:${examId}`;
+let cleaned = false;
 
 export interface ExamProgress {
   exam: GeneratedExam;
@@ -34,17 +38,35 @@ function ls(): Storage | null {
   return null;
 }
 
+/** One-time: drop legacy un-scoped progress keys (`deutschprep:exam:progress:<examId>`, no user segment). */
+function cleanLegacy(s: Storage): void {
+  if (cleaned) return;
+  cleaned = true;
+  try {
+    const legacy = /^deutschprep:exam:progress:[^:]+$/; // exactly one segment after the prefix = old format
+    for (let i = s.length - 1; i >= 0; i--) {
+      const k = s.key(i);
+      if (k && legacy.test(k)) s.removeItem(k);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export function saveProgress(examId: string, p: ExamProgress): void {
   try {
-    ls()?.setItem(PREFIX + examId, JSON.stringify(p));
+    ls()?.setItem(key(examId), JSON.stringify(p));
   } catch {
     /* quota — ignore (form may be large) */
   }
 }
 
 export function loadProgress(examId: string): ExamProgress | null {
+  const s = ls();
+  if (!s) return null;
+  cleanLegacy(s);
   try {
-    const raw = ls()?.getItem(PREFIX + examId);
+    const raw = s.getItem(key(examId));
     if (!raw) return null;
     return JSON.parse(raw) as ExamProgress;
   } catch {
@@ -54,7 +76,22 @@ export function loadProgress(examId: string): ExamProgress | null {
 
 export function clearProgress(examId: string): void {
   try {
-    ls()?.removeItem(PREFIX + examId);
+    ls()?.removeItem(key(examId));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Remove every in-progress exam for the current user (used by the data-reset control). */
+export function clearAllProgress(): void {
+  const s = ls();
+  if (!s) return;
+  try {
+    const prefix = `${scopedKey(BASE)}:`;
+    for (let i = s.length - 1; i >= 0; i--) {
+      const k = s.key(i);
+      if (k && k.startsWith(prefix)) s.removeItem(k);
+    }
   } catch {
     /* ignore */
   }

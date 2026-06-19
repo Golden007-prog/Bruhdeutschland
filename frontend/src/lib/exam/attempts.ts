@@ -6,10 +6,15 @@
  * the cloud on first load for a returning user. All scores are practice estimates.
  */
 import { supabase } from "@/lib/supabase/client";
+import { scopedKey } from "@/lib/persist/userScope";
 import type { ExamScore } from "./scoring";
 
-const KEY = "deutschprep:exam:attempts";
+const KEY_BASE = "deutschprep:exam:attempts";
+const LEGACY_KEY = "deutschprep:exam:attempts"; // old un-namespaced key (shared across accounts)
 const CAP = 200;
+
+/** Per-user storage key so two accounts on one browser never share exam history (data-isolation P0). */
+const key = (): string => scopedKey(KEY_BASE);
 
 export interface AttemptRubric {
   taskId: string;
@@ -51,8 +56,16 @@ function ls(): Storage | null {
 }
 
 function readLocal(): AttemptRecord[] {
+  const s = ls();
+  if (!s) return [];
   try {
-    const raw = ls()?.getItem(KEY);
+    // One-time: drop the legacy un-namespaced global key so it can't bleed across accounts.
+    if (s.getItem(LEGACY_KEY) != null) s.removeItem(LEGACY_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const raw = s.getItem(key());
     return raw ? (JSON.parse(raw) as AttemptRecord[]) : [];
   } catch {
     return [];
@@ -61,7 +74,7 @@ function readLocal(): AttemptRecord[] {
 
 function writeLocal(list: AttemptRecord[]): void {
   try {
-    ls()?.setItem(KEY, JSON.stringify(list.slice(0, CAP)));
+    ls()?.setItem(key(), JSON.stringify(list.slice(0, CAP)));
   } catch {
     /* quota — ignore */
   }

@@ -1,26 +1,35 @@
 /**
- * Persistence layer (work-order §5F/§5G). LocalStorage-first so it works instantly signed-out and
- * with no backend setup; when the user is signed in AND Supabase is configured, the same state mirrors
- * to a single `settings.data` JSONB row for cross-device sync. All access degrades safely (privacy
- * mode, jsdom, unconfigured Supabase) — it never throws.
+ * Persistence layer (work-order §5F/§5G) — PER-USER on device (data-isolation P0). LocalStorage-first
+ * so it works instantly signed-out and with no backend; when signed in AND Supabase is configured the
+ * same state mirrors to a per-user `settings.data` JSONB row for cross-device sync.
  *
- * One shared blob keyed by short strings keeps wiring trivial; the granular tables in the migration
- * (srs_cards, roadmap_items, documents) remain available for future per-feature use.
+ * Isolation invariants (the original bug was a single GLOBAL key shared across accounts):
+ *  - the local blob is stored under a key NAMESPACED by user id: `deutschprep:state:<uid|anon>`;
+ *  - on EVERY auth transition (sign-in / user-switch / sign-out) the in-memory blob is fully RESET to
+ *    the new identity's namespace — never carried over — then that user's cloud blob is loaded;
+ *  - the legacy un-namespaced `deutschprep:state` key is parked under `anon` once and removed, so it is
+ *    never read as a signed-in user's data again.
+ * All access degrades safely (privacy mode, jsdom, unconfigured Supabase) — it never throws.
  */
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import { onAuthChange } from "@/lib/supabase/auth";
 
-const LOCAL_KEY = "deutschprep:state";
+const KEY_BASE = "deutschprep:state";
+const LEGACY_GLOBAL_KEY = "deutschprep:state"; // old shared key (no user suffix)
+const ANON = "anon";
 
 type Blob = Record<string, unknown>;
 type Listener = () => void;
+
+const nsKey = (userId: string | null): string => `${KEY_BASE}:${userId ?? ANON}`;
 
 function safeLocal(): Storage | null {
   try {
     if (
       typeof window !== "undefined" &&
       window.localStorage &&
-      typeof window.localStorage.getItem === "function"
+      typeof window.localStorage.getItem === "function" &&
+      typeof window.localStorage.setItem === "function"
     ) {
       return window.localStorage;
     }
@@ -30,63 +39,97 @@ function safeLocal(): Storage | null {
   return null;
 }
 
-function loadLocal(): Blob {
+function loadLocalFor(userId: string | null): Blob {
   const s = safeLocal();
   if (!s) return {};
   try {
-    const raw = s.getItem(LOCAL_KEY);
+    const raw = s.getItem(nsKey(userId));
     return raw ? (JSON.parse(raw) as Blob) : {};
   } catch {
     return {};
   }
 }
 
+/**
+ * One-time migration: the old global key held whatever account last used this browser. Park it under
+ * `anon` (so a signed-out guest keeps device-local prefs) WITHOUT assigning it to any signed-in
+ * account, then remove the global key. After this it can never bleed into a logged-in user again.
+ */
+function migrateLegacyGlobalKey(): void {
+  const s = safeLocal();
+  if (!s) return;
+  try {
+    const legacy = s.getItem(LEGACY_GLOBAL_KEY);
+    if (legacy == null) return;
+    if (s.getItem(nsKey(null)) == null) s.setItem(nsKey(null), legacy);
+    s.removeItem(LEGACY_GLOBAL_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 class SyncedStore {
-  private blob: Blob = loadLocal();
+  private blob: Blob;
   private listeners = new Set<Listener>();
   private userId: string | null = null;
+  private identityKnown = false;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
-  // True once the cloud blob has loaded (or there's nothing to load). The auth gate waits for this so
-  // a returning user's saved profile/progress is in hand before it decides where to route them.
   private hydrated = !isSupabaseConfigured;
 
-  /** Begin watching auth so we can load/merge the cloud blob when a user signs in. */
+  constructor() {
+    migrateLegacyGlobalKey();
+    // Start from the anon namespace only — NEVER a signed-in user's data until auth tells us who they are.
+    this.blob = loadLocalFor(null);
+  }
+
+  /** Begin watching auth so we reset+load per user when the session changes. */
   start(): void {
     if (this.started) return;
     this.started = true;
     if (!isSupabaseConfigured) {
+      this.blob = loadLocalFor(null);
       this.hydrated = true;
       this.emit();
       return;
     }
-    onAuthChange((session) => {
-      const id = session?.user?.id ?? null;
-      this.userId = id;
-      if (id) {
-        this.hydrated = false;
-        this.emit();
-        void this.pullFromCloud().finally(() => {
-          this.hydrated = true;
-          this.emit();
-        });
-      } else {
+    onAuthChange((session) => this.setIdentity(session?.user?.id ?? null));
+  }
+
+  /**
+   * Apply a new identity: RESET the in-memory blob to that identity's own namespace (no carryover from
+   * the previous user), then pull its cloud blob. Public so tests can drive auth transitions.
+   */
+  setIdentity(id: string | null): void {
+    const changed = id !== this.userId || !this.identityKnown;
+    this.identityKnown = true;
+    if (!changed) return;
+    this.userId = id;
+    this.blob = loadLocalFor(id); // <- the isolation guarantee: only this identity's namespace
+    if (id && isSupabaseConfigured) {
+      this.hydrated = false;
+      this.emit();
+      void this.pullFromCloud(id).finally(() => {
         this.hydrated = true;
         this.emit();
-      }
-    });
+      });
+    } else {
+      this.hydrated = true;
+      this.emit();
+    }
   }
 
   isHydrated(): boolean {
     return this.hydrated;
   }
 
-  private async pullFromCloud(): Promise<void> {
-    if (!supabase || !this.userId) return;
+  private async pullFromCloud(id: string): Promise<void> {
+    if (!supabase) return;
     try {
-      const { data } = await supabase.from("settings").select("data").eq("user_id", this.userId).maybeSingle();
+      const { data } = await supabase.from("settings").select("data").eq("user_id", id).maybeSingle();
+      if (this.userId !== id) return; // identity changed mid-flight — drop the stale result
       if (data?.data && typeof data.data === "object") {
-        // Cloud wins on conflict at load; keep any local-only keys.
+        // This user's own namespace ∪ this user's own cloud blob. No other identity is present.
         this.blob = { ...this.blob, ...(data.data as Blob) };
         this.persistLocal();
         this.emit();
@@ -100,7 +143,7 @@ class SyncedStore {
     const s = safeLocal();
     if (!s) return;
     try {
-      s.setItem(LOCAL_KEY, JSON.stringify(this.blob));
+      s.setItem(nsKey(this.userId), JSON.stringify(this.blob));
     } catch {
       /* quota */
     }
@@ -135,6 +178,33 @@ class SyncedStore {
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
+  }
+
+  /** A copy of the current user's stored blob (for GDPR export). */
+  snapshot(): Blob {
+    return { ...this.blob };
+  }
+
+  /**
+   * Wipe the current user's saved data: clears the in-memory blob, their local namespace, and their
+   * Supabase `settings` row. User-initiated remedy (Account → Reset my data).
+   */
+  async resetCurrentUserData(): Promise<void> {
+    this.blob = {};
+    const s = safeLocal();
+    try {
+      s?.removeItem(nsKey(this.userId));
+    } catch {
+      /* ignore */
+    }
+    if (supabase && this.userId) {
+      try {
+        await supabase.from("settings").delete().eq("user_id", this.userId);
+      } catch {
+        /* best-effort */
+      }
+    }
+    this.emit();
   }
 
   private emit(): void {

@@ -9,6 +9,7 @@
  * cold load — correctness is never affected, only cost.
  */
 import { supabase } from "@/lib/supabase/client";
+import { onScopeChange } from "@/lib/persist/userScope";
 
 const BUCKET = "exam-audio";
 const mem = new Map<string, string>();
@@ -70,3 +71,7 @@ export function clearAudioMemoryCache(): void {
   for (const url of mem.values()) URL.revokeObjectURL(url);
   mem.clear();
 }
+
+// On any auth transition (sign-in / user-switch / sign-out) drop cached audio URLs so a previous
+// user's synthesized clips can never be served to the next (data-isolation P0).
+onScopeChange(clearAudioMemoryCache);
