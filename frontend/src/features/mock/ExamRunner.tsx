@@ -17,7 +17,7 @@ import type { ExamSpec } from "@/data/exam-specs";
 import { rubricFor } from "@/data/band-descriptors";
 import { buildRubricPrompt, RUBRIC_SCHEMA_HINT, type Difficulty } from "@/lib/exam/prompts";
 import { generateAdaptiveStage } from "@/lib/exam/generate";
-import { resolveGradingProvider } from "@/lib/llm/registry";
+import { routeJSON } from "@/lib/llm/registry";
 import { rubricFeedbackSchema, type Figure, type GeneratedExam, type GeneratedSection, type RubricFeedback } from "@/lib/exam/schema";
 import { isAnswered, markItem, scoreExam, type AnswerMap, type AnswerValue, type ExamScore } from "@/lib/exam/scoring";
 import { SCALE_DISCLAIMER } from "@/lib/exam/scale";
@@ -190,11 +190,11 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
     }
     let map: Record<string, RubricFeedback> = {};
     try {
-      const provider = await resolveGradingProvider();
+      // Route through the ModelRouter (grade kind → Claude-first with Gemini failover).
       const results = await Promise.allSettled(
         answered.map(({ section: sec, task }) => {
           const rubric = rubricFor(spec.id, sec.skill);
-          return provider.generateJSON(
+          return routeJSON(
             rubricFeedbackSchema,
             buildRubricPrompt(spec.title, task.prompt, openResponses[task.id], rubric.criteria, {
               stimulus: figureToText(sec.figure),
@@ -202,7 +202,8 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
             }),
             RUBRIC_SCHEMA_HINT,
             { temperature: 0.2 },
-          );
+            "grade",
+          ).then((r) => r.result);
         }),
       );
       const m: Record<string, RubricFeedback> = {};

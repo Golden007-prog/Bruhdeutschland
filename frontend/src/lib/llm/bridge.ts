@@ -7,13 +7,18 @@
 import type { ZodType } from "zod";
 
 import { getBridgeUrl } from "./keys";
+import { getClaudeModel } from "./modelConfig";
 import { repairPrompt, validate } from "./json";
 import { LLMError, type GenerateOpts, type LLMProvider, type ProviderId } from "./types";
 
 export class ClaudeBridgeProvider implements LLMProvider {
   readonly id: ProviderId = "claude-bridge";
   readonly label = "Claude (your plan)";
-  readonly model = "claude (via local bridge)";
+
+  /** The chosen Claude model, passed to the bridge as `claude -p --model …`. */
+  get model(): string {
+    return getClaudeModel();
+  }
 
   async isAvailable(): Promise<boolean> {
     try {
@@ -39,7 +44,7 @@ export class ClaudeBridgeProvider implements LLMProvider {
         res = await fetch(`${getBridgeUrl()}/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: text, schemaHint, temperature: opts.temperature ?? 0.8 }),
+          body: JSON.stringify({ prompt: text, schemaHint, temperature: opts.temperature ?? 0.8, model: getClaudeModel() }),
           signal: opts.signal,
         });
       } catch (err) {

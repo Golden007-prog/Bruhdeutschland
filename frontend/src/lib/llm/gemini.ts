@@ -7,6 +7,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { ZodType } from "zod";
 
 import { getKey } from "./keys";
+import { getGeminiModel } from "./modelConfig";
 import { extractJson, repairPrompt, validate } from "./json";
 import { LLMError, type GenerateOpts, type LLMProvider, type ProviderId } from "./types";
 
@@ -18,10 +19,15 @@ export const GEMINI_MODELS = {
 export class GeminiProvider implements LLMProvider {
   readonly id: ProviderId = "gemini";
   readonly label = "Google Gemini (free)";
-  readonly model: string;
+  private readonly override?: string;
 
-  constructor(model: string = GEMINI_MODELS.default) {
-    this.model = model;
+  /** With no override, the model follows the user's saved choice (multi-model config). */
+  constructor(modelOverride?: string) {
+    this.override = modelOverride;
+  }
+
+  get model(): string {
+    return this.override ?? getGeminiModel();
   }
 
   async isAvailable(): Promise<boolean> {

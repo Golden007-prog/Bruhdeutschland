@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AccountPanel } from "@/features/settings/AccountPanel";
 import { AiSettings } from "@/features/settings/AiSettings";
+import { ModelSettings } from "@/features/settings/ModelSettings";
 import { DataControls } from "@/features/settings/DataControls";
 import { ThemeToggle } from "@/features/settings/ThemeToggle";
 import { IntakeFields } from "@/features/profile/IntakeFields";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
       />
 
       <AiSettings />
+      <ModelSettings />
       <AccountPanel />
       <DataControls />
 
