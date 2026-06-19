@@ -4,7 +4,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { MarketingLayout } from "@/components/layout/MarketingLayout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { ConsentBanner } from "@/components/system/ConsentBanner";
+import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import Landing from "@/pages/marketing/Landing";
+import Onboarding from "@/pages/onboarding/Onboarding";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import AuthCallback from "@/pages/auth/AuthCallback";
@@ -25,7 +28,11 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
+        <ErrorBoundary>
         <Routes>
+          {/* First-run onboarding — full-screen, its own layout. */}
+          <Route path="/onboarding" element={<Onboarding />} />
+
           {/* Public marketing routes — full-width, no app shell. */}
           <Route element={<MarketingLayout />}>
             <Route path="/welcome" element={<Landing />} />
@@ -45,6 +52,8 @@ export default function App() {
             ))}
           </Route>
         </Routes>
+        </ErrorBoundary>
+        <ConsentBanner />
       </AuthProvider>
     </Router>
   );

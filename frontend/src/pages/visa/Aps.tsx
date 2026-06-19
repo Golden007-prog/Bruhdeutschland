@@ -1,16 +1,57 @@
+import { Link } from "react-router-dom";
 import { AlertTriangle, BadgeCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { OfficialFactRow } from "@/components/common/OfficialFact";
 import { StepList } from "@/components/common/StepList";
-import { SourceList } from "@/components/common/SourceLink";
+import { SourceLink, SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apsStatusFor } from "@/lib/country/country";
+import { useProfile } from "@/lib/profile/useProfile";
 import { APS_INDIA, APS_REQUIRED_COUNTRIES } from "@/lib/facts";
 import { APS_STEPS } from "@/lib/seed/visa";
 import { source } from "@/lib/sources";
+
+/** Country-aware APS status, driven by the user's profile home country (India-primary). */
+function YourApsStatus() {
+  const { profile } = useProfile();
+  const country = profile.homeCountry.trim();
+  const { status, note, source: src } = apsStatusFor(country);
+
+  if (!country) {
+    return (
+      <Alert variant="info">
+        <AlertTitle>Does APS apply to you?</AlertTitle>
+        <AlertDescription>
+          Set your home country in{" "}
+          <Link to="/settings" className="font-medium text-primary hover:underline">Settings</Link>{" "}
+          and we&apos;ll tell you whether you need an APS certificate.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const variant = status === "required" ? "warning" : status === "not_required" ? "success" : "info";
+  const title =
+    status === "required"
+      ? `${country}: APS certificate required`
+      : status === "not_required"
+        ? `${country}: APS not required`
+        : `${country}: verify whether APS applies`;
+
+  return (
+    <Alert variant={variant}>
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription className="space-y-2">
+        <p>{note}</p>
+        {src && <SourceLink source={src} />}
+      </AlertDescription>
+    </Alert>
+  );
+}
 
 /** APS guide — what the Akademische Prüfstelle is, who needs it, and the process to obtain it. */
 export default function VisaAps() {
@@ -27,6 +68,8 @@ export default function VisaAps() {
       <Disclaimer />
 
       <OfficialFactRow fact={APS_INDIA} />
+
+      <YourApsStatus />
 
       <Card>
         <CardHeader>

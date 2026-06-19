@@ -3,6 +3,7 @@
  * Re-run `node scripts/gen-pages.mjs` to regenerate after editing the PAGES list in that script. */
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import {
+  Accessibility,
   Activity,
   Award,
   Backpack,
@@ -13,16 +14,20 @@ import {
   Briefcase,
   Building2,
   Calculator,
+  CalendarDays,
   CalendarRange,
+  CircleHelp,
   ClipboardCheck,
   ClipboardList,
   Coins,
+  Columns3,
   Eye,
   FileBadge,
   FileCheck,
   FileSearch,
   FileText,
   FolderCheck,
+  FolderLock,
   Gauge,
   Globe,
   GraduationCap,
@@ -42,8 +47,10 @@ import {
   PenLine,
   Plane,
   ScanLine,
+  School,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sigma,
   Sparkles,
   Stamp,
@@ -105,12 +112,15 @@ const EventsPage = lazy(() => import("@/pages/overview/Events"));
 const DocumentsHubPage = lazy(() => import("@/pages/overview/DocumentsHub"));
 const TimelinePage = lazy(() => import("@/pages/overview/Timeline"));
 const SourcesPage = lazy(() => import("@/pages/overview/Sources"));
+const TrackerPage = lazy(() => import("@/pages/overview/Tracker"));
+const CalendarPage = lazy(() => import("@/pages/overview/Calendar"));
 const ProfileOverview = lazy(() => import("@/pages/profile/Overview"));
 const ProfileParse = lazy(() => import("@/pages/profile/Parse"));
 const ProfileEvaluate = lazy(() => import("@/pages/profile/Evaluate"));
 const ProfileMatching = lazy(() => import("@/pages/profile/Matching"));
 const ProfileSkillGap = lazy(() => import("@/pages/profile/SkillGap"));
 const ProfileEcts = lazy(() => import("@/pages/profile/Ects"));
+const UniversitiesExplorer = lazy(() => import("@/pages/profile/Universities"));
 const DocumentsOverview = lazy(() => import("@/pages/documents/Overview"));
 const DocumentsSop = lazy(() => import("@/pages/documents/Sop"));
 const DocumentsCv = lazy(() => import("@/pages/documents/Cv"));
@@ -118,6 +128,7 @@ const DocumentsLor = lazy(() => import("@/pages/documents/Lor"));
 const DocumentsUniAssist = lazy(() => import("@/pages/documents/UniAssist"));
 const DocumentsVpd = lazy(() => import("@/pages/documents/Vpd"));
 const DocumentsTranslation = lazy(() => import("@/pages/documents/Translation"));
+const DocumentsVault = lazy(() => import("@/pages/documents/Vault"));
 const LanguageOverview = lazy(() => import("@/pages/language/Overview"));
 const LanguageGerman = lazy(() => import("@/pages/language/German"));
 const LanguageFlashcards = lazy(() => import("@/pages/language/Flashcards"));
@@ -150,6 +161,10 @@ const CampusDeutschlandticket = lazy(() => import("@/pages/campus/Deutschlandtic
 const CampusCulture = lazy(() => import("@/pages/campus/Culture"));
 const AboutPage = lazy(() => import("@/pages/system/About"));
 const SettingsPage = lazy(() => import("@/pages/system/Settings"));
+const HelpPage = lazy(() => import("@/pages/system/Help"));
+const PrivacyPage = lazy(() => import("@/pages/system/Privacy"));
+const TermsPage = lazy(() => import("@/pages/system/Terms"));
+const AccessibilityPage = lazy(() => import("@/pages/system/Accessibility"));
 const NotFoundPage = lazy(() => import("@/pages/system/NotFound"));
 
 export const NAV: NavItem[] = [
@@ -161,12 +176,15 @@ export const NAV: NavItem[] = [
   { path: "/documents-checklist", label: "Document gathering", title: "Document gathering", eyebrow: "Unterlagen · Documents", description: "Master checklists for the whole journey: application, APS, visa, and enrolment paperwork — with where to obtain each.", group: "overview", icon: FolderCheck, Component: DocumentsHubPage },
   { path: "/timeline", label: "Timeline", title: "Preparation timeline", eyebrow: "Zeitplan · Timeline", description: "A month-by-month view of the typical 12–18 month preparation arc, from first research to arrival in Germany.", group: "overview", icon: CalendarRange, Component: TimelinePage },
   { path: "/sources", label: "Sources", title: "Source registry", eyebrow: "Quellen · Sources", description: "Every official source DeutschPrep cites. Specific figures are grounded against these or flagged for verification.", group: "overview", icon: Library, Component: SourcesPage },
+  { path: "/tracker", label: "Application tracker", title: "Application tracker", eyebrow: "Bewerbungen · Tracker", description: "A Kanban board of every programme you're applying to — from researching to decision. Syncs to your account.", group: "overview", icon: Columns3, Component: TrackerPage },
+  { path: "/calendar", label: "Deadline calendar", title: "Deadline calendar", eyebrow: "Kalender · Calendar", description: "Every application, VPD, visa, and Sperrkonto date on a month grid — plus deadlines you add yourself.", group: "overview", icon: CalendarDays, Component: CalendarPage },
   { path: "/profile", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", description: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: UserCircle, Component: ProfileOverview },
   { path: "/profile/parse", label: "Resume / LinkedIn parsing", title: "Resume & LinkedIn parsing", eyebrow: "Feature 01 · Profile", description: "Extract structured facts from a resume, LinkedIn export, or intake form — handled as personal data.", group: "profile", category: "profile", icon: ScanLine, featureNo: 1, Component: ProfileParse },
   { path: "/profile/evaluate", label: "Profile evaluation (GPA)", title: "Profile evaluation — GPA → German grade", eyebrow: "Feature 02 · Profile", description: "Convert your grade to the German 1.0–4.0 scale with the deterministic Modified Bavarian Formula.", group: "profile", category: "profile", icon: Gauge, featureNo: 2, Component: ProfileEvaluate },
   { path: "/profile/matching", label: "University matching", title: "Course & university matching", eyebrow: "Feature 03 · Profile", description: "Shortlist Master's programs at German public universities that fit your background and goals.", group: "profile", category: "profile", icon: GraduationCap, featureNo: 3, Component: ProfileMatching },
   { path: "/profile/skill-gap", label: "Skill-gap analysis", title: "Skill-gap analysis", eyebrow: "Feature 04 · Profile", description: "See what target programs expect that your profile doesn't yet show — and how to close each gap.", group: "profile", category: "profile", icon: Target, featureNo: 4, Component: ProfileSkillGap },
   { path: "/profile/ects", label: "ECTS calculator", title: "ECTS calculator", eyebrow: "Feature 05 · Profile", description: "Total and normalize your credits to ECTS so admissions can compare your degree to a German one.", group: "profile", category: "profile", icon: Calculator, featureNo: 5, Component: ProfileEcts },
+  { path: "/universities", label: "Universities explorer", title: "Universities & programs explorer", eyebrow: "Hochschulen · Universities", description: "Browse and compare Master's programmes at German public universities, with grounded requirements you can re-verify.", group: "profile", category: "profile", icon: School, Component: UniversitiesExplorer },
   { path: "/documents", label: "Overview", title: "Document Prep", eyebrow: "Bereich B · Document Prep", description: "Draft and track every document an application needs: SOP, CV, recommendation letters, and the uni-assist workflow.", group: "documents", category: "documents", icon: FileText, Component: DocumentsOverview },
   { path: "/documents/sop", label: "Statement of Purpose", title: "Statement of Purpose generator", eyebrow: "Feature 06 · Documents", description: "Build a tailored SOP from your profile and a target program — structured, specific, and yours to edit.", group: "documents", category: "documents", icon: PenLine, featureNo: 6, Component: DocumentsSop },
   { path: "/documents/cv", label: "Europass CV", title: "Europass CV builder", eyebrow: "Feature 07 · Documents", description: "Produce a Europass-format CV, the European standard German universities recognize.", group: "documents", category: "documents", icon: FileBadge, featureNo: 7, Component: DocumentsCv },
@@ -174,6 +192,7 @@ export const NAV: NavItem[] = [
   { path: "/documents/uni-assist", label: "Uni-Assist walkthrough", title: "Uni-Assist walkthrough", eyebrow: "Feature 09 · Documents", description: "Step through the uni-assist application: account, programs, documents, fees, and what happens after you submit.", group: "documents", category: "documents", icon: ClipboardList, featureNo: 9, Component: DocumentsUniAssist },
   { path: "/documents/vpd", label: "VPD tracker", title: "VPD (Preliminary Documentation) tracker", eyebrow: "Feature 10 · Documents", description: "Track the Vorprüfungsdokumentation some universities require before you apply directly.", group: "documents", category: "documents", icon: FileCheck, featureNo: 10, Component: DocumentsVpd },
   { path: "/documents/translation", label: "Translation assistant", title: "Translation assistant", eyebrow: "Feature 11 · Documents", description: "Understand which documents need certified translations and prepare drafts to hand to a sworn translator.", group: "documents", category: "documents", icon: Languages, featureNo: 11, Component: DocumentsTranslation },
+  { path: "/vault", label: "Document vault", title: "Document vault", eyebrow: "Tresor · Vault", description: "One place for your SOP, CV, recommendation letters, transcripts, and certificates — synced to your account.", group: "documents", category: "documents", icon: FolderLock, Component: DocumentsVault },
   { path: "/language", label: "Overview", title: "Language & Test Prep", eyebrow: "Bereich C · Language & Test", description: "Reach the German or English level your program requires, and rehearse every admission test with timed mocks.", group: "language", category: "language", icon: Languages, Component: LanguageOverview },
   { path: "/language/german", label: "German A1–B2 (+TTS)", title: "German A1–B2 course", eyebrow: "Feature 12 · Language", description: "A structured path from beginner to B2, with audio practice for listening and pronunciation.", group: "language", category: "language", icon: BookOpen, featureNo: 12, Component: LanguageGerman },
   { path: "/language/flashcards", label: "SRS flashcards", title: "Spaced-repetition flashcards", eyebrow: "Feature 13 · Language", description: "Memorize vocabulary efficiently with a spaced-repetition schedule that surfaces cards right before you'd forget them.", group: "language", category: "language", icon: Layers, featureNo: 13, Component: LanguageFlashcards },
@@ -206,6 +225,10 @@ export const NAV: NavItem[] = [
   { path: "/campus/culture", label: "Academic culture", title: "Academic culture & plagiarism", eyebrow: "Feature 30 · Campus", description: "How German universities expect you to study, cite, and behave — including strict plagiarism rules.", group: "campus", category: "campus", icon: BookOpen, featureNo: 30, Component: CampusCulture },
   { path: "/about", label: "About & methodology", title: "About DeutschPrep", eyebrow: "Info · Methodik", description: "How DeutschPrep grounds official facts, computes deterministic values, and what it does not do.", group: "system", icon: Info, Component: AboutPage },
   { path: "/settings", label: "Profile & settings", title: "Profile & settings", eyebrow: "Einstellungen · Settings", description: "Manage the intake details that personalize your roadmap. Your data stays on this device in this build.", group: "system", icon: Settings, Component: SettingsPage },
+  { path: "/help", label: "Help & FAQ", title: "Help & FAQ", eyebrow: "Hilfe · Help", description: "Answers to common questions, with the advisory disclaimer and links to official sources.", group: "system", icon: CircleHelp, Component: HelpPage },
+  { path: "/legal/privacy", label: "Privacy Policy", title: "Privacy Policy", eyebrow: "Datenschutz · Privacy", description: "How DeutschPrep handles your personal data, including GDPR export and deletion.", group: "system", icon: ShieldCheck, hide: true, Component: PrivacyPage },
+  { path: "/legal/terms", label: "Terms of Service", title: "Terms of Service", eyebrow: "Nutzungsbedingungen · Terms", description: "The terms for using DeutschPrep.", group: "system", icon: FileText, hide: true, Component: TermsPage },
+  { path: "/legal/accessibility", label: "Accessibility", title: "Accessibility statement", eyebrow: "Barrierefreiheit · Accessibility", description: "Our commitment to WCAG 2.1 AA and how to report barriers.", group: "system", icon: Accessibility, hide: true, Component: AccessibilityPage },
   { path: "*", label: "Not found", title: "Page not found", eyebrow: "404", description: "That page doesn't exist. Use the navigation to get back on track.", group: "system", icon: FileSearch, hide: true, Component: NotFoundPage },
 ];
 

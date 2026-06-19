@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AccountPanel } from "@/features/settings/AccountPanel";
 import { AiSettings } from "@/features/settings/AiSettings";
+import { DataControls } from "@/features/settings/DataControls";
+import { ThemeToggle } from "@/features/settings/ThemeToggle";
 import { IntakeFields } from "@/features/profile/IntakeFields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ export default function SettingsPage() {
 
       <AiSettings />
       <AccountPanel />
+      <DataControls />
 
       <Alert variant="info">
         <Lock aria-hidden />
@@ -39,6 +42,16 @@ export default function SettingsPage() {
           device only.
         </AlertDescription>
       </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Appearance</CardTitle>
+          <p className="text-sm text-muted-foreground">Choose a light, dark, or system-matched theme.</p>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
