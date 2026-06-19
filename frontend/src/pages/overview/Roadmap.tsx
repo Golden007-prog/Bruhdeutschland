@@ -2,13 +2,11 @@ import { Circle, CircleCheck, CircleDot } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { StepList } from "@/components/common/StepList";
-import { RoadmapTracker } from "@/components/RoadmapTracker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
-import { mockRoadmapItems } from "@/lib/mockData";
 import { ROADMAP_STEPS } from "@/lib/seed/process";
 
 type StepStatus = "todo" | "active" | "done";
@@ -111,20 +109,6 @@ export default function RoadmapPage() {
           </div>
         </CardContent>
       </Card>
-
-      <section aria-labelledby="tracked-heading" className="space-y-3">
-        <div>
-          <p className="eyebrow">Verfolgt · Tracked</p>
-          <h2 id="tracked-heading" className="mt-1 text-lg font-semibold tracking-tight">
-            Your tracked progress
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            The same journey as your live checklist — what's done, what's active now, and what's still
-            locked behind an earlier step.
-          </p>
-        </div>
-        <RoadmapTracker items={mockRoadmapItems} />
-      </section>
     </div>
   );
 }
