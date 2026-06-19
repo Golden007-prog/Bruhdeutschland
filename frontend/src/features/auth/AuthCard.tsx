@@ -124,10 +124,6 @@ export function AuthCard({ mode }: { mode: "login" | "signup" }) {
             </Link>
           </>
         )}
-        {" · "}
-        <Link to="/" className="font-medium text-primary hover:underline">
-          Continue as guest
-        </Link>
       </p>
     </div>
   );

@@ -31,3 +31,18 @@ export function useSyncedState<T>(key: string, initial: T): [T, (v: T | ((prev: 
 
   return [value, set];
 }
+
+/**
+ * True once persisted state has hydrated (cloud blob loaded, or nothing to load). The auth gate uses
+ * this to avoid routing a returning user before their saved profile/onboarding flag is available.
+ */
+export function useSyncHydrated(): boolean {
+  const [hydrated, setHydrated] = useState<boolean>(() => syncedStore.isHydrated());
+  useEffect(() => {
+    syncedStore.start();
+    const sync = () => setHydrated(syncedStore.isHydrated());
+    sync();
+    return syncedStore.subscribe(sync);
+  }, []);
+  return hydrated;
+}

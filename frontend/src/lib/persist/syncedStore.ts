@@ -47,16 +47,38 @@ class SyncedStore {
   private userId: string | null = null;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
+  // True once the cloud blob has loaded (or there's nothing to load). The auth gate waits for this so
+  // a returning user's saved profile/progress is in hand before it decides where to route them.
+  private hydrated = !isSupabaseConfigured;
 
   /** Begin watching auth so we can load/merge the cloud blob when a user signs in. */
   start(): void {
-    if (this.started || !isSupabaseConfigured) return;
+    if (this.started) return;
     this.started = true;
+    if (!isSupabaseConfigured) {
+      this.hydrated = true;
+      this.emit();
+      return;
+    }
     onAuthChange((session) => {
       const id = session?.user?.id ?? null;
       this.userId = id;
-      if (id) void this.pullFromCloud();
+      if (id) {
+        this.hydrated = false;
+        this.emit();
+        void this.pullFromCloud().finally(() => {
+          this.hydrated = true;
+          this.emit();
+        });
+      } else {
+        this.hydrated = true;
+        this.emit();
+      }
     });
+  }
+
+  isHydrated(): boolean {
+    return this.hydrated;
   }
 
   private async pullFromCloud(): Promise<void> {

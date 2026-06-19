@@ -1,24 +1,40 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2, Map as MapIcon, ScanLine, Sparkles } from "lucide-react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, CheckCircle2, LogOut, Map as MapIcon, ScanLine, Sparkles } from "lucide-react";
 
+import { GateLoader } from "@/components/auth/AppGate";
+import { AiSettings } from "@/features/settings/AiSettings";
 import { IntakeFields } from "@/features/profile/IntakeFields";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { formatGermanGrade } from "@/lib/calc/gpa";
 import { deriveGermanGpa } from "@/lib/profile/profile";
 import { useProfile } from "@/lib/profile/useProfile";
-import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useSyncHydrated, useSyncedState } from "@/lib/persist/useSyncedState";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { signOut } from "@/lib/supabase/auth";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Welcome", "Your background", "Done"];
+const STEPS = ["Welcome", "Set up AI", "Your background", "Done"];
 
-/** First-run onboarding wizard (work order §10) → ends on the roadmap so the user never dead-ends. */
+/**
+ * The required setup funnel (gated model): sign-in → AI setup → intake → unlock. Redirects out only on
+ * the EXPLICIT onboarded flag (not profile-started), so filling intake mid-wizard doesn't eject the user.
+ */
 export default function Onboarding() {
+  const { configured, loading, user } = useAuth();
+  const hydrated = useSyncHydrated();
   const { profile, update } = useProfile();
-  const [, setOnboarded] = useSyncedState<boolean>("onboarded:v1", false);
+  const [onboarded, setOnboarded] = useSyncedState<boolean>("onboarded:v1", false);
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
   const conv = deriveGermanGpa(profile);
+
+  // Guard: require sign-in; send already-onboarded users to the app.
+  if (configured) {
+    if (loading || !hydrated) return <GateLoader />;
+    if (!user) return <Navigate to="/welcome" replace />;
+    if (onboarded) return <Navigate to="/" replace />;
+  }
 
   const finish = (to: string) => {
     setOnboarded(true);
@@ -32,7 +48,17 @@ export default function Onboarding() {
           <Link to="/welcome" className="text-lg font-bold tracking-tight">
             Deutsch<span className="text-primary">Prep</span>
           </Link>
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">Skip for now</Link>
+          {configured && user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" aria-hidden /> Log out
+            </button>
+          ) : (
+            <Link to="/welcome" className="text-sm text-muted-foreground hover:text-foreground">Home</Link>
+          )}
         </div>
       </header>
 
@@ -50,7 +76,7 @@ export default function Onboarding() {
               >
                 {i < step ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : i + 1}
               </span>
-              {i < STEPS.length - 1 && <span aria-hidden className={cn("h-px w-8", i < step ? "bg-primary" : "bg-border")} />}
+              {i < STEPS.length - 1 && <span aria-hidden className={cn("h-px w-6 sm:w-8", i < step ? "bg-primary" : "bg-border")} />}
             </li>
           ))}
         </ol>
@@ -58,13 +84,13 @@ export default function Onboarding() {
         <div className="rounded-xl border bg-card p-6 shadow-sm sm:p-8">
           {step === 0 && (
             <div className="space-y-4 text-center">
-              <h1 className="text-2xl font-bold tracking-tight">Let&apos;s build your roadmap</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Welcome — let&apos;s set you up</h1>
               <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                In two minutes we&apos;ll turn your background into a personalized plan for applying to a
-                German Master&apos;s — grade converted, programs to explore, and the steps in order.
+                A quick three-step setup unlocks your personalized dashboard: choose how AI runs, tell us
+                your background, and we build your roadmap. You only do this once.
               </p>
               <ul className="mx-auto max-w-sm space-y-2 text-left text-sm">
-                {["Tell us your degree, grade, and target field", "We compute your German grade deterministically", "You get an ordered roadmap and a tracker"].map((t) => (
+                {["Pick free Gemini, your own Claude plan (Owner Mode), or offline", "Add your degree, grade, and target field", "Get an ordered roadmap, tracker, and German grade"].map((t) => (
                   <li key={t} className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
                     <span>{t}</span>
@@ -80,6 +106,24 @@ export default function Onboarding() {
           {step === 1 && (
             <div className="space-y-5">
               <div>
+                <h1 className="text-xl font-bold tracking-tight">Set up AI</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Add a free Google Gemini key, or run your own Claude plan with the Owner-Mode installer.
+                  Not now? You can continue and add it later in Settings — the app falls back to bundled
+                  content offline.
+                </p>
+              </div>
+              <AiSettings />
+              <div className="flex items-center justify-between pt-2">
+                <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft aria-hidden /> Back</Button>
+                <Button onClick={() => setStep(2)}>Continue <ArrowRight aria-hidden /></Button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-5">
+              <div>
                 <h1 className="text-xl font-bold tracking-tight">Your background</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Fill what you know — you can change it later in Settings. Prefer to upload a résumé?{" "}
@@ -91,13 +135,13 @@ export default function Onboarding() {
               </div>
               <IntakeFields value={profile} onChange={update} idPrefix="onb" />
               <div className="flex items-center justify-between pt-2">
-                <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft aria-hidden /> Back</Button>
-                <Button onClick={() => setStep(2)}>Continue <ArrowRight aria-hidden /></Button>
+                <Button variant="ghost" onClick={() => setStep(1)}><ArrowLeft aria-hidden /> Back</Button>
+                <Button onClick={() => setStep(3)}>Continue <ArrowRight aria-hidden /></Button>
               </div>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-4 text-center">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                 <Sparkles aria-hidden />

@@ -89,12 +89,12 @@ export default function Landing() {
             <Link to="/signup" className={cn(buttonVariants({ size: "lg" }))}>
               Get started free <ArrowRight aria-hidden />
             </Link>
-            <Link to="/" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-              Explore as guest
+            <Link to="/login" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
+              Log in
             </Link>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            No credit card. One field to start — we email you a magic link.
+            No credit card. Sign up with one field — we email you a magic link.
           </p>
         </div>
 
@@ -261,15 +261,15 @@ export default function Landing() {
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <h2 className="text-3xl font-bold tracking-tight">Start your German Master&apos;s plan today</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            It&apos;s free, it works offline, and you can begin as a guest. Sign in whenever you want to
-            sync across devices.
+            It&apos;s free and open-source. Create an account to set up your AI, add your background,
+            and unlock your personalized dashboard.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link to="/signup" className={cn(buttonVariants({ size: "lg" }))}>
               Get started free <ArrowRight aria-hidden />
             </Link>
-            <Link to="/" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
-              Explore as guest
+            <Link to="/login" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
+              Log in
             </Link>
           </div>
         </div>
