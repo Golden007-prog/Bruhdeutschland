@@ -45,6 +45,12 @@ export const SOURCES = {
   erasmus: { name: "Erasmus+", url: "https://erasmus-plus.ec.europa.eu/" },
   daadEpos: { name: "DAAD — EPOS (Development-Related Postgraduate Courses)", url: "https://www.daad.de/en/study-and-research-in-germany/scholarships/epos/" },
   daadHelmutSchmidt: { name: "DAAD — Helmut-Schmidt-Programme (Public Policy & Good Governance)", url: "https://www.daad.de/en/study-and-research-in-germany/scholarships/helmut-schmidt-programme/" },
+  anabin: { name: "anabin — KMK database on recognition of foreign qualifications", url: "https://anabin.kmk.org/anabin.html" },
+  studienkolleg: { name: "Studienkollegs in Germany (overview)", url: "https://www.studienkollegs.de/en/" },
+  hochschulstart: { name: "hochschulstart.de — central admissions (incl. Medicine)", url: "https://www.hochschulstart.de/" },
+  tms: { name: "TMS — Test für Medizinische Studiengänge", url: "https://www.tms-info.org/" },
+  testas: { name: "TestAS — Test for Academic Studies (international applicants)", url: "https://www.testas.de/en/" },
+  approbation: { name: "Make it in Germany — Recognition for doctors (Approbation)", url: "https://www.make-it-in-germany.com/en/working-in-germany/recognition-of-qualifications/medical-professions" },
 } as const satisfies Record<string, Source>;
 
 export type SourceKey = keyof typeof SOURCES;

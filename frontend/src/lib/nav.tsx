@@ -46,6 +46,7 @@ import {
   Mic,
   PenLine,
   Plane,
+  Route,
   ScanLine,
   School,
   ScrollText,
@@ -117,6 +118,7 @@ const CalendarPage = lazy(() => import("@/pages/overview/Calendar"));
 const ProfileOverview = lazy(() => import("@/pages/profile/Overview"));
 const ProfileParse = lazy(() => import("@/pages/profile/Parse"));
 const ProfileEvaluate = lazy(() => import("@/pages/profile/Evaluate"));
+const ProfilePathway = lazy(() => import("@/pages/profile/Pathway"));
 const ProfileMatching = lazy(() => import("@/pages/profile/Matching"));
 const ProfileSkillGap = lazy(() => import("@/pages/profile/SkillGap"));
 const ProfileEcts = lazy(() => import("@/pages/profile/Ects"));
@@ -183,6 +185,7 @@ export const NAV: NavItem[] = [
   { path: "/profile", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", description: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: UserCircle, Component: ProfileOverview },
   { path: "/profile/parse", label: "Resume / LinkedIn parsing", title: "Resume & LinkedIn parsing", eyebrow: "Feature 01 · Profile", description: "Extract structured facts from a resume, LinkedIn export, or intake form — handled as personal data.", group: "profile", category: "profile", icon: ScanLine, featureNo: 1, Component: ProfileParse },
   { path: "/profile/evaluate", label: "Profile evaluation (GPA)", title: "Profile evaluation — GPA → German grade", eyebrow: "Feature 02 · Profile", description: "Convert your grade to the German 1.0–4.0 scale with the deterministic Modified Bavarian Formula.", group: "profile", category: "profile", icon: Gauge, featureNo: 2, Component: ProfileEvaluate },
+  { path: "/profile/pathway", label: "Study pathway", title: "Your German study pathway", eyebrow: "Pfad · Pathway", description: "Bachelor, Master, Medicine or Studienkolleg — the correct German route for your level and country, with honest next steps and grounded rules to verify.", group: "profile", category: "profile", icon: Route, Component: ProfilePathway },
   { path: "/profile/matching", label: "University matching", title: "Course & university matching", eyebrow: "Feature 03 · Profile", description: "Shortlist Master's programs at German public universities that fit your background and goals.", group: "profile", category: "profile", icon: GraduationCap, featureNo: 3, Component: ProfileMatching },
   { path: "/profile/skill-gap", label: "Skill-gap analysis", title: "Skill-gap analysis", eyebrow: "Feature 04 · Profile", description: "See what target programs expect that your profile doesn't yet show — and how to close each gap.", group: "profile", category: "profile", icon: Target, featureNo: 4, Component: ProfileSkillGap },
   { path: "/profile/ects", label: "ECTS calculator", title: "ECTS calculator", eyebrow: "Feature 05 · Profile", description: "Total and normalize your credits to ECTS so admissions can compare your degree to a German one.", group: "profile", category: "profile", icon: Calculator, featureNo: 5, Component: ProfileEcts },

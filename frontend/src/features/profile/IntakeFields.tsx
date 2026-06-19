@@ -58,7 +58,42 @@ export function IntakeFields({
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor={id("degree")} className="text-sm font-medium">Current degree</label>
+        <label htmlFor={id("level")} className="text-sm font-medium">I'm applying for</label>
+        <select
+          id={id("level")}
+          value={value.targetLevel}
+          onChange={(e) => onChange({ targetLevel: e.target.value as UserProfile["targetLevel"] })}
+          className={selectClass}
+        >
+          <option value="">Select study level…</option>
+          <option value="bachelor">Bachelor's (after Class 12)</option>
+          <option value="master">Master's</option>
+          <option value="medicine">Medicine (Humanmedizin)</option>
+          <option value="studienkolleg">Studienkolleg (foundation year)</option>
+          <option value="phd">Doctorate (PhD)</option>
+        </select>
+        <p className="text-xs text-muted-foreground">Drives your whole pathway — school-leavers and doctors follow different German routes than Master's.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor={id("qual")} className="text-sm font-medium">Highest qualification</label>
+        <select
+          id={id("qual")}
+          value={value.highestQualification}
+          onChange={(e) => onChange({ highestQualification: e.target.value as UserProfile["highestQualification"] })}
+          className={selectClass}
+        >
+          <option value="">Select…</option>
+          <option value="class10">Class 10 (secondary)</option>
+          <option value="class12">Class 12 / Higher Secondary</option>
+          <option value="some_bachelor">Some university (incomplete Bachelor)</option>
+          <option value="bachelor">Bachelor's degree</option>
+          <option value="master">Master's degree</option>
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor={id("degree")} className="text-sm font-medium">Current degree / field of study</label>
         <Input
           id={id("degree")}
           value={value.currentDegree}

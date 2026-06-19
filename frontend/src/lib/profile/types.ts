@@ -11,6 +11,12 @@ import type { GradeScale } from "@/lib/calc/gpa";
 export type GermanLevel = "" | "none" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 export type TargetIntake = "" | "WS" | "SS";
 
+/** Study level the user is aiming for — routes the whole app into the right German pathway (addendum §0). */
+export type TargetLevel = "" | "bachelor" | "master" | "phd" | "medicine" | "studienkolleg";
+
+/** The applicant's highest completed qualification — gates HZB / Studienkolleg / direct-entry decisions. */
+export type HighestQualification = "" | "class10" | "class12" | "some_bachelor" | "bachelor" | "master";
+
 /** Keys into {@link COMMON_SCALES} plus an explicit custom scale. */
 export type GradeScaleKey = "percent" | "cgpa10" | "gpa4" | "custom";
 
@@ -61,6 +67,10 @@ export interface UserProfile {
   targetIntake: TargetIntake;
   targetField: string;
   germanLevel: GermanLevel;
+  /** What the user is applying FOR — drives the pathway engine (Bachelor/Master/Medicine/Studienkolleg). */
+  targetLevel: TargetLevel;
+  /** The user's highest completed qualification — gates Studienkolleg-vs-direct-entry. */
+  highestQualification: HighestQualification;
   /** Month the current degree was (or will be) obtained, "YYYY-MM". Drives "degree within N years". */
   graduationDate: string;
   /** Professional history (addendum §1). Empty for a new user → no fake experience value shown. */
@@ -81,6 +91,8 @@ export const DEFAULT_PROFILE: UserProfile = {
   targetIntake: "",
   targetField: "",
   germanLevel: "",
+  targetLevel: "",
+  highestQualification: "",
   graduationDate: "",
   workExperiences: [],
   updatedAt: null,
