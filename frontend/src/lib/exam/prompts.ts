@@ -154,24 +154,45 @@ export function buildRubricPrompt(
   taskPrompt: string,
   response: string,
   criteria: { name: string; descriptor: string }[],
+  context?: { stimulus?: string; minWords?: number },
 ): string {
+  const trimmed = response.trim();
+  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
   const criteriaBlock = criteria
-    .map((c, i) => `${i + 1}. ${c.name} — official descriptor anchor: "${c.descriptor}"`)
+    .map((c, i) => `${i + 1}. ${c.name} (max ${maxFor(examTitle)}) — top-band descriptor anchor: "${c.descriptor}"`)
     .join("\n");
   return [
-    `You are a certified ${examTitle} examiner. Score the candidate response against each criterion below.`,
-    `For EACH criterion you MUST quote, in "evidence", the exact descriptor phrase from its anchor that the response matches, and a short quote from the RESPONSE that supports your score. Output a per-criterion score (with its max) plus an overall band/score RANGE ("bandLow"/"bandHigh") and a "confidence" (low|medium|high).`,
-    `This is an ESTIMATE — only a certified human rater (and ETS's own AI for TOEFL) gives a real score. Be specific and constructive.`,
+    `You are a certified ${examTitle} examiner grading ONE candidate response. Read the response in full FIRST.`,
+    `Score every criterion ONLY on what the candidate actually wrote below — never assume content that isn't there.`,
+    `The response is ${wordCount} words${context?.minWords ? ` (task target ≥ ${context.minWords})` : ""}. If it is empty, off-topic, merely copies the prompt, gibberish, or far below the target length, you MUST award the LOWEST band for the affected criteria and say so — do NOT default to a middling band.`,
+    `For EACH criterion, "evidence" MUST contain (a) the descriptor phrase you matched and (b) a SHORT VERBATIM QUOTE of the candidate's own words that justifies the score. If you cannot quote their words, the score is too high — lower it.`,
+    `Map scores to the ${examTitle} scale (a low/empty answer is near the bottom; only sustained, accurate, well-developed writing reaches the top band).`,
+    context?.stimulus
+      ? `The task is based on this STIMULUS — judge accuracy/relevance against it (e.g. did they describe the real data / address the real question?):\n${context.stimulus.slice(0, 1500)}`
+      : "",
+    `Output a per-criterion score (with its max), an overall band/score RANGE ("bandLow"/"bandHigh") and a "confidence". Never a bare single number. This is an ESTIMATE — only a certified human rater gives a real score.`,
     ``,
     `CRITERIA:`,
     criteriaBlock,
     ``,
-    `Return STRICT JSON only: { "criteria": [{ "name": string, "score": number, "max": number, "evidence": string, "comment": string }], "bandLow": string, "bandHigh": string, "confidence": "low"|"medium"|"high", "summary": string, "improvements": string[] }`,
+    `Return STRICT JSON only: ${RUBRIC_SCHEMA_HINT}`,
     ``,
     `TASK: ${taskPrompt}`,
     ``,
-    `RESPONSE: ${response.slice(0, 4000)}`,
-  ].join("\n");
+    `CANDIDATE RESPONSE (${wordCount} words) — grade THIS text:`,
+    `"""`,
+    trimmed.slice(0, 6000) || "(the candidate left this blank)",
+    `"""`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Rough per-criterion max for the prompt (IELTS bands to 9, TOEFL to 6, else 5). */
+function maxFor(examTitle: string): number {
+  if (/ielts/i.test(examTitle)) return 9;
+  if (/toefl/i.test(examTitle)) return 6;
+  return 5;
 }
 
 export const RUBRIC_SCHEMA_HINT =

@@ -10,13 +10,15 @@ import { Separator } from "@/components/ui/separator";
 import { FigureView } from "./FigureView";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { SpeakingTask } from "./SpeakingTask";
+import { SplitExamLayout } from "./SplitExamLayout";
+import { ReadingStimulus } from "./ReadingStimulus";
 import { ItemReview, QuestionItem } from "./QuestionItem";
 import type { ExamSpec } from "@/data/exam-specs";
 import { rubricFor } from "@/data/band-descriptors";
 import { buildRubricPrompt, RUBRIC_SCHEMA_HINT, type Difficulty } from "@/lib/exam/prompts";
 import { generateAdaptiveStage } from "@/lib/exam/generate";
-import { resolveProvider } from "@/lib/llm/registry";
-import { rubricFeedbackSchema, type GeneratedExam, type GeneratedSection, type RubricFeedback } from "@/lib/exam/schema";
+import { resolveGradingProvider } from "@/lib/llm/registry";
+import { rubricFeedbackSchema, type Figure, type GeneratedExam, type GeneratedSection, type RubricFeedback } from "@/lib/exam/schema";
 import { isAnswered, markItem, scoreExam, type AnswerMap, type AnswerValue, type ExamScore } from "@/lib/exam/scoring";
 import { SCALE_DISCLAIMER } from "@/lib/exam/scale";
 import { recordAttempt, type AttemptRubric } from "@/lib/exam/attempts";
@@ -31,6 +33,15 @@ function clock(total: number): string {
 
 function sectionTime(spec: ExamSpec, section: GeneratedSection): number {
   return (spec.sections.find((s) => s.skill === section.skill)?.timeMin ?? 30) * 60;
+}
+
+/** A compact text description of a Task-1 figure so the rubric can judge description accuracy. */
+function figureToText(figure?: Figure): string | undefined {
+  if (!figure) return undefined;
+  const series = figure.series
+    .map((s) => `${s.name}: ${s.points.map((p) => `${p.label}=${p.value}`).join(", ")}`)
+    .join(" | ");
+  return `Chart "${figure.title}" (${figure.chartType}${figure.yLabel ? `, ${figure.yLabel}` : ""}). Data — ${series}`;
 }
 
 /** Local objective accuracy of a section (for adaptive difficulty routing). */
@@ -179,15 +190,18 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
     }
     let map: Record<string, RubricFeedback> = {};
     try {
-      const provider = await resolveProvider();
+      const provider = await resolveGradingProvider();
       const results = await Promise.allSettled(
         answered.map(({ section: sec, task }) => {
           const rubric = rubricFor(spec.id, sec.skill);
           return provider.generateJSON(
             rubricFeedbackSchema,
-            buildRubricPrompt(spec.title, task.prompt, openResponses[task.id], rubric.criteria),
+            buildRubricPrompt(spec.title, task.prompt, openResponses[task.id], rubric.criteria, {
+              stimulus: figureToText(sec.figure),
+              minWords: task.minWords,
+            }),
             RUBRIC_SCHEMA_HINT,
-            { temperature: 0.3 },
+            { temperature: 0.2 },
           );
         }),
       );
@@ -244,77 +258,76 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
 
       {section.instructions && <p className="text-sm text-muted-foreground">{section.instructions}</p>}
 
-      {/* Listening audio */}
-      {section.skill === "listening" && section.passages.length > 0 && (
-        <ListeningPlayer passages={section.passages} lang={spec.ttsLang} nonce={exam.nonce} />
-      )}
+      {/* Split exam layout: stimulus pinned left, questions/essay scroll right (real IELTS/TOEFL). */}
+      {(() => {
+        const stimulus =
+          section.skill === "listening" && section.passages.length > 0 ? (
+            <ListeningPlayer passages={section.passages} lang={spec.ttsLang} nonce={exam.nonce} />
+          ) : section.skill === "reading" && section.passages.length > 0 ? (
+            <ReadingStimulus passages={section.passages} nonce={exam.nonce} />
+          ) : section.figure ? (
+            <FigureView figure={section.figure} />
+          ) : null;
+        const stimulusLabel =
+          section.skill === "listening" ? "Audio" : section.skill === "reading" ? "Reading passage" : "Figure";
 
-      {/* Reading passages */}
-      {section.skill === "reading" &&
-        section.passages.map((p) => (
-          <article key={p.id} className="rounded-md border bg-muted/20 p-4">
-            <h3 className="font-semibold">{p.title}</h3>
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-foreground/90">{p.body}</p>
-          </article>
-        ))}
-
-      {/* Writing figure */}
-      {section.figure && <FigureView figure={section.figure} />}
-
-      {/* Objective questions */}
-      {objectiveCount > 0 && (
-        <>
-          {/* Question palette */}
-          <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
-            {section.objective.map((q, i) => {
-              const done = isAnswered(q, answers[q.id]);
-              const flag = flagged.has(q.id);
-              return (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => qRefs.current[q.id]?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" })}
-                  className={`relative h-7 w-7 rounded text-xs official-figure ${done ? "bg-primary text-primary-foreground" : "border bg-card"} ${flag ? "ring-2 ring-amber-400" : ""}`}
-                  aria-label={`Question ${i + 1}${done ? ", answered" : ""}${flag ? ", flagged" : ""}`}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-          <p className="official-figure text-xs text-muted-foreground">{answeredInSection}/{objectiveCount} answered in this section</p>
-
-          <ol className="space-y-5">
-            {section.objective.map((q, i) => (
-              <li key={q.id} ref={(el) => { qRefs.current[q.id] = el; }} className="scroll-mt-24 rounded-md border bg-card p-4">
-                <QuestionItem
-                  q={q}
-                  index={i}
-                  answer={answers[q.id]}
-                  flagged={flagged.has(q.id)}
-                  onAnswer={(v) => setAnswer(q.id, v)}
-                  onFlag={() => toggleFlag(q.id)}
-                />
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-
-      {/* Writing / Speaking open tasks */}
-      {section.open.length > 0 && (
-        <div className="space-y-5">
-          {section.open.map((t) =>
-            section.skill === "speaking" ? (
-              <div key={t.id} className="rounded-md border bg-card p-4">
-                <SpeakingTask task={t} lang={spec.ttsLang} value={openResponses[t.id] ?? ""} onChange={(v) => setOpenResponses((o) => ({ ...o, [t.id]: v }))} />
+        const work = (
+          <div className="space-y-5">
+            {objectiveCount > 0 && (
+              <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
+                <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
+                  {section.objective.map((q, i) => {
+                    const done = isAnswered(q, answers[q.id]);
+                    const flag = flagged.has(q.id);
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => qRefs.current[q.id]?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" })}
+                        className={`relative h-7 w-7 rounded text-xs official-figure ${done ? "bg-primary text-primary-foreground" : "border bg-card"} ${flag ? "ring-2 ring-amber-400" : ""}`}
+                        aria-label={`Question ${i + 1}${done ? ", answered" : ""}${flag ? ", flagged" : ""}`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="official-figure mt-1 text-xs text-muted-foreground">{answeredInSection}/{objectiveCount} answered in this section</p>
               </div>
-            ) : (
-              <WritingTask key={t.id} task={t} value={openResponses[t.id] ?? ""} onChange={(v) => setOpenResponses((o) => ({ ...o, [t.id]: v }))} />
-            ),
-          )}
-        </div>
-      )}
+            )}
+
+            {objectiveCount > 0 && (
+              <ol className="space-y-5">
+                {section.objective.map((q, i) => (
+                  <li key={q.id} ref={(el) => { qRefs.current[q.id] = el; }} className="scroll-mt-24 rounded-md border bg-card p-4">
+                    <QuestionItem q={q} index={i} answer={answers[q.id]} flagged={flagged.has(q.id)} onAnswer={(v) => setAnswer(q.id, v)} onFlag={() => toggleFlag(q.id)} />
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {section.open.length > 0 && (
+              <div className="space-y-5">
+                {section.open.map((t) =>
+                  section.skill === "speaking" ? (
+                    <div key={t.id} className="rounded-md border bg-card p-4">
+                      <SpeakingTask task={t} lang={spec.ttsLang} value={openResponses[t.id] ?? ""} onChange={(v) => setOpenResponses((o) => ({ ...o, [t.id]: v }))} />
+                    </div>
+                  ) : (
+                    <WritingTask key={t.id} task={t} value={openResponses[t.id] ?? ""} onChange={(v) => setOpenResponses((o) => ({ ...o, [t.id]: v }))} />
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+        return stimulus ? (
+          <SplitExamLayout stimulus={stimulus} work={work} stimulusLabel={stimulusLabel} workLabel="Questions" />
+        ) : (
+          work
+        );
+      })()}
 
       <Separator />
       <div className="flex items-center justify-between gap-2">
@@ -353,13 +366,15 @@ function WritingTask({ task, value, onChange }: { task: { id: string; typeLabel:
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onPaste={(e) => e.preventDefault()}
+        onDrop={(e) => e.preventDefault()}
         rows={8}
         aria-label={`${task.typeLabel} response`}
         className="mt-3 w-full rounded-md border bg-card p-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         placeholder="Write your response here…"
       />
       <p className={`official-figure mt-1 text-xs ${ok ? "text-muted-foreground" : "text-amber-700"}`}>
-        {words} words{task.minWords ? ` · target ≥ ${task.minWords}` : ""}
+        {words} words{task.minWords ? ` · target ≥ ${task.minWords}` : ""} · paste disabled, like the real test
       </p>
     </div>
   );

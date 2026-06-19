@@ -4,7 +4,7 @@
  * present. The exam engine calls {@link resolveProvider}; the Settings screen calls {@link listProviders}.
  */
 import { ClaudeBridgeProvider } from "./bridge";
-import { GeminiProvider } from "./gemini";
+import { GeminiProvider, GEMINI_MODELS } from "./gemini";
 import { getActiveProviderId, hasKey } from "./keys";
 import type { LLMProvider, ProviderId } from "./types";
 
@@ -58,4 +58,15 @@ export async function resolveProvider(): Promise<LLMProvider> {
 /** Cheap synchronous check used to decide whether to even attempt live generation. */
 export function anyProviderConfigured(): boolean {
   return hasKey("gemini") || !!getActiveProviderId();
+}
+
+/**
+ * Provider best suited to GRADING open responses (Writing/Speaking rubric). Prefers the Owner-Mode
+ * bridge (full Claude) for the most reliable judgement, else Gemini's higher-quality model (not the
+ * fast "lite" default) so scores actually reflect the candidate's text rather than a generic band.
+ */
+export async function resolveGradingProvider(): Promise<LLMProvider> {
+  if (await bridge.isAvailable()) return bridge;
+  if (hasKey("gemini")) return new GeminiProvider(GEMINI_MODELS.quality);
+  return resolveProvider();
 }
