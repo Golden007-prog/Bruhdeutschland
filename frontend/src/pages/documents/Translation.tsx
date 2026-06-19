@@ -1,13 +1,32 @@
-import { AlertTriangle, Languages, Search } from "lucide-react";
+import { AlertTriangle, FileText, Languages, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Checklist } from "@/components/common/Checklist";
+import { DocActions } from "@/components/common/DocActions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { TRANSLATION_NEEDED, TRANSLATION_NOT_NEEDED } from "@/lib/seed/documents";
+
+const DRAFT_TEMPLATE = `Translation request — working note (NOT a certified translation)
+
+Language pair: [source language] -> German / English
+Deadline: [date]
+
+Documents to translate:
+- [ ] Bachelor's degree certificate
+- [ ] Transcript of records
+- [ ] [other]
+
+Notes for the translator:
+- Please provide a certified (sworn) translation with stamp.
+- University requires the translation stapled to a certified copy of the original: [yes/no].
+`;
 
 /** Translation assistant (Feature 11). */
 export default function DocumentsTranslation() {
+  const [draft, setDraft] = useSyncedState<string>("doc:translation:draft", DRAFT_TEMPLATE);
   return (
     <div className="space-y-6">
       <PageHeader
@@ -49,6 +68,32 @@ export default function DocumentsTranslation() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4 text-category-documents" aria-hidden />
+            Prepare a note for your translator
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            A working note to hand your sworn translator — list the documents, language pair, and
+            deadline. This is organisation only; it is <strong>not</strong> a valid translation.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <label htmlFor="translation-draft" className="sr-only">
+            Translator note (editable)
+          </label>
+          <Textarea
+            id="translation-draft"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={14}
+            className="font-mono text-xs leading-relaxed"
+          />
+          <DocActions text={draft} filename="translator-note.txt" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <Search className="h-4 w-4 text-category-documents" aria-hidden />
             Finding a sworn translator
           </CardTitle>
@@ -57,8 +102,15 @@ export default function DocumentsTranslation() {
           <ul className="list-disc space-y-2 pl-5">
             <li>
               In Germany, search the official register of sworn translators and interpreters at{" "}
-              <span className="font-medium text-foreground">justiz-dolmetscher.de</span> (the federal
-              Justizportal database) and filter by your language pair.
+              <a
+                href="https://www.justiz-dolmetscher.de/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary hover:underline"
+              >
+                justiz-dolmetscher.de
+              </a>{" "}
+              (the federal Justizportal database) and filter by your language pair.
             </li>
             <li>
               In your home country, a German embassy or consulate can often point you to translators

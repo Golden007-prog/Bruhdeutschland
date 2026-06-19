@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { FileText, Lightbulb, Loader2, Sparkles, Wand2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { DocActions } from "@/components/common/DocActions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
 import { sopSchema, type SopResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
+import { fileSlug } from "@/lib/doc/export";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { anyProviderConfigured } from "@/lib/llm/registry";
 
 interface SopForm {
@@ -112,8 +114,8 @@ function assembleAi(f: SopForm, ai: SopResult): string {
 
 /** Statement of Purpose generator (Feature 06). Form → template-composed editable draft. */
 export default function DocumentsSop() {
-  const [form, setForm] = useState<SopForm>(EMPTY);
-  const [draft, setDraft] = useState("");
+  const [form, setForm] = useSyncedState<SopForm>("doc:sop:form", EMPTY);
+  const [draft, setDraft] = useSyncedState<string>("doc:sop:draft", "");
   const ai = useGenerate<SopResult>();
   const configured = anyProviderConfigured();
 
@@ -306,6 +308,13 @@ export default function DocumentsSop() {
               This is a starting point, not a finished essay. Rewrite it in your own voice, tighten
               the prose, and verify every detail before you submit.
             </p>
+            {draft.trim() && (
+              <DocActions
+                text={draft}
+                filename={`sop-${fileSlug(form.program || form.university || "draft")}.txt`}
+                className="pt-1"
+              />
+            )}
           </CardHeader>
           <CardContent>
             <label htmlFor="sop-draft" className="sr-only">

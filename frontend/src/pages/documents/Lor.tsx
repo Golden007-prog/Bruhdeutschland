@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Briefcase, GraduationCap, Loader2, Mail, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { DocActions } from "@/components/common/DocActions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
 import { lorSchema, type LorResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
+import { fileSlug } from "@/lib/doc/export";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { cn } from "@/lib/utils";
 import { LOR_TEMPLATES } from "@/lib/seed/documents";
 import type { LorRelationship } from "@/lib/seed/documents";
@@ -23,8 +26,8 @@ const RELATIONSHIPS: { key: LorRelationship; label: string; icon: typeof Graduat
 /** Letter of Recommendation templates (Feature 08). Relationship + program → tailored template. */
 export default function DocumentsLor() {
   const [relationship, setRelationship] = useState<LorRelationship>("professor");
-  const [program, setProgram] = useState("");
-  const [university, setUniversity] = useState("");
+  const [program, setProgram] = useSyncedState<string>("doc:lor:program", "");
+  const [university, setUniversity] = useSyncedState<string>("doc:lor:university", "");
   const [selectedId, setSelectedId] = useState<string>(
     LOR_TEMPLATES.find((t) => t.relationship === "professor")?.id ?? LOR_TEMPLATES[0].id,
   );
@@ -239,6 +242,10 @@ export default function DocumentsLor() {
               value={shown}
               rows={26}
               className="font-mono text-xs leading-relaxed"
+            />
+            <DocActions
+              text={shown}
+              filename={`recommendation-${fileSlug(program || relationshipLabel)}.txt`}
             />
           </CardContent>
         </Card>

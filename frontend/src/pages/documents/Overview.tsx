@@ -130,7 +130,7 @@ export default function DocumentsOverview() {
         </div>
       </section>
 
-      <Checklist items={APPLICATION_DOCS} title="Application documents" />
+      <Checklist items={APPLICATION_DOCS} title="Application documents" storageKey="app-docs" />
     </div>
   );
 }

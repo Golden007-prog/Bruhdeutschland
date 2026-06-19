@@ -1,14 +1,15 @@
-import { useState } from "react";
-import { Check, Copy, Lightbulb, Sparkles } from "lucide-react";
+import { Lightbulb, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { DocActions } from "@/components/common/DocActions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { fileSlug } from "@/lib/doc/export";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { NETWORKING_TEMPLATES, NETWORKING_TIPS } from "@/lib/seed/campus";
 
-/** A single editable, copyable outreach template (state lives in the parent map). */
+/** A single editable, copyable/downloadable outreach template (state lives in the parent map). */
 function TemplateCard({
   id,
   title,
@@ -22,18 +23,7 @@ function TemplateCard({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const fieldId = `template-${id}`;
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   return (
     <Card>
@@ -43,17 +33,7 @@ function TemplateCard({
             <CardTitle className="text-base">{title}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">{context}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={copy} aria-label={`Copy ${title} template`}>
-            {copied ? (
-              <>
-                <Check className="text-emerald-600" aria-hidden /> Copied
-              </>
-            ) : (
-              <>
-                <Copy aria-hidden /> Copy
-              </>
-            )}
-          </Button>
+          <DocActions text={value} filename={`outreach-${fileSlug(title)}.txt`} />
         </div>
       </CardHeader>
       <CardContent>
@@ -75,7 +55,8 @@ function TemplateCard({
 
 /** Academic networking — practical tips plus editable email templates for outreach. */
 export default function CampusNetworking() {
-  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
+  const [drafts, setDrafts] = useSyncedState<Record<string, string>>(
+    "campus:networking:drafts",
     Object.fromEntries(NETWORKING_TEMPLATES.map((t) => [t.id, t.body])),
   );
 
@@ -135,7 +116,7 @@ export default function CampusNetworking() {
               id={tpl.id}
               title={tpl.title}
               context={tpl.context}
-              value={drafts[tpl.id]}
+              value={drafts[tpl.id] ?? tpl.body}
               onChange={(next) => setDrafts((d) => ({ ...d, [tpl.id]: next }))}
             />
           ))}

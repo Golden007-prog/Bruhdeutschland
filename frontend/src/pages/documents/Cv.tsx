@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Loader2, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
+import { ExternalLink, Loader2, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { DocActions } from "@/components/common/DocActions";
 import { SourceLink } from "@/components/common/SourceLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
 import { cvPolishSchema, type CvPolishResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
+import { fileSlug } from "@/lib/doc/export";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { source } from "@/lib/sources";
 
 interface CvForm {
@@ -45,6 +47,24 @@ function entries(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Plain-text Europass-style export of the CV form (for copy/download). */
+function cvToText(f: CvForm): string {
+  const out: string[] = [f.fullName || "Your name"];
+  const contact = [f.email, f.phone, f.location].filter(Boolean).join(" · ");
+  if (contact) out.push(contact);
+  if (f.summary.trim()) out.push("", f.summary.trim());
+  const section = (title: string, text: string) => {
+    const items = entries(text);
+    if (!items.length) return;
+    out.push("", title.toUpperCase(), ...items.map((i) => `- ${i}`));
+  };
+  section("Education & training", f.education);
+  section("Work experience", f.experience);
+  section("Skills", f.skills);
+  section("Languages", f.languages);
+  return out.join("\n");
+}
+
 /** Renders a preview section only when it has content. */
 function PreviewSection({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
@@ -65,7 +85,7 @@ function PreviewSection({ title, items }: { title: string; items: string[] }) {
 
 /** Europass CV builder (Feature 07). Form sections in state → live preview. */
 export default function DocumentsCv() {
-  const [form, setForm] = useState<CvForm>(EMPTY);
+  const [form, setForm] = useSyncedState<CvForm>("doc:cv:form", EMPTY);
   const ai = useGenerate<CvPolishResult>();
 
   const set =
@@ -75,6 +95,9 @@ export default function DocumentsCv() {
 
   const hasContact = form.email || form.phone || form.location;
   const canPolish = Boolean(form.summary.trim() || form.experience.trim() || form.skills.trim());
+  const hasContent = Boolean(
+    form.fullName || form.summary || form.education || form.experience || form.skills || form.languages,
+  );
 
   const polishWithAi = async () => {
     const prompt = [
@@ -123,7 +146,17 @@ export default function DocumentsCv() {
             recognise it, and you can export an official version with the EU's free online editor.
             Build a draft here, then transfer it into the Europass editor for the final document.
           </p>
-          <SourceLink source={source("europass")} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <SourceLink source={source("europass")} />
+            <a
+              href="https://europa.eu/europass/en/create-europass-cv"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              Open the Europass CV editor <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
+          </div>
         </AlertDescription>
       </Alert>
 
@@ -235,7 +268,14 @@ export default function DocumentsCv() {
               <CardTitle className="text-base">Live preview</CardTitle>
               {ai.result && <AiGeneratedBadge />}
             </div>
-            <p className="text-xs text-muted-foreground">Europass-style layout. Copy into the official editor to export.</p>
+            <p className="text-xs text-muted-foreground">Europass-style layout. Copy or download the text, then paste it into the official editor to export.</p>
+            {hasContent && (
+              <DocActions
+                text={cvToText(form)}
+                filename={`cv-${fileSlug(form.fullName || "europass")}.txt`}
+                className="pt-1"
+              />
+            )}
           </CardHeader>
           <CardContent>
             <div className="rounded-md border bg-card p-5">

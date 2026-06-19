@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { uid } from "@/lib/doc/export";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { source } from "@/lib/sources";
 import type { OfficialFact } from "@/lib/types";
 import { VPD_PREREQUISITES } from "@/lib/seed/documents";
@@ -30,6 +32,7 @@ const STATUS_META: Record<VpdStatus, { label: string; icon: typeof Clock; classe
 
 const STATUS_ORDER: VpdStatus[] = ["requested", "processing", "received"];
 
+
 const VPD_PROCESSING: OfficialFact = {
   label: "VPD processing time",
   value: "~4–6 weeks",
@@ -46,19 +49,15 @@ const VPD_VALIDITY: OfficialFact = {
   note: "A VPD is generally usable for one application cycle. Confirm the exact validity on your VPD and with the university.",
 };
 
-let nextId = 1;
-
 /** VPD (Vorprüfungsdokumentation) tracker (Feature 10). */
 export default function DocumentsVpd() {
-  const [entries, setEntries] = useState<VpdEntry[]>([
-    { id: "vpd-seed-1", university: "Universität Stuttgart", status: "processing" },
-  ]);
+  const [entries, setEntries] = useSyncedState<VpdEntry[]>("doc:vpd:entries", []);
   const [draft, setDraft] = useState("");
 
   const addEntry = () => {
     const name = draft.trim();
     if (!name) return;
-    setEntries((prev) => [...prev, { id: `vpd-${nextId++}`, university: name, status: "requested" }]);
+    setEntries((prev) => [...prev, { id: uid("vpd"), university: name, status: "requested" }]);
     setDraft("");
   };
 
