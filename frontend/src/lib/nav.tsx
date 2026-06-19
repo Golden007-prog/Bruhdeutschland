@@ -136,6 +136,7 @@ const LanguageIeltsToefl = lazy(() => import("@/pages/language/IeltsToefl"));
 const LanguageGreGmat = lazy(() => import("@/pages/language/GreGmat"));
 const LanguageGoetheTestdaf = lazy(() => import("@/pages/language/GoetheTestdaf"));
 const LanguageExamsHub = lazy(() => import("@/pages/language/ExamsHub"));
+const LanguageExamTracker = lazy(() => import("@/pages/language/ExamTracker"));
 const ExamIelts = lazy(() => import("@/pages/language/exams/Ielts"));
 const ExamToefl = lazy(() => import("@/pages/language/exams/Toefl"));
 const ExamToeflLegacy = lazy(() => import("@/pages/language/exams/ToeflLegacy"));
@@ -201,6 +202,7 @@ export const NAV: NavItem[] = [
   { path: "/language/gre-gmat", label: "GRE / GMAT checker", title: "GRE / GMAT requirement checker", eyebrow: "Feature 15 · Language", description: "Find out whether your target programs require GRE or GMAT, and what scores are competitive.", group: "language", category: "language", icon: BarChart3, featureNo: 15, Component: LanguageGreGmat },
   { path: "/language/goethe-testdaf", label: "Goethe / TestDaF guides", title: "Goethe & TestDaF guides", eyebrow: "Feature 16 · Language", description: "Pick the right German certificate (TestDaF, DSH, Goethe, telc) and prepare for each section.", group: "language", category: "language", icon: BookOpenCheck, featureNo: 16, Component: LanguageGoetheTestdaf },
   { path: "/language/exams", label: "Mock exams", title: "Mock exam centre", eyebrow: "Übungstests · Mock exams", description: "Timed practice exams for every test you might need: IELTS, TOEFL, TestDaF, Goethe, GRE, and GMAT.", group: "language", category: "language", icon: ClipboardCheck, Component: LanguageExamsHub },
+  { path: "/language/exam-progress", label: "Exam progress", title: "Exam progress & analytics", eyebrow: "Fortschritt · Progress", description: "Track your mock-exam scores over time: per-skill and per-question-type accuracy, ranked weaknesses, a predicted band, and a personalised study plan.", group: "language", category: "language", icon: TrendingUp, Component: LanguageExamTracker },
   { path: "/language/exams/ielts", label: "IELTS mock", title: "IELTS Academic — practice exam", eyebrow: "Übungstest · IELTS", description: "A timed IELTS Academic practice set across Listening, Reading, and Writing question types.", group: "language", category: "language", icon: Headphones, hide: true, Component: ExamIelts },
   { path: "/language/exams/toefl", label: "TOEFL mock", title: "TOEFL iBT — practice exam", eyebrow: "Übungstest · TOEFL", description: "A timed TOEFL iBT practice set across Reading and Listening question types.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToefl },
   { path: "/language/exams/toefl-legacy", label: "TOEFL legacy mock", title: "TOEFL iBT (legacy 0–120) — practice exam", eyebrow: "Übungstest · TOEFL legacy", description: "Practice the retired pre-2026 TOEFL format and interpret an old 0–120 score.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToeflLegacy },
