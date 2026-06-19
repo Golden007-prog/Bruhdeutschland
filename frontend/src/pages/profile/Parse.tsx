@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { FileUp, Loader2, Lock, ScanLine, ShieldCheck } from "lucide-react";
+import { FileUp, Loader2, Lock, ScanLine, ShieldCheck, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { ResumeAnalyzer } from "@/components/ResumeAnalyzer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { parsedProfileSchema, type ParsedProfileResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
 import { mockParsedProfile } from "@/lib/mockData";
+import type { ParsedProfile } from "@/lib/types";
 
 const SAMPLE_TEXT = `Jane Doe — Backend Engineer
 B.Tech Computer Science, IIT Delhi (2024)
@@ -15,10 +19,32 @@ Skills: REST APIs, microservices, CI/CD`;
 
 type ParseState = "idle" | "parsing" | "done";
 
+/**
+ * Map the AI's shallow extraction into the app's full {@link ParsedProfile}. The deterministic
+ * official values (German GPA, total ECTS) are NOT produced by the model — they stay flagged for
+ * verification until computed by the backend (CLAUDE.md §2/§4).
+ */
+function toParsedProfile(result: ParsedProfileResult): ParsedProfile {
+  return {
+    fileName: "Pasted resume / LinkedIn text",
+    facts: result.facts,
+    germanGpa: { value: null, needsVerification: true },
+    gpaMethod: "Modified Bavarian Formula (computed by the backend, not the AI)",
+    totalEcts: { value: null, needsVerification: true },
+    skillGaps: result.skillGaps.map((g, i) => ({
+      id: `ai-gap-${i}`,
+      skill: g.skill,
+      severity: g.severity,
+    })),
+  };
+}
+
 /** Feature 01 — Resume & LinkedIn parsing. Demo intake: paste text → reveal the parsed profile. */
 export default function ProfileParse() {
   const [text, setText] = useState("");
   const [state, setState] = useState<ParseState>("idle");
+  const ai = useGenerate<ParsedProfileResult>();
+  const [aiProfile, setAiProfile] = useState<ParsedProfile | null>(null);
 
   const parse = () => {
     setState("parsing");
@@ -26,9 +52,35 @@ export default function ProfileParse() {
     window.setTimeout(() => setState("done"), 650);
   };
 
+  const parseWithAi = async () => {
+    setAiProfile(null);
+    const prompt = [
+      "Extract a structured profile from this resume / LinkedIn text for German Master's admissions.",
+      "Return only facts present in the text — never invent degrees, dates, employers, or grades.",
+      "facts: short label/value pairs (e.g. Degree, Institution, Graduation, Experience).",
+      "skillGaps: skills a German Master's programme typically expects that this profile does not",
+      "yet evidence, each with a severity of low/medium/high. Do not assert official requirements.",
+      "",
+      "Resume / LinkedIn text:",
+      text.trim(),
+    ].join("\n");
+    const result = await ai.generate(
+      parsedProfileSchema,
+      prompt,
+      "{ facts: {label,value}[], skillGaps: {skill, severity: low|medium|high}[] }",
+      0.3,
+    );
+    if (result) {
+      setAiProfile(toParsedProfile(result));
+      setState("done");
+    }
+  };
+
   const reset = () => {
     setState("idle");
     setText("");
+    setAiProfile(null);
+    ai.reset();
   };
 
   return (
@@ -100,7 +152,28 @@ export default function ProfileParse() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={parse} disabled={text.trim().length === 0 || state === "parsing"}>
+          <Button
+            onClick={parseWithAi}
+            disabled={text.trim().length === 0 || ai.loading || state === "parsing"}
+            aria-busy={ai.loading}
+          >
+            {ai.loading ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden />
+                Parsing with AI…
+              </>
+            ) : (
+              <>
+                <Sparkles aria-hidden />
+                Parse with AI
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={parse}
+            disabled={text.trim().length === 0 || state === "parsing" || ai.loading}
+          >
             {state === "parsing" ? (
               <>
                 <Loader2 className="animate-spin" aria-hidden />
@@ -109,30 +182,40 @@ export default function ProfileParse() {
             ) : (
               <>
                 <ScanLine aria-hidden />
-                Parse profile
+                Parse (demo)
               </>
             )}
           </Button>
-          {state === "done" && (
-            <Button variant="outline" onClick={reset}>
+          {(state === "done" || aiProfile) && (
+            <Button variant="ghost" onClick={reset}>
               Start over
             </Button>
           )}
         </div>
+
+        <p className="sr-only" role="status" aria-live="polite">
+          {ai.loading ? "Extracting your profile with AI." : ""}
+        </p>
+        {ai.noProvider && <NoProviderAlert className="mt-4" />}
+        {ai.error && <RetryAlert className="mt-4" message={ai.error} onRetry={parseWithAi} />}
       </section>
 
       {state === "done" && (
         <section aria-labelledby="parsed-heading" className="space-y-3">
-          <div>
-            <p className="eyebrow">Ergebnis · Parsed result</p>
-            <h2 id="parsed-heading" className="mt-1 text-lg font-semibold tracking-tight">
-              Extracted profile
-            </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="eyebrow">Ergebnis · Parsed result</p>
+              <h2 id="parsed-heading" className="mt-1 text-lg font-semibold tracking-tight">
+                Extracted profile
+              </h2>
+            </div>
+            {aiProfile && <AiGeneratedBadge />}
           </div>
-          <ResumeAnalyzer profile={mockParsedProfile} />
+          <ResumeAnalyzer profile={aiProfile ?? mockParsedProfile} />
           <p className="text-xs text-muted-foreground">
-            Demo result shown from sample data. In the full product these facts come from your own
-            document and feed directly into the GPA, ECTS, and matching tools.
+            {aiProfile
+              ? "Extracted from your pasted text. The German GPA and ECTS total are computed deterministically by the backend — they stay flagged for verification here."
+              : "Demo result shown from sample data. In the full product these facts come from your own document and feed directly into the GPA, ECTS, and matching tools."}
           </p>
         </section>
       )}

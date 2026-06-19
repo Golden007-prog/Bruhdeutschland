@@ -8,7 +8,8 @@ import { ARRIVAL_TASKS, PRE_DEPARTURE } from "@/lib/seed/checklists";
 
 /**
  * Pre-departure checklist — two phases as tabs: what to pack/arrange before the flight, and the
- * tasks that begin the moment you land. Check state is in-component only (no storage).
+ * tasks that begin the moment you land. Each list persists its checked state via a storageKey
+ * (localStorage now, Supabase-synced when signed in).
  */
 export default function CampusPreDeparture() {
   return (
@@ -42,7 +43,7 @@ export default function CampusPreDeparture() {
             Start this two to three weeks out. The required items are non-negotiable for entry and
             enrolment; the optional ones simply make the first days easier.
           </p>
-          <Checklist items={PRE_DEPARTURE} title="Pre-departure" />
+          <Checklist items={PRE_DEPARTURE} title="Pre-departure" storageKey="pre-departure" />
         </TabsContent>
 
         <TabsContent value="arrive" className="space-y-3">
@@ -50,7 +51,7 @@ export default function CampusPreDeparture() {
             Work through these in roughly this order — Anmeldung and a bank account unlock the
             residence permit, enrolment, and your transit ticket.
           </p>
-          <Checklist items={ARRIVAL_TASKS} title="After arrival" />
+          <Checklist items={ARRIVAL_TASKS} title="After arrival" storageKey="arrival-tasks" />
           <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <Home className="h-3.5 w-3.5" aria-hidden />
             Tip: book a temporary address for your first nights so you can register early.

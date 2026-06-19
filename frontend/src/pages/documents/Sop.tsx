@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Lightbulb, Wand2 } from "lucide-react";
+import { FileText, Lightbulb, Loader2, Sparkles, Wand2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { sopSchema, type SopResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
+import { anyProviderConfigured } from "@/lib/llm/registry";
 
 interface SopForm {
   program: string;
@@ -84,10 +88,34 @@ function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+/** Assemble the AI's structured SOP into the same editable plain-text format as the template. */
+function assembleAi(f: SopForm, ai: SopResult): string {
+  const program = f.program.trim() || "[target program]";
+  const university = f.university.trim() || "[university]";
+  return [
+    `Statement of Purpose`,
+    `${program} — ${university}`,
+    ``,
+    `1. Introduction`,
+    ai.intro,
+    ``,
+    `2. Motivation & background`,
+    ...ai.body.map((p) => p),
+    ``,
+    `3. Career goals`,
+    ai.conclusion,
+    ``,
+    `Sincerely,`,
+    `[Your name]`,
+  ].join("\n");
+}
+
 /** Statement of Purpose generator (Feature 06). Form → template-composed editable draft. */
 export default function DocumentsSop() {
   const [form, setForm] = useState<SopForm>(EMPTY);
   const [draft, setDraft] = useState("");
+  const ai = useGenerate<SopResult>();
+  const configured = anyProviderConfigured();
 
   const set =
     <K extends keyof SopForm>(key: K) =>
@@ -95,6 +123,30 @@ export default function DocumentsSop() {
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const generate = () => setDraft(composeDraft(form));
+
+  const generateWithAi = async () => {
+    const prompt = [
+      "Write a Statement of Purpose for a Master's application at a German public university.",
+      "Use only the applicant-provided facts below — do not invent achievements, names, or figures.",
+      "Be specific and concrete over generic praise. British/neutral English, professional tone.",
+      "",
+      `Target program: ${form.program.trim() || "(not given)"}`,
+      `University: ${form.university.trim() || "(not given)"}`,
+      `Applicant background: ${form.background.trim() || "(not given)"}`,
+      `Motivation points: ${form.motivation.trim() || "(not given)"}`,
+      `Why this program: ${form.whyProgram.trim() || "(not given)"}`,
+      `Career goal: ${form.careerGoal.trim() || "(not given)"}`,
+      "",
+      "Return an introduction, 2–4 body paragraphs (motivation, background, program fit), and a conclusion about career goals.",
+    ].join("\n");
+    const result = await ai.generate(
+      sopSchema,
+      prompt,
+      "{ intro: string, body: string[] (2-4 paragraphs), conclusion: string }",
+      0.7,
+    );
+    if (result) setDraft(assembleAi(form, result));
+  };
 
   return (
     <div className="space-y-6">
@@ -204,19 +256,55 @@ export default function DocumentsSop() {
               />
             </div>
 
-            <Button onClick={generate} className="w-full">
-              <Wand2 aria-hidden />
-              Generate draft
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={generateWithAi}
+                disabled={ai.loading}
+                className="w-full"
+                aria-busy={ai.loading}
+              >
+                {ai.loading ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden />
+                    Generating with AI…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles aria-hidden />
+                    Generate with AI
+                  </>
+                )}
+              </Button>
+              <Button onClick={generate} variant="outline" className="w-full">
+                <Wand2 aria-hidden />
+                Generate from template
+              </Button>
+            </div>
+
+            <p className="sr-only" role="status" aria-live="polite">
+              {ai.loading ? "Generating your statement of purpose with AI." : ""}
+            </p>
+
+            {!configured && !ai.noProvider && (
+              <p className="text-xs text-muted-foreground">
+                No AI provider set — &quot;Generate with AI&quot; falls back to the template. Add a
+                key in Settings for a tailored draft.
+              </p>
+            )}
+            {ai.noProvider && <NoProviderAlert />}
+            {ai.error && <RetryAlert message={ai.error} onRetry={generateWithAi} />}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Generated draft — edit before sending</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Generated draft — edit before sending</CardTitle>
+              {ai.result && <AiGeneratedBadge />}
+            </div>
             <p className="text-xs text-muted-foreground">
-              This is a template-assembled starting point, not a finished essay. Rewrite it in your
-              own voice, tighten the prose, and verify every detail before you submit.
+              This is a starting point, not a finished essay. Rewrite it in your own voice, tighten
+              the prose, and verify every detail before you submit.
             </p>
           </CardHeader>
           <CardContent>

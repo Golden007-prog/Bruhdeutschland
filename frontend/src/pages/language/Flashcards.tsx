@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { INITIAL_SRS, reviewByRating, type SrsState } from "@/lib/calc/srs";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { FLASHCARD_DECK } from "@/lib/seed/language";
 
 /** Speak German text aloud via the Web Speech API. */
@@ -22,12 +24,26 @@ const TTS_AVAILABLE = typeof window !== "undefined" && "speechSynthesis" in wind
 
 type Grade = "again" | "good" | "easy";
 
+/** Persisted SM-2 schedule for the deck, keyed by card id. */
+type SrsMap = Record<string, SrsState>;
+
+const EMPTY_SRS: SrsMap = {};
+
 /** Build the initial in-memory queue (the deck's card ids in order). */
 function initialQueue(): string[] {
   return FLASHCARD_DECK.map((c) => c.id);
 }
 
+/** Human-readable next-interval label for a card's current SM-2 state. */
+function nextIntervalLabel(state: SrsState | undefined): string {
+  if (!state || state.repetition === 0) return "new card";
+  const d = state.intervalDays;
+  return d === 1 ? "next in 1 day" : `next in ${d} days`;
+}
+
 export default function LanguageFlashcards() {
+  // Per-card SM-2 schedule persists across sessions/devices; the session queue is in-memory only.
+  const [srs, setSrs] = useSyncedState<SrsMap>("srs:german", EMPTY_SRS);
   const [queue, setQueue] = useState<string[]>(initialQueue);
   const [flipped, setFlipped] = useState(false);
 
@@ -44,6 +60,12 @@ export default function LanguageFlashcards() {
   const progressPct = total === 0 ? 100 : Math.round((learned / total) * 100);
 
   function grade(g: Grade): void {
+    if (!currentId) return;
+    // Deterministic SM-2 scheduling (src/lib/calc/srs.ts) — persist the new interval/easiness.
+    setSrs((prev) => ({
+      ...prev,
+      [currentId]: reviewByRating(prev[currentId] ?? INITIAL_SRS, g),
+    }));
     setQueue((prev) => {
       if (prev.length === 0) return prev;
       const [head, ...rest] = prev;
@@ -63,6 +85,12 @@ export default function LanguageFlashcards() {
     setFlipped(false);
   }
 
+  function resetProgress(): void {
+    setSrs(EMPTY_SRS);
+    setQueue(initialQueue());
+    setFlipped(false);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -78,7 +106,9 @@ export default function LanguageFlashcards() {
         <AlertDescription>
           Tap the card (or press Enter / Space) to flip it. Then rate your recall: <b>Again</b>{" "}
           keeps it in the queue to practice again, while <b>Good</b> and <b>Easy</b> retire it for
-          this session. The session ends when every card is retired. Progress is kept in memory only.
+          this session. The session ends when every card is retired. Each rating updates an SM-2
+          schedule (easiness, repetition, interval) that is saved on this device and synced to your
+          account when you sign in.
         </AlertDescription>
       </Alert>
 
@@ -89,10 +119,15 @@ export default function LanguageFlashcards() {
           <span className="official-figure font-medium text-foreground">{queue.length}</span> of{" "}
           <span className="official-figure font-medium text-foreground">{total}</span>
         </p>
-        <Button variant="ghost" size="sm" onClick={restart}>
-          <RotateCcw aria-hidden />
-          Restart
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={restart}>
+            <RotateCcw aria-hidden />
+            Restart
+          </Button>
+          <Button variant="ghost" size="sm" onClick={resetProgress}>
+            Reset progress
+          </Button>
+        </div>
       </div>
       <Progress value={progressPct} label="Flashcard session progress" indicatorClassName="bg-category-language" />
 
@@ -153,6 +188,12 @@ export default function LanguageFlashcards() {
             {!TTS_AVAILABLE && (
               <span className="text-xs text-muted-foreground">Audio unavailable in this browser.</span>
             )}
+          </div>
+
+          <div className="flex items-center justify-center">
+            <Badge variant="secondary" className="official-figure">
+              {nextIntervalLabel(srs[card.id])}
+            </Badge>
           </div>
 
           <div className="grid grid-cols-3 gap-3" role="group" aria-label="Rate your recall">

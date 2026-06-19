@@ -1,13 +1,27 @@
-import { AlertCircle, AlertTriangle, CircleDot, Info } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, AlertTriangle, CircleDot, Info, Loader2, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { skillGapAnalysisSchema, type SkillGapAnalysisResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
 import { mockParsedProfile } from "@/lib/mockData";
 import type { SkillGap } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Severity = SkillGap["severity"];
+
+/** A gap card model — either a seed gap (recommendation looked up by id) or an AI gap (inline). */
+interface DisplayGap {
+  key: string;
+  skill: string;
+  severity: Severity;
+  recommendation: string;
+}
 
 const SEVERITY_META: Record<
   Severity,
@@ -46,7 +60,7 @@ const RECOMMENDATIONS: Record<string, string> = {
 const FALLBACK_RECOMMENDATION =
   "Identify a concrete, verifiable way to demonstrate this skill — a certificate, a project, or coursework — and reference it explicitly in your application documents.";
 
-function GapCard({ gap }: { gap: SkillGap }) {
+function GapCard({ gap }: { gap: DisplayGap }) {
   const meta = SEVERITY_META[gap.severity];
   const Icon = meta.icon;
   return (
@@ -66,17 +80,54 @@ function GapCard({ gap }: { gap: SkillGap }) {
       </CardHeader>
       <CardContent>
         <p className="eyebrow mb-1">How to close it</p>
-        <p className="text-sm text-muted-foreground">
-          {RECOMMENDATIONS[gap.id] ?? FALLBACK_RECOMMENDATION}
-        </p>
+        <p className="text-sm text-muted-foreground">{gap.recommendation}</p>
       </CardContent>
     </Card>
   );
 }
 
+/** The static/seed gaps, mapped to the shared display model. */
+const SEED_GAPS: DisplayGap[] = mockParsedProfile.skillGaps.map((g) => ({
+  key: g.id,
+  skill: g.skill,
+  severity: g.severity,
+  recommendation: RECOMMENDATIONS[g.id] ?? FALLBACK_RECOMMENDATION,
+}));
+
 /** Feature 04 — Skill-gap analysis. Groups the profile's gaps by severity with concrete guidance. */
 export default function ProfileSkillGap() {
-  const gaps = mockParsedProfile.skillGaps;
+  const [field, setField] = useState("");
+  const ai = useGenerate<SkillGapAnalysisResult>();
+
+  const aiGaps: DisplayGap[] | null = ai.result
+    ? ai.result.gaps.map((g, i) => ({
+        key: `ai-${i}`,
+        skill: g.skill,
+        severity: g.severity,
+        recommendation: g.howToClose,
+      }))
+    : null;
+
+  const gaps = aiGaps ?? SEED_GAPS;
+  const usingAi = aiGaps !== null;
+
+  const analyzeWithAi = async () => {
+    const prompt = [
+      "Analyse skill gaps for a candidate applying to a Master's at a German public university.",
+      "Return gaps a typical programme expects that this profile may not yet evidence, each with a",
+      "severity (low/medium/high) and a concrete, actionable howToClose. This is reasoning, not an",
+      "official admission requirement — do not state thresholds, grades, or guaranteed outcomes.",
+      "",
+      `Candidate field / background / target: ${field.trim() || "CS bachelor, 1 yr backend experience, targeting a data-engineering Master's"}`,
+    ].join("\n");
+    await ai.generate(
+      skillGapAnalysisSchema,
+      prompt,
+      "{ gaps: { skill, severity: low|medium|high, howToClose }[] }",
+      0.5,
+    );
+  };
+
   const groups = (["high", "medium", "low"] as const)
     .map((sev) => ({ sev, items: gaps.filter((g) => g.severity === sev) }))
     .filter((group) => group.items.length > 0);
@@ -91,16 +142,50 @@ export default function ProfileSkillGap() {
         fileRef="§ 04"
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm">
-          <CircleDot className="h-4 w-4 text-category-profile" aria-hidden />
-          <span>
-            <span className="official-figure font-semibold">{gaps.length}</span> gaps identified for
-            this profile
-          </span>
+      <section className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm">
+            <CircleDot className="h-4 w-4 text-category-profile" aria-hidden />
+            <span>
+              <span className="official-figure font-semibold">{gaps.length}</span> gaps identified
+              for this profile
+            </span>
+          </div>
+          <span className="text-[0.68rem] text-muted-foreground">AI-reasoned · not official</span>
         </div>
-        <span className="text-[0.68rem] text-muted-foreground">AI-reasoned · not official</span>
-      </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="gap-field" className="sr-only">
+            Your field, background, and target program
+          </label>
+          <Input
+            id="gap-field"
+            value={field}
+            onChange={(e) => setField(e.target.value)}
+            placeholder="Describe your background and target program for a tailored analysis"
+            disabled={ai.loading}
+          />
+          <Button onClick={analyzeWithAi} disabled={ai.loading} aria-busy={ai.loading} className="shrink-0">
+            {ai.loading ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden />
+                Analyzing…
+              </>
+            ) : (
+              <>
+                <Sparkles aria-hidden />
+                Analyze with AI
+              </>
+            )}
+          </Button>
+        </div>
+        <p className="sr-only" role="status" aria-live="polite">
+          {ai.loading ? "Analyzing your skill gaps with AI." : ""}
+        </p>
+        {usingAi && <AiGeneratedBadge />}
+        {ai.noProvider && <NoProviderAlert />}
+        {ai.error && <RetryAlert message={ai.error} onRetry={analyzeWithAi} />}
+      </section>
 
       {groups.map(({ sev, items }) => {
         const meta = SEVERITY_META[sev];
@@ -118,7 +203,7 @@ export default function ProfileSkillGap() {
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {items.map((gap) => (
-                <GapCard key={gap.id} gap={gap} />
+                <GapCard key={gap.key} gap={gap} />
               ))}
             </div>
           </section>

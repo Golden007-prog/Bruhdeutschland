@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
-import { Briefcase, GraduationCap, Mail } from "lucide-react";
+import { Briefcase, GraduationCap, Loader2, Mail, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { lorSchema, type LorResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
 import { cn } from "@/lib/utils";
 import { LOR_TEMPLATES } from "@/lib/seed/documents";
 import type { LorRelationship } from "@/lib/seed/documents";
@@ -42,11 +46,39 @@ export default function DocumentsLor() {
     return body;
   }, [selected, program, university]);
 
+  const ai = useGenerate<LorResult>();
+
   const chooseRelationship = (key: LorRelationship) => {
     setRelationship(key);
     const first = LOR_TEMPLATES.find((t) => t.relationship === key);
     if (first) setSelectedId(first.id);
+    ai.reset();
   };
+
+  const relationshipLabel =
+    RELATIONSHIPS.find((r) => r.key === relationship)?.label ?? "recommender";
+
+  const generateWithAi = async () => {
+    const prompt = [
+      "Draft a letter of recommendation for a Master's application at a German public university.",
+      "Write from the recommender's perspective. Keep placeholders in {{double braces}} for any",
+      "specifics the recommender must personalise (e.g. {{specific project}}, {{your name}}).",
+      "Do not invent grades, awards, or quantified achievements — leave them as placeholders.",
+      "Professional, warm but credible tone; 3–5 paragraphs.",
+      "",
+      `Recommender relationship: ${relationshipLabel}`,
+      `Target program: ${program.trim() || "{{Program name}}"}`,
+      `University: ${university.trim() || "{{University name}}"}`,
+    ].join("\n");
+    await ai.generate(
+      lorSchema,
+      prompt,
+      "{ body: string } — the full letter text with {{placeholders}}",
+      0.7,
+    );
+  };
+
+  const shown = ai.result?.body ?? filled;
 
   return (
     <div className="space-y-6">
@@ -160,21 +192,51 @@ export default function DocumentsLor() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base">{selected?.label}</CardTitle>
-              <Badge variant="secondary">Template — for the recommender to complete</Badge>
+              {ai.result ? (
+                <AiGeneratedBadge />
+              ) : (
+                <Badge variant="secondary">Template — for the recommender to complete</Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Placeholders in <span className="font-mono">{"{{double braces}}"}</span> are filled by
               your recommender. Program and university are pre-filled from the fields on the left.
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={generateWithAi} disabled={ai.loading} aria-busy={ai.loading}>
+                {ai.loading ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden />
+                    Tailoring with AI…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles aria-hidden />
+                    Tailor with AI
+                  </>
+                )}
+              </Button>
+              {ai.result && (
+                <Button variant="ghost" size="sm" onClick={ai.reset}>
+                  Back to template
+                </Button>
+              )}
+            </div>
+            <p className="sr-only" role="status" aria-live="polite">
+              {ai.loading ? "Tailoring the recommendation letter with AI." : ""}
+            </p>
+            {ai.noProvider && <NoProviderAlert />}
+            {ai.error && <RetryAlert message={ai.error} onRetry={generateWithAi} />}
+
             <label htmlFor="lor-body" className="sr-only">
               Recommendation letter template (editable)
             </label>
             <Textarea
               id="lor-body"
               readOnly
-              value={filled}
+              value={shown}
               rows={26}
               className="font-mono text-xs leading-relaxed"
             />

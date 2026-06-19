@@ -1,14 +1,67 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, MapPin } from "lucide-react";
+import { AlertTriangle, Loader2, MapPin, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SourceLink } from "@/components/common/SourceLink";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { programMatchesSchema, type ProgramMatchesResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
+import { source } from "@/lib/sources";
 import { MATCHED_PROGRAMS, type MatchedProgram, type ProgramLanguage } from "@/lib/seed/profile";
 import { cn } from "@/lib/utils";
+
+type AiProgram = ProgramMatchesResult["programs"][number];
+
+/** A live-AI program suggestion. Fit is qualitative (a reason), not a score; requirements are not
+ *  asserted — every threshold stays unverified with a link to DAAD (CLAUDE.md §2/§3). */
+function AiProgramCard({ program }: { program: AiProgram }) {
+  return (
+    <Card className="flex h-full flex-col">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-base leading-snug">{program.name}</CardTitle>
+            <p className="mt-1 text-sm font-medium">{program.university}</p>
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" aria-hidden />
+              {program.city}
+            </p>
+          </div>
+          <Badge variant={program.language === "EN" ? "secondary" : "outline"}>
+            {program.language}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3">
+        <div>
+          <p className="eyebrow mb-1">Why it fits</p>
+          <p className="text-sm text-muted-foreground">{program.fitReason}</p>
+        </div>
+
+        <div className="mt-auto space-y-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="eyebrow !text-amber-700">Requirements</span>
+            <Badge variant="warning" className="gap-1">
+              <AlertTriangle className="h-3 w-3" aria-hidden />
+              Needs verification
+            </Badge>
+          </div>
+          <p className="text-[0.7rem] text-amber-800">
+            Admission thresholds (grade, ECTS, test scores) are program-specific and change yearly —
+            confirm this program exists and meets your plan on the official page.
+          </p>
+          <SourceLink source={source("daadRequirements")} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 type LanguageFilter = "all" | ProgramLanguage;
 
@@ -86,6 +139,8 @@ function ProgramCard({ program }: { program: MatchedProgram }) {
 export default function ProfileMatching() {
   const [language, setLanguage] = useState<LanguageFilter>("all");
   const [minFit, setMinFit] = useState<number>(0);
+  const [field, setField] = useState("");
+  const ai = useGenerate<ProgramMatchesResult>();
 
   const results = useMemo(
     () =>
@@ -94,6 +149,23 @@ export default function ProfileMatching() {
       ).sort((a, b) => b.fitPct - a.fitPct),
     [language, minFit],
   );
+
+  const matchWithAi = async () => {
+    const prompt = [
+      "Suggest about 5 Master's programs at German PUBLIC universities for this applicant.",
+      "Each: name, university, city, language (EN or DE), and a one-sentence fitReason.",
+      "Only real, plausible public-university programs. Do NOT state admission thresholds,",
+      "grades, fees, or deadlines — those are verified separately.",
+      "",
+      `Applicant field / background / goal: ${field.trim() || "Computer Science Master's, English-taught preferred"}`,
+    ].join("\n");
+    await ai.generate(
+      programMatchesSchema,
+      prompt,
+      "{ programs: { name, university, city, language: EN|DE, fitReason }[] (about 5) }",
+      0.6,
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -113,6 +185,62 @@ export default function ProfileMatching() {
           for verification with a link to the official source.
         </AlertDescription>
       </Alert>
+
+      <section className="rounded-lg border bg-card p-4 shadow-sm" aria-labelledby="ai-match-heading">
+        <h2 id="ai-match-heading" className="text-sm font-medium">
+          Match with AI
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Describe your field, background, and goal — get a tailored shortlist. Requirements still
+          need verifying against the official source.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="match-field" className="sr-only">
+            Your field, background, and goal
+          </label>
+          <Input
+            id="match-field"
+            value={field}
+            onChange={(e) => setField(e.target.value)}
+            placeholder="e.g. CS bachelor, 1 yr backend, want a data-engineering Master's in English"
+            disabled={ai.loading}
+          />
+          <Button onClick={matchWithAi} disabled={ai.loading} aria-busy={ai.loading} className="shrink-0">
+            {ai.loading ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden />
+                Matching…
+              </>
+            ) : (
+              <>
+                <Sparkles aria-hidden />
+                Match with AI
+              </>
+            )}
+          </Button>
+        </div>
+        <p className="sr-only" role="status" aria-live="polite">
+          {ai.loading ? "Finding matching programs with AI." : ""}
+        </p>
+        {ai.noProvider && <NoProviderAlert className="mt-3" />}
+        {ai.error && <RetryAlert className="mt-3" message={ai.error} onRetry={matchWithAi} />}
+      </section>
+
+      {ai.result && (
+        <section aria-labelledby="ai-results-heading" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="ai-results-heading" className="text-lg font-semibold tracking-tight">
+              AI-matched programs
+            </h2>
+            <AiGeneratedBadge />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {ai.result.programs.map((p, i) => (
+              <AiProgramCard key={`${p.university}-${p.name}-${i}`} program={p} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section
         className="rounded-lg border bg-card p-4 shadow-sm"

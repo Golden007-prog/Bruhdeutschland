@@ -36,14 +36,14 @@ export default function DocumentsHubPage() {
         </TabsList>
 
         <TabsContent value="application">
-          <Checklist items={APPLICATION_DOCS} title="Application documents" />
+          <Checklist items={APPLICATION_DOCS} title="Application documents" storageKey="app-docs" />
           <p className="mt-3 text-xs text-muted-foreground">
             Required vs. optional varies by program — always cross-check each university's own list.
           </p>
         </TabsContent>
 
         <TabsContent value="visa">
-          <Checklist items={VISA_DOCS} title="Student-visa documents" />
+          <Checklist items={VISA_DOCS} title="Student-visa documents" storageKey="visa-docs" />
           <p className="mt-3 text-xs text-muted-foreground">
             The exact list is mission-specific. Confirm requirements with your German embassy or
             consulate before your appointment.
@@ -51,7 +51,7 @@ export default function DocumentsHubPage() {
         </TabsContent>
 
         <TabsContent value="arrival">
-          <Checklist items={ARRIVAL_TASKS} title="After you arrive" />
+          <Checklist items={ARRIVAL_TASKS} title="After you arrive" storageKey="arrival" />
           <p className="mt-3 text-xs text-muted-foreground">
             Do these in roughly this order — Anmeldung within 14 days unlocks most of the rest.
           </p>

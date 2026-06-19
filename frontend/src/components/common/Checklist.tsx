@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
 import { SourceLink } from "@/components/common/SourceLink";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import type { ChecklistItemDef, Source } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -12,16 +13,34 @@ export interface ChecklistProps {
   title?: string;
   /** Optional per-item source map keyed by item id. */
   sources?: Record<string, Source>;
+  /**
+   * Optional persistence key. When provided, the checked map is persisted (localStorage-first,
+   * Supabase-synced when signed in) under `checklist:<storageKey>`. When omitted, the checklist
+   * keeps its state in component memory only — identical to the previous behaviour.
+   */
+  storageKey?: string;
   className?: string;
 }
 
+type CheckedMap = Record<string, boolean>;
+
+const EMPTY_CHECKED: CheckedMap = {};
+
 /**
- * Interactive document-gathering checklist. Check state lives in component state only (no
- * localStorage, per the Phase-3 no-storage rule). Required vs optional is shown explicitly, and a
- * progress bar tracks required items so "ready to submit" is unambiguous.
+ * Interactive document-gathering checklist. When `storageKey` is given, check state is persisted via
+ * `useSyncedState` (localStorage now, Supabase when signed in); otherwise it lives in component state
+ * only. Required vs optional is shown explicitly, and a progress bar tracks required items so "ready
+ * to submit" is unambiguous.
  */
-export function Checklist({ items, title, sources, className }: ChecklistProps) {
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+export function Checklist({ items, title, sources, storageKey, className }: ChecklistProps) {
+  // Both hooks are always called (Rules of Hooks); we read/write whichever the storageKey selects.
+  const [localChecked, setLocalChecked] = useState<CheckedMap>(EMPTY_CHECKED);
+  const [syncedChecked, setSyncedChecked] = useSyncedState<CheckedMap>(
+    `checklist:${storageKey ?? ""}`,
+    EMPTY_CHECKED,
+  );
+  const checked = storageKey ? syncedChecked : localChecked;
+  const setChecked = storageKey ? setSyncedChecked : setLocalChecked;
   const requiredIds = useMemo(() => items.filter((i) => !i.optional).map((i) => i.id), [items]);
   const doneRequired = requiredIds.filter((id) => checked[id]).length;
   const pct = requiredIds.length ? Math.round((doneRequired / requiredIds.length) * 100) : 100;

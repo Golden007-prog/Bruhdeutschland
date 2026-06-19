@@ -1,5 +1,18 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Lightbulb, Target, Volume2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Lightbulb,
+  Loader2,
+  MessageSquare,
+  Sparkles,
+  Target,
+  Volume2,
+  Wrench,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
@@ -7,6 +20,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { interviewFeedbackSchema, type InterviewFeedbackResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
 import { INTERVIEW_QUESTIONS } from "@/lib/seed/visa";
 
 /** Whether the browser exposes the Web Speech API (the pluggable TTS made concrete). */
@@ -16,6 +33,8 @@ const SPEECH_AVAILABLE = typeof window !== "undefined" && "speechSynthesis" in w
 export default function VisaSimulator() {
   const [index, setIndex] = useState(0);
   const [showTips, setShowTips] = useState(false);
+  const [answer, setAnswer] = useState("");
+  const ai = useGenerate<InterviewFeedbackResult>();
 
   const total = INTERVIEW_QUESTIONS.length;
   const current = INTERVIEW_QUESTIONS[index];
@@ -24,6 +43,26 @@ export default function VisaSimulator() {
   const go = (next: number) => {
     setIndex(next);
     setShowTips(false);
+    setAnswer("");
+    ai.reset();
+  };
+
+  const getFeedback = async () => {
+    const prompt = [
+      "You are a German student-visa interview coach. Give constructive feedback on the applicant's",
+      "answer to the question below. Be honest and specific. Never advise lying — encourage genuine,",
+      "well-prepared answers. Provide strengths, improvements, and one strong sample answer.",
+      "",
+      `Question: ${current.question}`,
+      `What the officer is checking: ${current.checking}`,
+      `Applicant's answer: ${answer.trim()}`,
+    ].join("\n");
+    await ai.generate(
+      interviewFeedbackSchema,
+      prompt,
+      "{ strengths: string[], improvements: string[], sampleAnswer: string }",
+      0.6,
+    );
   };
 
   const speak = () => {
@@ -120,6 +159,94 @@ export default function VisaSimulator() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <div className="space-y-1.5">
+              <label htmlFor="visa-answer" className="flex items-center gap-2 text-sm font-medium">
+                <MessageSquare className="h-4 w-4 text-category-visa" aria-hidden />
+                Your answer
+              </label>
+              <Textarea
+                id="visa-answer"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Type or dictate your answer, then get AI feedback before moving on."
+                rows={4}
+                disabled={ai.loading}
+              />
+            </div>
+            <Button
+              onClick={getFeedback}
+              disabled={ai.loading || answer.trim().length === 0}
+              aria-busy={ai.loading}
+            >
+              {ai.loading ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden />
+                  Getting feedback…
+                </>
+              ) : (
+                <>
+                  <Sparkles aria-hidden />
+                  Get feedback
+                </>
+              )}
+            </Button>
+            <p className="sr-only" role="status" aria-live="polite">
+              {ai.loading ? "Generating feedback on your interview answer." : ""}
+            </p>
+            {ai.noProvider && <NoProviderAlert />}
+            {ai.error && <RetryAlert message={ai.error} onRetry={getFeedback} />}
+
+            {ai.result && (
+              <div
+                className="space-y-4 rounded-md border bg-muted/30 p-4"
+                aria-live="polite"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="eyebrow">Interview feedback</p>
+                  <AiGeneratedBadge />
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-medium text-emerald-900">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+                    Strengths
+                  </p>
+                  <ul className="mt-1.5 space-y-1">
+                    {ai.result.strengths.map((s, i) => (
+                      <li key={`strength-${i}`} className="flex gap-2 text-sm text-muted-foreground">
+                        <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
+                    <Wrench className="h-4 w-4 text-amber-600" aria-hidden />
+                    What to improve
+                  </p>
+                  <ul className="mt-1.5 space-y-1">
+                    {ai.result.improvements.map((s, i) => (
+                      <li key={`improve-${i}`} className="flex gap-2 text-sm text-muted-foreground">
+                        <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="eyebrow mb-1">Sample answer</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {ai.result.sampleAnswer}
+                  </p>
+                </div>
               </div>
             )}
           </div>

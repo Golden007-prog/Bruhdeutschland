@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { Mail, MapPin, Phone, User } from "lucide-react";
+import { Loader2, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SourceLink } from "@/components/common/SourceLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { cvPolishSchema, type CvPolishResult } from "@/features/ai/schemas";
+import { useGenerate } from "@/features/ai/useGenerate";
 import { source } from "@/lib/sources";
 
 interface CvForm {
@@ -62,6 +66,7 @@ function PreviewSection({ title, items }: { title: string; items: string[] }) {
 /** Europass CV builder (Feature 07). Form sections in state → live preview. */
 export default function DocumentsCv() {
   const [form, setForm] = useState<CvForm>(EMPTY);
+  const ai = useGenerate<CvPolishResult>();
 
   const set =
     <K extends keyof CvForm>(key: K) =>
@@ -69,6 +74,36 @@ export default function DocumentsCv() {
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const hasContact = form.email || form.phone || form.location;
+  const canPolish = Boolean(form.summary.trim() || form.experience.trim() || form.skills.trim());
+
+  const polishWithAi = async () => {
+    const prompt = [
+      "Polish this CV content for a Master's application at a German public university.",
+      "Use ONLY the facts provided — do not invent roles, employers, dates, or metrics.",
+      "Write a concise professional summary (2–3 sentences) and rewrite each work-experience line",
+      "as a stronger, action-led bullet. Neutral professional English.",
+      "",
+      `Current summary: ${form.summary.trim() || "(none)"}`,
+      `Skills: ${form.skills.trim() || "(none)"}`,
+      `Education: ${form.education.trim() || "(none)"}`,
+      `Work experience (one per line):\n${form.experience.trim() || "(none)"}`,
+    ].join("\n");
+    const result = await ai.generate(
+      cvPolishSchema,
+      prompt,
+      "{ summary: string, experienceBullets: string[] }",
+      0.6,
+    );
+    if (result) {
+      setForm((prev) => ({
+        ...prev,
+        summary: result.summary,
+        experience: result.experienceBullets.length
+          ? result.experienceBullets.join("\n")
+          : prev.experience,
+      }));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -161,12 +196,45 @@ export default function DocumentsCv() {
               </label>
               <Textarea id="cv-languages" value={form.languages} onChange={set("languages")} rows={2} placeholder={"English — C1 (IELTS 7.5)\nGerman — B1\nHindi — native"} />
             </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Button
+                onClick={polishWithAi}
+                disabled={ai.loading || !canPolish}
+                aria-busy={ai.loading}
+                className="w-full"
+              >
+                {ai.loading ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden />
+                    Polishing with AI…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles aria-hidden />
+                    Polish summary &amp; bullets with AI
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Rewrites your summary and experience lines from the facts you entered. Review before
+                using — nothing is invented.
+              </p>
+              <p className="sr-only" role="status" aria-live="polite">
+                {ai.loading ? "Polishing your CV with AI." : ""}
+              </p>
+              {ai.noProvider && <NoProviderAlert />}
+              {ai.error && <RetryAlert message={ai.error} onRetry={polishWithAi} />}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="lg:sticky lg:top-4 self-start">
           <CardHeader>
-            <CardTitle className="text-base">Live preview</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Live preview</CardTitle>
+              {ai.result && <AiGeneratedBadge />}
+            </div>
             <p className="text-xs text-muted-foreground">Europass-style layout. Copy into the official editor to export.</p>
           </CardHeader>
           <CardContent>
