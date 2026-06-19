@@ -8,7 +8,7 @@ import { EXAM_SPECS, type SectionSpec } from "@/data/exam-specs";
 import { getSeedForm } from "@/data/seed-forms";
 import { LLMError } from "@/lib/llm/types";
 import { NoProviderError, resolveProvider } from "@/lib/llm/registry";
-import { buildSectionPrompt, SECTION_SCHEMA_HINT } from "./prompts";
+import { buildSectionPrompt, SECTION_SCHEMA_HINT, type Difficulty } from "./prompts";
 import { generatedSectionSchema, type GeneratedExam, type GeneratedSection } from "./schema";
 import { makeNonce, pickTopics, topicPool } from "./topics";
 
@@ -28,6 +28,10 @@ export interface GenerateOptions {
   exclude?: string[];
   /** CEFR level for Goethe. */
   level?: string;
+  /** TOEFL-2026 multistage difficulty for this generation. */
+  difficulty?: Difficulty;
+  /** Adaptive stage label (1 routing, 2 adapted). */
+  stage?: 1 | 2;
   signal?: AbortSignal;
   onProgress?: (p: GenProgress) => void;
 }
@@ -68,7 +72,7 @@ async function generateSection(
   const spec = EXAM_SPECS[examId];
   const provider = await resolveProvider();
   const topics = pickTopics(topicPool(examId, section.skill), opts.exclude ?? [], 2, `${nonce}-${section.skill}`);
-  const prompt = buildSectionPrompt({ spec, section, nonce, topics, level: opts.level });
+  const prompt = buildSectionPrompt({ spec, section, nonce, topics, level: opts.level, difficulty: opts.difficulty, stage: opts.stage });
 
   try {
     return await provider.generateJSON(generatedSectionSchema, prompt, SECTION_SCHEMA_HINT, {
@@ -125,4 +129,27 @@ export async function generateExam(examId: string, opts: GenerateOptions = {}): 
     if (err instanceof NoProviderError) throw err;
     throw err;
   }
+}
+
+/**
+ * Generate an adaptive Stage-2 block for a TOEFL-2026 Reading/Listening section (work-order §4/§6).
+ * The runner calls this after Stage 1, passing a difficulty derived from Stage-1 accuracy, and appends
+ * the returned items. Throws (so the runner can fall back to the pre-generated items) if no provider
+ * is available or generation fails.
+ */
+export async function generateAdaptiveStage(
+  examId: string,
+  skill: string,
+  difficulty: Difficulty,
+  opts: { exclude?: string[]; signal?: AbortSignal } = {},
+): Promise<GeneratedSection> {
+  const spec = EXAM_SPECS[examId];
+  const base = spec?.sections.find((s) => s.skill === skill);
+  if (!base) throw new Error(`No ${skill} section for ${examId}`);
+  const stageSection: SectionSpec = {
+    ...base,
+    questions: Math.max(4, Math.round(base.questions / 2)),
+    openTasks: 0,
+  };
+  return generateSection(examId, stageSection, makeNonce(), { ...opts, difficulty, stage: 2 });
 }

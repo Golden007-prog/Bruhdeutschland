@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, Clock, Flag, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Loader2, Sparkles } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { MathText } from "./MathText";
 import { FigureView } from "./FigureView";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { SpeakingTask } from "./SpeakingTask";
+import { ItemReview, QuestionItem } from "./QuestionItem";
 import type { ExamSpec } from "@/data/exam-specs";
-import { buildRubricPrompt, RUBRIC_SCHEMA_HINT } from "@/lib/exam/prompts";
+import { rubricFor } from "@/data/band-descriptors";
+import { buildRubricPrompt, RUBRIC_SCHEMA_HINT, type Difficulty } from "@/lib/exam/prompts";
+import { generateAdaptiveStage } from "@/lib/exam/generate";
 import { resolveProvider } from "@/lib/llm/registry";
-import { rubricFeedbackSchema, type GeneratedExam, type GeneratedSection, type ObjectiveQuestion, type RubricFeedback } from "@/lib/exam/schema";
-import { scoreExam, type AnswerMap, type ExamScore } from "@/lib/exam/scoring";
+import { rubricFeedbackSchema, type GeneratedExam, type GeneratedSection, type RubricFeedback } from "@/lib/exam/schema";
+import { isAnswered, markItem, scoreExam, type AnswerMap, type AnswerValue, type ExamScore } from "@/lib/exam/scoring";
+import { SCALE_DISCLAIMER } from "@/lib/exam/scale";
 
 type Phase = "run" | "scoring" | "review";
 
@@ -28,21 +31,39 @@ function sectionTime(spec: ExamSpec, section: GeneratedSection): number {
   return (spec.sections.find((s) => s.skill === section.skill)?.timeMin ?? 30) * 60;
 }
 
-export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spec: ExamSpec; onRestart: () => void }) {
+/** Local objective accuracy of a section (for adaptive difficulty routing). */
+function sectionAccuracy(section: GeneratedSection, answers: AnswerMap): number {
+  let earned = 0;
+  let possible = 0;
+  for (const q of section.objective) {
+    const m = markItem(q, answers[q.id]);
+    earned += m.earned;
+    possible += m.possible;
+  }
+  return possible > 0 ? earned / possible : 0.5;
+}
+
+export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: GeneratedExam; spec: ExamSpec; onRestart: () => void }) {
   const reduce = useReducedMotion();
+  const [exam, setExam] = useState<GeneratedExam>(initialExam);
   const [sectionIdx, setSectionIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [openResponses, setOpenResponses] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<Phase>("run");
-  const [timeLeft, setTimeLeft] = useState(() => sectionTime(spec, exam.sections[0]));
+  const [timeLeft, setTimeLeft] = useState(() => sectionTime(spec, initialExam.sections[0]));
   const [score, setScore] = useState<ExamScore | null>(null);
   const [rubrics, setRubrics] = useState<Record<string, RubricFeedback>>({});
   const [rubricNote, setRubricNote] = useState<string>("");
+  const [adapted, setAdapted] = useState<Set<string>>(new Set());
+  const [adapting, setAdapting] = useState(false);
   const qRefs = useRef<Record<string, HTMLElement | null>>({});
 
+  const adaptiveSkills = new Set(spec.sections.filter((s) => s.adaptive).map((s) => s.skill));
   const section = exam.sections[sectionIdx];
   const lastSection = sectionIdx === exam.sections.length - 1;
+  const isAdaptiveSection = adaptiveSkills.has(section.skill) && !exam.isSeed;
+  const needsAdaptStage = isAdaptiveSection && !adapted.has(section.skill);
 
   // Per-section countdown; auto-advances when it hits zero.
   useEffect(() => {
@@ -72,12 +93,36 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
     });
   }
 
+  function setAnswer(id: string, value: AnswerValue) {
+    setAnswers((a) => ({ ...a, [id]: value }));
+  }
+
+  /** Generate the adapted Stage-2 block at a difficulty derived from Stage-1 accuracy. */
+  async function adaptStage() {
+    setAdapting(true);
+    const pct = sectionAccuracy(section, answers);
+    const difficulty: Difficulty = pct < 0.5 ? "easier" : pct > 0.8 ? "harder" : "standard";
+    try {
+      const stage2 = await generateAdaptiveStage(exam.examId, section.skill, difficulty);
+      setExam((prev) => ({
+        ...prev,
+        sections: prev.sections.map((sec, i) =>
+          i === sectionIdx ? { ...sec, objective: [...sec.objective, ...stage2.objective] } : sec,
+        ),
+      }));
+    } catch {
+      // No provider / generation failed — continue with Stage 1 only.
+    }
+    setAdapted((prev) => new Set(prev).add(section.skill));
+    setAdapting(false);
+  }
+
   async function submit() {
     setPhase("scoring");
     const result = scoreExam(exam, answers, { bandTable: spec.rawToBand, scale: spec.scale });
     setScore(result);
 
-    // Best-effort AI rubric for answered open tasks.
+    // Best-effort AI rubric (with descriptor evidence + range) for answered open tasks.
     const openTasks = exam.sections.flatMap((s) => s.open.map((t) => ({ section: s, task: t })));
     const answered = openTasks.filter(({ task }) => (openResponses[task.id] ?? "").trim().length > 20);
     if (answered.length === 0) {
@@ -86,13 +131,16 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
     }
     try {
       const provider = await resolveProvider();
-      const criteria = spec.id === "ielts"
-        ? ["Task Achievement/Response", "Coherence & Cohesion", "Lexical Resource", "Grammatical Range & Accuracy"]
-        : ["Content", "Organization", "Language"];
       const results = await Promise.allSettled(
-        answered.map(({ task }) =>
-          provider.generateJSON(rubricFeedbackSchema, buildRubricPrompt(spec, task.prompt, openResponses[task.id], criteria), RUBRIC_SCHEMA_HINT, { temperature: 0.4 }),
-        ),
+        answered.map(({ section: sec, task }) => {
+          const rubric = rubricFor(spec.id, sec.skill);
+          return provider.generateJSON(
+            rubricFeedbackSchema,
+            buildRubricPrompt(spec.title, task.prompt, openResponses[task.id], rubric.criteria),
+            RUBRIC_SCHEMA_HINT,
+            { temperature: 0.3 },
+          );
+        }),
       );
       const map: Record<string, RubricFeedback> = {};
       results.forEach((r, i) => {
@@ -111,20 +159,20 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
   }
 
   const objectiveCount = section.objective.length;
-  const answeredInSection = section.objective.filter((q) => answers[q.id]).length;
+  const answeredInSection = section.objective.filter((q) => isAnswered(q, answers[q.id])).length;
 
   return (
     <div className="space-y-5">
       {exam.isSeed && (
         <Alert variant="warning" className="text-xs">
-          <AlertDescription>Offline practice form (generated content unavailable). Add a free Gemini key in Settings for fresh exams every time.</AlertDescription>
+          <AlertDescription>Offline practice form (generated content unavailable). Add a free Gemini key in Settings for fresh, adaptive exams every time.</AlertDescription>
         </Alert>
       )}
 
       {/* Sticky section header with timer */}
       <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card/95 p-3 backdrop-blur">
         <div>
-          <p className="eyebrow">Section {sectionIdx + 1} / {exam.sections.length}</p>
+          <p className="eyebrow">Section {sectionIdx + 1} / {exam.sections.length}{isAdaptiveSection && <> · <span className="text-primary">adaptive</span></>}</p>
           <h2 className="font-semibold">{section.title}</h2>
         </div>
         <div className="flex items-center gap-3">
@@ -133,6 +181,15 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
           </p>
         </div>
       </div>
+
+      {isAdaptiveSection && (
+        <Alert variant="info" className="text-xs">
+          <Sparkles aria-hidden />
+          <AlertDescription>
+            Multistage-adaptive section — your Stage-1 answers set the difficulty of the Stage-2 items.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {section.instructions && <p className="text-sm text-muted-foreground">{section.instructions}</p>}
 
@@ -159,7 +216,7 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
           {/* Question palette */}
           <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
             {section.objective.map((q, i) => {
-              const done = !!answers[q.id];
+              const done = isAnswered(q, answers[q.id]);
               const flag = flagged.has(q.id);
               return (
                 <button
@@ -179,12 +236,12 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
           <ol className="space-y-5">
             {section.objective.map((q, i) => (
               <li key={q.id} ref={(el) => { qRefs.current[q.id] = el; }} className="scroll-mt-24 rounded-md border bg-card p-4">
-                <QuestionView
+                <QuestionItem
                   q={q}
                   index={i}
-                  selected={typeof answers[q.id] === "string" ? (answers[q.id] as string) : undefined}
+                  answer={answers[q.id]}
                   flagged={flagged.has(q.id)}
-                  onSelect={(cid) => setAnswers((a) => ({ ...a, [q.id]: cid }))}
+                  onAnswer={(v) => setAnswer(q.id, v)}
                   onFlag={() => toggleFlag(q.id)}
                 />
               </li>
@@ -213,7 +270,12 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
         <Button variant="outline" size="sm" disabled={sectionIdx === 0} onClick={() => goSection(sectionIdx - 1)}>
           <ChevronLeft aria-hidden /> Previous
         </Button>
-        {lastSection ? (
+        {needsAdaptStage ? (
+          <Button size="sm" onClick={() => void adaptStage()} disabled={adapting}>
+            {adapting ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
+            {adapting ? "Adapting difficulty…" : "Continue — adapt difficulty"}
+          </Button>
+        ) : lastSection ? (
           <Button size="sm" onClick={() => void submit()}>Submit exam</Button>
         ) : (
           <Button size="sm" onClick={() => goSection(sectionIdx + 1)}>
@@ -229,48 +291,13 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
   );
 }
 
-function QuestionView({ q, index, selected, flagged, onSelect, onFlag }: {
-  q: ObjectiveQuestion;
-  index: number;
-  selected: string | undefined;
-  flagged: boolean;
-  onSelect: (choiceId: string) => void;
-  onFlag: () => void;
-}) {
-  return (
-    <fieldset>
-      <div className="flex items-start justify-between gap-2">
-        <legend className="font-medium">
-          <span className="official-figure mr-2 text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
-          <MathText text={q.prompt} />
-        </legend>
-        <button type="button" onClick={onFlag} aria-pressed={flagged} aria-label={flagged ? "Unflag question" : "Flag for review"} className={`shrink-0 rounded p-1 ${flagged ? "text-amber-600" : "text-muted-foreground hover:text-foreground"}`}>
-          <Flag className="h-4 w-4" aria-hidden />
-        </button>
-      </div>
-      <p className="eyebrow mt-1 !tracking-[0.12em]">{q.typeLabel}</p>
-      <div className="mt-3 space-y-2">
-        {q.choices.map((c) => {
-          const isSel = selected === c.id;
-          return (
-            <label key={c.id} className={`flex cursor-pointer items-center gap-3 rounded-md border p-2.5 text-sm transition-colors hover:bg-muted/50 ${isSel ? "border-primary bg-primary/5" : ""}`}>
-              <input type="radio" name={q.id} className="h-4 w-4 accent-[hsl(var(--primary))]" checked={isSel} onChange={() => onSelect(c.id)} />
-              <MathText text={c.text} />
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
 function WritingTask({ task, value, onChange }: { task: { id: string; typeLabel: string; prompt: string; guidance?: string; minWords?: number }; value: string; onChange: (v: string) => void }) {
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
   const ok = !task.minWords || words >= task.minWords;
   return (
     <div className="rounded-md border bg-card p-4">
       <p className="eyebrow">{task.typeLabel}</p>
-      <p className="mt-1 font-medium">{task.prompt}</p>
+      <p className="mt-1 whitespace-pre-line font-medium">{task.prompt}</p>
       {task.guidance && <p className="mt-1 text-sm text-muted-foreground">{task.guidance}</p>}
       <textarea
         value={value}
@@ -305,15 +332,23 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
         <div>
           <p className="eyebrow">Result · {exam.title}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {score.correct}/{score.total} objective questions correct ({score.percent}%).
+            {score.correct}/{score.total} objective marks ({score.percent}%).
           </p>
-          {score.hasOpenTasks && <p className="text-xs text-muted-foreground">Writing/Speaking estimated by AI rubric — only a certified examiner gives a real score.</p>}
+          <div className="mt-1 flex flex-wrap gap-2 text-xs">
+            {score.cefr && <Badge variant="secondary">CEFR {score.cefr}</Badge>}
+            {score.concordance120 && <Badge variant="secondary">≈ {score.concordance120.rep}/120</Badge>}
+          </div>
+          {score.hasOpenTasks && <p className="mt-1 text-xs text-muted-foreground">Writing/Speaking estimated by AI rubric — only a certified examiner gives a real score.</p>}
         </div>
         <motion.div initial={reduce ? undefined : { scale: 0.8, opacity: 0 }} animate={reduce ? undefined : { scale: 1, opacity: 1 }} className="stamp-seal flex h-24 w-24 flex-col items-center justify-center rounded-full text-center">
           <span className="official-figure text-xl font-bold leading-none">{headline}</span>
           <span className="mt-0.5 text-[0.55rem] uppercase tracking-wide opacity-70">indicative</span>
         </motion.div>
       </div>
+
+      <Alert variant="info" className="text-xs">
+        <AlertDescription>{SCALE_DISCLAIMER}</AlertDescription>
+      </Alert>
 
       {/* Per-section bands */}
       {score.sections.length > 0 && (
@@ -328,7 +363,7 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
         </div>
       )}
 
-      {/* AI rubric feedback */}
+      {/* AI rubric feedback with descriptor evidence + range */}
       {Object.keys(rubrics).length > 0 && (
         <section className="space-y-3">
           <h3 className="font-semibold">Writing & Speaking feedback</h3>
@@ -337,19 +372,31 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
             if (!fb) return null;
             return (
               <div key={t.id} className="rounded-md border bg-card p-4">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">{t.typeLabel}</p>
-                  <Badge variant="secondary">Estimated {fb.estimatedBand}</Badge>
+                  <Badge variant="secondary">Estimated {fb.bandLow}–{fb.bandHigh} · {fb.confidence} confidence</Badge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{fb.summary}</p>
-                <ul className="mt-2 space-y-1 text-sm">
+                <ul className="mt-2 space-y-2 text-sm">
                   {fb.criteria.map((c) => (
-                    <li key={c.name} className="flex justify-between gap-3 border-b border-dashed py-1">
-                      <span>{c.name}</span>
-                      <span className="official-figure">{c.score}/{c.max}</span>
+                    <li key={c.name} className="rounded-md border border-dashed p-2">
+                      <div className="flex justify-between gap-3">
+                        <span className="font-medium">{c.name}</span>
+                        <span className="official-figure">{c.score}/{c.max}</span>
+                      </div>
+                      {c.evidence && <p className="mt-0.5 text-xs italic text-muted-foreground">Evidence: {c.evidence}</p>}
+                      <p className="mt-0.5 text-xs text-foreground/80">{c.comment}</p>
                     </li>
                   ))}
                 </ul>
+                {fb.improvements.length > 0 && (
+                  <div className="mt-2">
+                    <p className="eyebrow">To improve</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
+                      {fb.improvements.map((imp, i) => <li key={i}>{imp}</li>)}
+                    </ul>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -357,36 +404,16 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
       )}
       {rubricNote && <Alert variant="info" className="text-xs"><AlertDescription>{rubricNote}</AlertDescription></Alert>}
 
-      {/* Objective review */}
+      {/* Objective review (all item types) */}
       <section className="space-y-3">
         <h3 className="font-semibold">Answer review</h3>
-        {exam.sections.map((section) =>
-          section.objective.length === 0 ? null : (
-            <div key={section.skill} className="space-y-2">
-              <p className="eyebrow">{section.title}</p>
-              {section.objective.map((q, i) => {
-                const picked = answers[q.id];
-                const correct = picked === q.answerId;
-                return (
-                  <div key={q.id} className={`rounded-md border p-3 ${correct ? "border-emerald-200" : "border-red-200"}`}>
-                    <div className="flex items-start gap-2">
-                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${correct ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                        {correct ? <Check className="h-3.5 w-3.5" aria-hidden /> : <X className="h-3.5 w-3.5" aria-hidden />}
-                      </span>
-                      <div className="min-w-0 text-sm">
-                        <p className="font-medium"><span className="official-figure mr-1 text-muted-foreground">{String(i + 1).padStart(2, "0")}</span><MathText text={q.prompt} /></p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Correct: <MathText text={q.choices.find((c) => c.id === q.answerId)?.text ?? ""} />
-                          {picked && !correct && <> · You chose: <MathText text={q.choices.find((c) => c.id === picked)?.text ?? ""} /></>}
-                          {!picked && <> · Not answered</>}
-                        </p>
-                        <p className="mt-1 text-xs text-foreground/80"><MathText text={q.explanation} /></p>
-                        {q.sourceRef && <p className="mt-1 text-xs italic text-muted-foreground">Source: {q.sourceRef}</p>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        {exam.sections.map((sec) =>
+          sec.objective.length === 0 ? null : (
+            <div key={sec.skill} className="space-y-2">
+              <p className="eyebrow">{sec.title}</p>
+              {sec.objective.map((q, i) => (
+                <ItemReview key={q.id} q={q} index={i} answer={answers[q.id]} />
+              ))}
             </div>
           ),
         )}

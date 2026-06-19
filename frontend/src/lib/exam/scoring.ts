@@ -71,6 +71,15 @@ export interface ScoreConfig {
 
 const norm = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, " ");
 
+/** True when an item has a non-empty answer (drives the question palette + "answered" counts). */
+export function isAnswered(q: ObjectiveQuestion, a: AnswerValue | undefined): boolean {
+  const rt = q.responseType ?? "single";
+  if (rt === "single" || rt === "text") return typeof a === "string" && a.trim() !== "";
+  if (rt === "multi" || rt === "ordering") return Array.isArray(a) && a.length > 0;
+  if (rt === "matching") return !!a && typeof a === "object" && !Array.isArray(a) && Object.keys(a).length > 0;
+  return a != null;
+}
+
 /** Mark one objective item deterministically; returns marks earned and available. */
 export function markItem(q: ObjectiveQuestion, a: AnswerValue | undefined): { earned: number; possible: number } {
   const rt = q.responseType ?? "single";

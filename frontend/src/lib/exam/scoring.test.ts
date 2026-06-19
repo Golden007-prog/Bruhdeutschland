@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { IELTS_RAW_TO_BAND, rawToBand } from "@/data/exam-specs";
 import type { GeneratedExam, ObjectiveQuestion } from "./schema";
-import { markItem, roundToHalf, scoreExam } from "./scoring";
+import { isAnswered, markItem, roundToHalf, scoreExam } from "./scoring";
 
 function mcq(id: string, answerId: string): ObjectiveQuestion {
   return {
@@ -134,6 +134,19 @@ describe("markItem — every response type is deterministically marked", () => {
     expect(markItem(q, ["t1", "t2", "t3"]).earned).toBe(1);
     expect(markItem(q, ["t2", "t1", "t3"]).earned).toBe(0);
     expect(markItem(q, ["t1", "t2"]).earned).toBe(0);
+  });
+});
+
+describe("isAnswered", () => {
+  it("detects a non-empty answer per response type", () => {
+    expect(isAnswered(mcq("q", "a"), "a")).toBe(true);
+    expect(isAnswered(mcq("q", "a"), undefined)).toBe(false);
+    const text: ObjectiveQuestion = { id: "t", kind: "objective", responseType: "text", typeLabel: "x", prompt: "p", choices: [], acceptable: ["x"], explanation: "e" };
+    expect(isAnswered(text, "  ")).toBe(false);
+    expect(isAnswered(text, "word")).toBe(true);
+    const match: ObjectiveQuestion = { id: "m", kind: "objective", responseType: "matching", typeLabel: "x", prompt: "p", choices: [{ id: "h", text: "H" }], pairs: [{ id: "p1", leftText: "L", answerId: "h" }], explanation: "e" };
+    expect(isAnswered(match, {})).toBe(false);
+    expect(isAnswered(match, { p1: "h" })).toBe(true);
   });
 });
 

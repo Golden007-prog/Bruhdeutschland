@@ -138,6 +138,7 @@ const LanguageGoetheTestdaf = lazy(() => import("@/pages/language/GoetheTestdaf"
 const LanguageExamsHub = lazy(() => import("@/pages/language/ExamsHub"));
 const ExamIelts = lazy(() => import("@/pages/language/exams/Ielts"));
 const ExamToefl = lazy(() => import("@/pages/language/exams/Toefl"));
+const ExamToeflLegacy = lazy(() => import("@/pages/language/exams/ToeflLegacy"));
 const ExamTestdaf = lazy(() => import("@/pages/language/exams/Testdaf"));
 const ExamGoethe = lazy(() => import("@/pages/language/exams/Goethe"));
 const ExamGre = lazy(() => import("@/pages/language/exams/Gre"));
@@ -202,6 +203,7 @@ export const NAV: NavItem[] = [
   { path: "/language/exams", label: "Mock exams", title: "Mock exam centre", eyebrow: "Übungstests · Mock exams", description: "Timed practice exams for every test you might need: IELTS, TOEFL, TestDaF, Goethe, GRE, and GMAT.", group: "language", category: "language", icon: ClipboardCheck, Component: LanguageExamsHub },
   { path: "/language/exams/ielts", label: "IELTS mock", title: "IELTS Academic — practice exam", eyebrow: "Übungstest · IELTS", description: "A timed IELTS Academic practice set across Listening, Reading, and Writing question types.", group: "language", category: "language", icon: Headphones, hide: true, Component: ExamIelts },
   { path: "/language/exams/toefl", label: "TOEFL mock", title: "TOEFL iBT — practice exam", eyebrow: "Übungstest · TOEFL", description: "A timed TOEFL iBT practice set across Reading and Listening question types.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToefl },
+  { path: "/language/exams/toefl-legacy", label: "TOEFL legacy mock", title: "TOEFL iBT (legacy 0–120) — practice exam", eyebrow: "Übungstest · TOEFL legacy", description: "Practice the retired pre-2026 TOEFL format and interpret an old 0–120 score.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToeflLegacy },
   { path: "/language/exams/testdaf", label: "TestDaF mock", title: "TestDaF — practice exam", eyebrow: "Übungstest · TestDaF", description: "A timed TestDaF practice set mapped to the TDN 3–5 band scale.", group: "language", category: "language", icon: Languages, hide: true, Component: ExamTestdaf },
   { path: "/language/exams/goethe", label: "Goethe mock", title: "Goethe-Zertifikat — practice exam", eyebrow: "Übungstest · Goethe", description: "A timed CEFR-aligned German practice set (A2–B2 grammar, vocabulary, and reading).", group: "language", category: "language", icon: MessageSquare, hide: true, Component: ExamGoethe },
   { path: "/language/exams/gre", label: "GRE mock", title: "GRE General — practice exam", eyebrow: "Übungstest · GRE", description: "A timed GRE practice set across Verbal Reasoning and Quantitative Reasoning question types.", group: "language", category: "language", icon: Sigma, hide: true, Component: ExamGre },

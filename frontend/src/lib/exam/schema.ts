@@ -197,7 +197,11 @@ export const generatedExamSchema = z.object({
 });
 export type GeneratedExam = z.infer<typeof generatedExamSchema>;
 
-/** AI rubric feedback for an open task (Writing/Speaking). */
+/**
+ * AI rubric feedback for an open task (Writing/Speaking). Each criterion carries `evidence` — the
+ * descriptor phrase + response quote justifying the sub-score (work-order §7 provenance) — and the
+ * overall estimate is a RANGE (`bandLow`–`bandHigh`) with a `confidence`, never a bare number.
+ */
 export const rubricFeedbackSchema = z.object({
   criteria: z
     .array(
@@ -205,11 +209,14 @@ export const rubricFeedbackSchema = z.object({
         name: z.string(),
         score: z.number(),
         max: z.number(),
+        evidence: z.string().default(""),
         comment: z.string(),
       }),
     )
     .min(1),
-  estimatedBand: z.string(),
+  bandLow: z.string(),
+  bandHigh: z.string(),
+  confidence: z.enum(["low", "medium", "high"]).default("medium"),
   summary: z.string(),
   improvements: z.array(z.string()).default([]),
 });
