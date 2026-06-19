@@ -147,8 +147,8 @@ function ProfileSetupCard() {
         (deterministically) and personalizes this dashboard. Nothing here is real until it's yours.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link to="/settings" className={cn(buttonVariants())}>
-          <UserCircle aria-hidden /> Complete your profile
+        <Link to="/onboarding" className={cn(buttonVariants())}>
+          <UserCircle aria-hidden /> Set up your profile
         </Link>
         <Link to="/profile/parse" className={cn(buttonVariants({ variant: "outline" }))}>
           <ScanLine aria-hidden /> Parse a resume

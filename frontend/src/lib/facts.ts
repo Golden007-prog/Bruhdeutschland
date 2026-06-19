@@ -21,8 +21,8 @@ export const WORK_LIMIT_DAYS = { full: 140, half: 280 } as const;
 /** Anmeldung (address registration) deadline, in days after moving in. */
 export const ANMELDUNG_DAYS = 14 as const;
 
-/** Countries whose applicants need an APS certificate (official APS rule). India-primary. */
-export const APS_REQUIRED_COUNTRIES = ["India", "China", "Vietnam"] as const;
+/** Countries whose applicants need an APS certificate — single source of truth in lib/country. */
+export { APS_REQUIRED_COUNTRIES } from "@/lib/country/country";
 
 /* ── Finance ───────────────────────────────────────────────────────────────── */
 
@@ -130,8 +130,8 @@ export const APS_INDIA: OfficialFact = {
   label: "APS certificate — India",
   value: "Mandatory for the student visa since 1 Nov 2022",
   source: source("apsIndia"),
-  needsVerification: false,
-  note: "Required for applicants from India, China, and Vietnam. Your application cannot be processed without it.",
+  needsVerification: true,
+  note: "Required for applicants from several countries (India, China, Vietnam, and others). New anabin criteria apply from 15 Mar 2026 — see your country's status below and confirm with the APS office.",
 };
 
 export const ANMELDUNG_WINDOW: OfficialFact = {

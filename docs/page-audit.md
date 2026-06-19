@@ -197,3 +197,41 @@ Policy ❌ · Terms ❌ · Accessibility statement ❌ · Cookie consent ❌ · 
 
 Each fix's verification (unit test / route smoke / Playwright e2e) is tracked in the task list and
 linked from the relevant PR.
+
+---
+
+## 7. Implementation status — branch `feat/ultracode-master-pass` (2026-06-19)
+
+The master work order was executed on this branch. Registry is now **62 routes** (was 55).
+typecheck + **128 tests** + lint + production build all green; a fresh adversarial review against the
+golden rules passed (one APS-grounding blocker found and fixed).
+
+**Delivered**
+- **Profile spine:** persisted `UserProfile` store → real deterministic German GPA on the dashboard;
+  the no-op "Save details" and fabricated "Jane Doe / DPR-2026-0042" mock data are gone.
+- **Backend (live):** Supabase project `dxfjstgnokncqabnumkr` provisioned via MCP — 13 RLS tables
+  (`auth.uid()` owner-only, advisor-clean), signup function hardened, typed bindings generated.
+- **Auth (guest-first):** AuthProvider, route split (public `MarketingLayout`/`PublicLayout` vs
+  `AppShell`), login/signup/callback, `RequireAuth` gate, account chip.
+- **Wiring fixes:** persistence on VPD/SOP/CV/LOR/networking/checklists; copy/download on documents +
+  Europass link; translation drafting tool; grounding-drift literals → `facts.ts` constants;
+  per-fact **re-verify affordance**; real **PDF/DOCX résumé upload → review → profile**.
+- **Product shell:** marketing landing (`/welcome`), onboarding wizard (`/onboarding`), application
+  tracker (`/tracker`), deadline calendar (`/calendar`), document vault (`/vault`), universities
+  explorer (`/universities`), legal/help pages, error boundary, consent notice, GDPR export/delete.
+- **Country logic:** India-primary `lib/country` (single source of truth for APS-required countries);
+  `/visa/aps` shows the user's country-specific APS status.
+- **Polish:** dark mode (token swap + Light/Dark/System toggle), framer-motion + `prefers-reduced-motion`,
+  empty/error states, responsive.
+
+**Verification done:** typecheck, 128 Vitest tests (incl. 62-route smoke + public-route smoke),
+ESLint (0 errors), production build, adversarial golden-rules review.
+
+**Gated on external steps (not done here):**
+- **Live browser e2e** — `frontend/e2e/smoke.spec.ts` + `playwright.config.ts` are written; running
+  needs `npx playwright install chromium`.
+- **Deploy smoke** — the branch is verified but **not merged to `main`** (deploy triggers on push to
+  main); merge when ready. Repo secrets + Supabase Auth redirect URLs + Google provider were set by
+  the operator.
+- **i18n (EN/DE)** — consciously **deferred**: a real toggle needs translations for ~60 pages; a
+  non-translating toggle would be a dead control. German terms already appear as eyebrows throughout.

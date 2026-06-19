@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import Landing from "@/pages/marketing/Landing";
+import Onboarding from "@/pages/onboarding/Onboarding";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 
@@ -14,6 +15,7 @@ import Signup from "@/pages/auth/Signup";
 describe("public routes render without crashing", () => {
   const cases: [string, ComponentType][] = [
     ["landing", Landing],
+    ["onboarding", Onboarding],
     ["login", Login],
     ["signup", Signup],
   ];

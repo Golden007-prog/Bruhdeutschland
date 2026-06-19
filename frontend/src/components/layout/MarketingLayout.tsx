@@ -53,6 +53,9 @@ export function MarketingLayout() {
             <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
               <Link to="/" className="hover:text-foreground">Open the app</Link>
               <Link to="/about" className="hover:text-foreground">Methodology</Link>
+              <Link to="/legal/privacy" className="hover:text-foreground">Privacy</Link>
+              <Link to="/legal/terms" className="hover:text-foreground">Terms</Link>
+              <Link to="/legal/accessibility" className="hover:text-foreground">Accessibility</Link>
               <Link to="/sources" className="hover:text-foreground">Sources</Link>
               <a href={CONTACT_MAILTO} className="hover:text-foreground">Contact</a>
               <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">

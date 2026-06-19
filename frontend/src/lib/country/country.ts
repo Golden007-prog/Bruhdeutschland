@@ -27,19 +27,21 @@ export const COUNTRIES: Record<string, CountryInfo> = {
   china: {
     name: "China",
     aps: "required",
-    apsNote: "APS certificate required before the university application and visa.",
+    apsNote:
+      "APS certificate generally required before the university application and visa — confirm the current rule and procedure with your APS office.",
     apsSource: source("aps"),
   },
   vietnam: {
     name: "Vietnam",
     aps: "required",
-    apsNote: "APS certificate required before the university application and visa.",
+    apsNote:
+      "APS certificate generally required before the university application and visa — confirm with your APS office.",
     apsSource: source("aps"),
   },
   mongolia: {
     name: "Mongolia",
     aps: "required",
-    apsNote: "APS certificate required.",
+    apsNote: "APS certificate generally required — confirm with the APS office.",
     apsSource: source("aps"),
   },
   pakistan: {
@@ -77,3 +79,11 @@ export function apsStatusFor(name: string): { status: ApsStatus; note: string; s
 
 /** Country names with grounded entries, for a selector. */
 export const KNOWN_COUNTRIES: string[] = Object.values(COUNTRIES).map((c) => c.name);
+
+/**
+ * Countries whose applicants need an APS certificate — derived from {@link COUNTRIES} so this is the
+ * single source of truth (the visa/facts pages re-export it). India-primary ordering.
+ */
+export const APS_REQUIRED_COUNTRIES: string[] = Object.values(COUNTRIES)
+  .filter((c) => c.aps === "required")
+  .map((c) => c.name);
