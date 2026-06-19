@@ -1,8 +1,10 @@
 import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { MarketingLayout } from "@/components/layout/MarketingLayout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import Landing from "@/pages/marketing/Landing";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import AuthCallback from "@/pages/auth/AuthCallback";
@@ -24,6 +26,11 @@ export default function App() {
     <Router>
       <AuthProvider>
         <Routes>
+          {/* Public marketing routes — full-width, no app shell. */}
+          <Route element={<MarketingLayout />}>
+            <Route path="/welcome" element={<Landing />} />
+          </Route>
+
           {/* Public auth routes — no app shell. */}
           <Route element={<PublicLayout />}>
             <Route path="/login" element={<Login />} />

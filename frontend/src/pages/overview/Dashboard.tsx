@@ -154,6 +154,9 @@ function ProfileSetupCard() {
           <ScanLine aria-hidden /> Parse a resume
         </Link>
       </div>
+      <Link to="/welcome" className="mt-3 inline-block text-sm text-primary hover:underline">
+        New here? See how DeutschPrep works →
+      </Link>
     </section>
   );
 }
