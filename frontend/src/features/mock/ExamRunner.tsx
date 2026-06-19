@@ -138,7 +138,7 @@ export function ExamRunner({ exam, spec, onRestart }: { exam: GeneratedExam; spe
 
       {/* Listening audio */}
       {section.skill === "listening" && section.passages.length > 0 && (
-        <ListeningPlayer passages={section.passages} lang={spec.ttsLang} />
+        <ListeningPlayer passages={section.passages} lang={spec.ttsLang} nonce={exam.nonce} />
       )}
 
       {/* Reading passages */}

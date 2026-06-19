@@ -81,3 +81,21 @@ export function getActiveProviderId(): string | null {
 export function setActiveProviderId(id: ProviderId): void {
   write(ACTIVE_PROVIDER_KEY, id);
 }
+
+/**
+ * Generic service keys for non-LLM BYOK integrations (e.g. the optional Google Cloud "chirp" TTS
+ * key). Same storage guarantees as {@link getKey}: browser-only, never logged, never bundled.
+ */
+const SERVICE_PREFIX = "deutschprep:svc:";
+
+export function getServiceKey(service: string): string | null {
+  return read(SERVICE_PREFIX + service);
+}
+
+export function setServiceKey(service: string, key: string): void {
+  write(SERVICE_PREFIX + service, key.trim() || null);
+}
+
+export function hasServiceKey(service: string): boolean {
+  return !!getServiceKey(service);
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, ExternalLink, KeyRound, Loader2, Radio, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, KeyRound, Loader2, Radio, Volume2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,15 @@ import {
   getActiveProviderId,
   getBridgeUrl,
   getKey,
+  getServiceKey,
   setActiveProviderId,
   setBridgeUrl,
   setKey,
+  setServiceKey,
 } from "@/lib/llm/keys";
 import { listProviders, type ProviderStatus } from "@/lib/llm/registry";
+import { getPreferredTier, setPreferredTier, type TtsTier } from "@/lib/speech/provider";
+import { CHIRP_KEY_SERVICE } from "@/lib/speech/chirp-tts";
 import type { ProviderId } from "@/lib/llm/types";
 
 type TestState = "idle" | "testing" | "ok" | "fail";
@@ -36,6 +40,8 @@ export function AiSettings() {
   const [bridgeTest, setBridgeTest] = useState<TestState>("idle");
   const [testMsg, setTestMsg] = useState("");
   const [bridgeMsg, setBridgeMsg] = useState("");
+  const [chirpKey, setChirpKey] = useState(getServiceKey(CHIRP_KEY_SERVICE) ?? "");
+  const [voiceTier, setVoiceTier] = useState<TtsTier>(() => getPreferredTier());
 
   const bridgeDetected = providers.find((p) => p.id === "claude-bridge")?.available ?? false;
 
@@ -205,6 +211,57 @@ export function AiSettings() {
             </a>
           </div>
         )}
+      </div>
+
+      {/* Listening voice (TTS tiers) */}
+      <div className="rounded-md border p-4">
+        <div className="flex items-center gap-2">
+          <Volume2 className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <h3 className="font-medium">Listening voice (mock exams)</h3>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          The voice that reads Listening passages aloud. <strong>Gemini</strong> (your free key above)
+          gives human-like, multi-speaker, accented audio — recommended. <strong>Browser voice</strong>{" "}
+          is free and offline but robotic. <strong>Chirp 3: HD</strong> is an optional premium voice.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label htmlFor="voice-tier" className="text-xs font-medium">Default voice</label>
+          <select
+            id="voice-tier"
+            value={voiceTier}
+            onChange={(e) => {
+              const t = e.target.value as TtsTier;
+              setVoiceTier(t);
+              setPreferredTier(t);
+            }}
+            className="h-8 rounded-md border bg-card px-2 text-sm"
+          >
+            <option value="web">Browser voice (free)</option>
+            <option value="gemini">Gemini voice (human-like)</option>
+            <option value="chirp">Chirp 3: HD (premium)</option>
+          </select>
+        </div>
+        <div className="mt-3">
+          <label htmlFor="chirp-key" className="text-xs text-muted-foreground">
+            Optional Google Cloud Text-to-Speech key (for Chirp 3: HD — needs billing enabled)
+          </label>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Input
+              id="chirp-key"
+              type="password"
+              value={chirpKey}
+              onChange={(e) => setChirpKey(e.target.value)}
+              placeholder="AIza… (Cloud TTS)"
+              className="max-w-xs flex-1"
+              autoComplete="off"
+            />
+            <Button size="sm" onClick={() => setServiceKey(CHIRP_KEY_SERVICE, chirpKey)}>Save</Button>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Note: the Cloud TTS endpoint can be blocked by CORS from a static site; if Chirp fails,
+            the player falls back and Gemini is the reliable in-browser path.
+          </p>
+        </div>
       </div>
 
       {/* Active provider */}
