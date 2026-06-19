@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Info, RefreshCw, Sparkles, WifiOff } from "lucide-react";
+import { ExternalLink, History, Info, RefreshCw, Sparkles, WifiOff } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { EXAM_SPECS } from "@/data/exam-specs";
 import { generateExam, type GenMode, type GenProgress } from "@/lib/exam/generate";
 import { anyProviderConfigured } from "@/lib/llm/registry";
 import type { GeneratedExam } from "@/lib/exam/schema";
+import { clearProgress, loadProgress, type ExamProgress } from "@/lib/exam/examProgress";
 import { ExamRunner } from "./ExamRunner";
 import { GenerationLoader } from "./GenerationLoader";
 
@@ -27,17 +28,24 @@ export function MockExamPage({ examId }: { examId: string }) {
   const [progress, setProgress] = useState<GenProgress | null>(null);
   const [exam, setExam] = useState<GeneratedExam | null>(null);
   const [error, setError] = useState<string>("");
+  const [mode, setMode] = useState<GenMode>("full");
+  const [activeResume, setActiveResume] = useState<ExamProgress | null>(null);
+  const [savedProgress, setSavedProgress] = useState<ExamProgress | null>(() => loadProgress(examId));
   const abortRef = useRef<AbortController | null>(null);
   const configured = anyProviderConfigured();
 
-  async function generate(mode: GenMode) {
+  async function generate(m: GenMode) {
     setError("");
     setProgress(null);
+    setMode(m);
+    setActiveResume(null);
+    clearProgress(examId);
+    setSavedProgress(null);
     setPhase("generating");
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const form = await generateExam(examId, { mode, signal: ctrl.signal, onProgress: setProgress });
+      const form = await generateExam(examId, { mode: m, signal: ctrl.signal, onProgress: setProgress });
       lastForms.set(examId, form);
       setExam(form);
       setPhase("running");
@@ -54,9 +62,27 @@ export function MockExamPage({ examId }: { examId: string }) {
   function reuseLast() {
     const form = lastForms.get(examId);
     if (form) {
+      setActiveResume(null);
       setExam(form);
       setPhase("running");
     }
+  }
+
+  function resumeExam() {
+    const p = loadProgress(examId);
+    if (!p) {
+      setSavedProgress(null);
+      return;
+    }
+    setActiveResume(p);
+    setExam(p.exam);
+    setPhase("running");
+  }
+
+  function backToIntro() {
+    setActiveResume(null);
+    setSavedProgress(loadProgress(examId));
+    setPhase("intro");
   }
 
   function cancel() {
@@ -74,7 +100,7 @@ export function MockExamPage({ examId }: { examId: string }) {
   }
 
   if (phase === "running" && exam) {
-    return <ExamRunner exam={exam} spec={spec} onRestart={() => setPhase("intro")} />;
+    return <ExamRunner exam={exam} spec={spec} mode={mode} resume={activeResume ?? undefined} onRestart={backToIntro} />;
   }
 
   // intro
@@ -119,6 +145,23 @@ export function MockExamPage({ examId }: { examId: string }) {
           {spec.provenance.source_name} <ExternalLink className="h-3 w-3" aria-hidden />
         </a>
       </section>
+
+      {savedProgress && (
+        <Alert variant="info" className="text-xs">
+          <History aria-hidden />
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span>You have an unfinished {spec.title} attempt saved on this device.</span>
+            <Button size="sm" variant="outline" onClick={resumeExam}>Resume</Button>
+            <button
+              type="button"
+              onClick={() => { clearProgress(examId); setSavedProgress(null); }}
+              className="text-muted-foreground underline"
+            >
+              Discard
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && <Alert variant="danger" className="text-xs"><AlertDescription>{error}</AlertDescription></Alert>}
 

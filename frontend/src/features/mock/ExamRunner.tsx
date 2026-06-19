@@ -19,6 +19,8 @@ import { resolveProvider } from "@/lib/llm/registry";
 import { rubricFeedbackSchema, type GeneratedExam, type GeneratedSection, type RubricFeedback } from "@/lib/exam/schema";
 import { isAnswered, markItem, scoreExam, type AnswerMap, type AnswerValue, type ExamScore } from "@/lib/exam/scoring";
 import { SCALE_DISCLAIMER } from "@/lib/exam/scale";
+import { recordAttempt, type AttemptRubric } from "@/lib/exam/attempts";
+import { clearProgress, saveProgress, type ExamProgress } from "@/lib/exam/examProgress";
 
 type Phase = "run" | "scoring" | "review";
 
@@ -43,21 +45,25 @@ function sectionAccuracy(section: GeneratedSection, answers: AnswerMap): number 
   return possible > 0 ? earned / possible : 0.5;
 }
 
-export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: GeneratedExam; spec: ExamSpec; onRestart: () => void }) {
+export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onRestart }: { exam: GeneratedExam; spec: ExamSpec; mode?: string; resume?: ExamProgress; onRestart: () => void }) {
   const reduce = useReducedMotion();
-  const [exam, setExam] = useState<GeneratedExam>(initialExam);
-  const [sectionIdx, setSectionIdx] = useState(0);
-  const [answers, setAnswers] = useState<AnswerMap>({});
-  const [openResponses, setOpenResponses] = useState<Record<string, string>>({});
+  const startedAtRef = useRef<number>(resume?.startedAt ?? Date.now());
+  const [exam, setExam] = useState<GeneratedExam>(resume?.exam ?? initialExam);
+  const [sectionIdx, setSectionIdx] = useState(resume?.sectionIdx ?? 0);
+  const [answers, setAnswers] = useState<AnswerMap>(resume?.answers ?? {});
+  const [openResponses, setOpenResponses] = useState<Record<string, string>>(resume?.openResponses ?? {});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<Phase>("run");
-  const [timeLeft, setTimeLeft] = useState(() => sectionTime(spec, initialExam.sections[0]));
+  const [timeLeft, setTimeLeft] = useState(
+    () => resume?.timeLeft ?? sectionTime(spec, (resume?.exam ?? initialExam).sections[resume?.sectionIdx ?? 0]),
+  );
   const [score, setScore] = useState<ExamScore | null>(null);
   const [rubrics, setRubrics] = useState<Record<string, RubricFeedback>>({});
   const [rubricNote, setRubricNote] = useState<string>("");
   const [adapted, setAdapted] = useState<Set<string>>(new Set());
   const [adapting, setAdapting] = useState(false);
   const qRefs = useRef<Record<string, HTMLElement | null>>({});
+  const timeLeftRef = useRef(timeLeft);
 
   const adaptiveSkills = new Set(spec.sections.filter((s) => s.adaptive).map((s) => s.skill));
   const section = exam.sections[sectionIdx];
@@ -77,6 +83,24 @@ export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: Gener
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, timeLeft, sectionIdx]);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
+  // Autosave the in-progress attempt for resume-after-refresh (on answer/section changes, not every tick).
+  useEffect(() => {
+    if (phase !== "run") return;
+    saveProgress(exam.examId, {
+      exam,
+      answers,
+      openResponses,
+      sectionIdx,
+      timeLeft: timeLeftRef.current,
+      startedAt: startedAtRef.current,
+      savedAt: Date.now(),
+    });
+  }, [answers, openResponses, sectionIdx, exam, phase]);
 
   function goSection(idx: number) {
     setSectionIdx(idx);
@@ -117,6 +141,29 @@ export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: Gener
     setAdapting(false);
   }
 
+  function persist(result: ExamScore, rubricMap: Record<string, RubricFeedback>) {
+    const rubricsArr: AttemptRubric[] = exam.sections
+      .flatMap((s) => s.open.map((t) => ({ skill: s.skill, task: t })))
+      .filter(({ task }) => rubricMap[task.id])
+      .map(({ skill, task }) => {
+        const fb = rubricMap[task.id];
+        return { taskId: task.id, skill, typeLabel: task.typeLabel, bandLow: fb.bandLow, bandHigh: fb.bandHigh, confidence: fb.confidence };
+      });
+    const finishedAt = Date.now();
+    void recordAttempt({
+      examId: exam.examId,
+      examTitle: exam.title,
+      scale: spec.scale,
+      mode,
+      startedAt: startedAtRef.current,
+      finishedAt,
+      durationMs: finishedAt - startedAtRef.current,
+      score: result,
+      rubrics: rubricsArr,
+    });
+    clearProgress(exam.examId);
+  }
+
   async function submit() {
     setPhase("scoring");
     const result = scoreExam(exam, answers, { bandTable: spec.rawToBand, scale: spec.scale });
@@ -126,9 +173,11 @@ export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: Gener
     const openTasks = exam.sections.flatMap((s) => s.open.map((t) => ({ section: s, task: t })));
     const answered = openTasks.filter(({ task }) => (openResponses[task.id] ?? "").trim().length > 20);
     if (answered.length === 0) {
+      persist(result, {});
       setPhase("review");
       return;
     }
+    let map: Record<string, RubricFeedback> = {};
     try {
       const provider = await resolveProvider();
       const results = await Promise.allSettled(
@@ -142,15 +191,17 @@ export function ExamRunner({ exam: initialExam, spec, onRestart }: { exam: Gener
           );
         }),
       );
-      const map: Record<string, RubricFeedback> = {};
+      const m: Record<string, RubricFeedback> = {};
       results.forEach((r, i) => {
-        if (r.status === "fulfilled") map[answered[i].task.id] = r.value;
+        if (r.status === "fulfilled") m[answered[i].task.id] = r.value;
       });
-      setRubrics(map);
-      if (Object.keys(map).length === 0) setRubricNote("AI feedback wasn't available — your writing/speaking isn't auto-scored.");
+      map = m;
+      setRubrics(m);
+      if (Object.keys(m).length === 0) setRubricNote("AI feedback wasn't available — your writing/speaking isn't auto-scored.");
     } catch {
       setRubricNote("Connect an AI provider (Settings) to get rubric feedback on Writing & Speaking.");
     }
+    persist(result, map);
     setPhase("review");
   }
 
