@@ -1,316 +1,368 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, Loader2, MapPin, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { z } from "zod";
+import { Columns3, Database, LayoutGrid, List, Loader2, MapPin, Save, Search, Sparkles, X } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
-import { SourceLink } from "@/components/common/SourceLink";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FilterPanel } from "@/features/programs/FilterPanel";
+import { ProgramCard } from "@/features/programs/ProgramCard";
+import { MapView } from "@/features/programs/MapView";
+import { facetValueLabel } from "@/features/programs/labels";
+import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
+import { useGenerate } from "@/features/ai/useGenerate";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
-import { programMatchesSchema, type ProgramMatchesResult } from "@/features/ai/schemas";
-import { useGenerate } from "@/features/ai/useGenerate";
-import { source } from "@/lib/sources";
-import { MATCHED_PROGRAMS, type MatchedProgram, type ProgramLanguage } from "@/lib/seed/profile";
+import { Textarea } from "@/components/ui/textarea";
+import { eligibility } from "@/lib/programs/eligibility";
+import { useProgramData } from "@/lib/programs/useProgramData";
+import { type Filters, type FacetKey, type SortKey, autocomplete, runSearch } from "@/lib/programs/search";
+import type { Program } from "@/lib/programs/types";
+import { isProfileStarted } from "@/lib/profile/profile";
+import { useProfile } from "@/lib/profile/useProfile";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { uid } from "@/lib/doc/export";
 import { cn } from "@/lib/utils";
 
-type AiProgram = ProgramMatchesResult["programs"][number];
+const PAGE_SIZE = 12;
+type View = "grid" | "list" | "map";
+const matchSchema = z.object({ query: z.string(), subjectGroup: z.string().optional() });
 
-/** A live-AI program suggestion. Fit is qualitative (a reason), not a score; requirements are not
- *  asserted — every threshold stays unverified with a link to DAAD (CLAUDE.md §2/§3). */
-function AiProgramCard({ program }: { program: AiProgram }) {
-  return (
-    <Card className="flex h-full flex-col">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-base leading-snug">{program.name}</CardTitle>
-            <p className="mt-1 text-sm font-medium">{program.university}</p>
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" aria-hidden />
-              {program.city}
-            </p>
-          </div>
-          <Badge variant={program.language === "EN" ? "secondary" : "outline"}>
-            {program.language}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">
-        <div>
-          <p className="eyebrow mb-1">Why it fits</p>
-          <p className="text-sm text-muted-foreground">{program.fitReason}</p>
-        </div>
+const FACET_PARAMS: FacetKey[] = ["language", "subjectGroup", "degree", "bundesland", "city", "institutionType", "intake", "admissionMode", "mode", "tuition"];
 
-        <div className="mt-auto space-y-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="eyebrow !text-amber-700">Requirements</span>
-            <Badge variant="warning" className="gap-1">
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              Needs verification
-            </Badge>
-          </div>
-          <p className="text-[0.7rem] text-amber-800">
-            Admission thresholds (grade, ECTS, test scores) are program-specific and change yearly —
-            confirm this program exists and meets your plan on the official page.
-          </p>
-          <SourceLink source={source("daadRequirements")} />
-        </div>
-      </CardContent>
-    </Card>
-  );
+function parseList(sp: URLSearchParams, key: string): string[] | undefined {
+  const v = sp.get(key);
+  return v ? v.split(",").filter(Boolean) : undefined;
 }
 
-type LanguageFilter = "all" | ProgramLanguage;
-
-const LANGUAGE_LABEL: Record<ProgramLanguage, string> = {
-  EN: "English-taught",
-  DE: "German-taught",
-};
-
-const MIN_FIT_OPTIONS = [0, 70, 80, 90] as const;
-
-function ProgramCard({ program }: { program: MatchedProgram }) {
-  return (
-    <Card className="flex h-full flex-col">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-base leading-snug">{program.name}</CardTitle>
-            <p className="mt-1 text-sm font-medium">{program.university}</p>
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" aria-hidden />
-              {program.city}
-            </p>
-          </div>
-          <Badge variant={program.language === "EN" ? "secondary" : "outline"}>
-            {program.language}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">
-        <div>
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="eyebrow">Fit (illustrative)</span>
-            <span className="official-figure text-sm font-semibold">{program.fitPct}%</span>
-          </div>
-          <Progress
-            value={program.fitPct}
-            label={`Illustrative fit for ${program.name}: ${program.fitPct} percent`}
-            className="h-1.5"
-            indicatorClassName="bg-category-profile"
-          />
-        </div>
-
-        <p className="text-xs text-muted-foreground">{program.field}</p>
-
-        <div className="mt-auto space-y-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="eyebrow !text-amber-700">Requirements</span>
-            <Badge variant="warning" className="gap-1">
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              Needs verification
-            </Badge>
-          </div>
-          <ul className="flex flex-wrap gap-1.5">
-            {program.requirements.map((req) => (
-              <li
-                key={req}
-                className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.7rem] font-medium text-amber-900"
-              >
-                {req}
-              </li>
-            ))}
-          </ul>
-          <p className="text-[0.7rem] text-amber-800">
-            Admission thresholds (grade, ECTS, test scores) are set per program and change yearly —
-            confirm on the official page.
-          </p>
-          <SourceLink source={program.source} />
-        </div>
-      </CardContent>
-    </Card>
-  );
+interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
 }
 
-/** Feature 03 — Course & university matching. Filterable shortlist of illustrative program matches. */
+/** Feature 03 — a faceted, hybrid-search programme finder over real, provenance-stamped programmes. */
 export default function ProfileMatching() {
-  const [language, setLanguage] = useState<LanguageFilter>("all");
-  const [minFit, setMinFit] = useState<number>(0);
-  const [field, setField] = useState("");
-  const ai = useGenerate<ProgramMatchesResult>();
+  const { programs, loading, source } = useProgramData();
+  const { profile } = useProfile();
+  const hasProfile = isProfileStarted(profile);
+  const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useState(params.get("q") ?? "");
+  const [sort, setSort] = useState<SortKey>("relevance");
+  const [view, setView] = useState<View>("grid");
+  const [page, setPage] = useState(0);
+  const [shortlist, setShortlist] = useSyncedState<string[]>("programs:shortlist", []);
+  const [saved, setSaved] = useSyncedState<SavedSearch[]>("programs:savedSearches", []);
+  const [, setApps] = useSyncedState<{ id: string; university: string; program: string; stage: string; url?: string }[]>("tracker:apps", []);
+  const [compare, setCompare] = useState<string[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const [goal, setGoal] = useState("");
+  const ai = useGenerate<z.infer<typeof matchSchema>>();
 
-  const results = useMemo(
-    () =>
-      MATCHED_PROGRAMS.filter(
-        (p) => (language === "all" || p.language === language) && p.fitPct >= minFit,
-      ).sort((a, b) => b.fitPct - a.fitPct),
-    [language, minFit],
+  // Debounce the search box into the URL `q`.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (query.trim()) next.set("q", query.trim());
+          else next.delete("q");
+          return next;
+        },
+        { replace: true },
+      );
+      setPage(0);
+    }, 250);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const filters: Filters = {
+    q: params.get("q") ?? undefined,
+    language: parseList(params, "language") as Filters["language"],
+    subjectGroup: parseList(params, "subjectGroup"),
+    degree: parseList(params, "degree"),
+    bundesland: parseList(params, "bundesland"),
+    city: parseList(params, "city"),
+    institutionType: parseList(params, "institutionType") as Filters["institutionType"],
+    intake: parseList(params, "intake") as Filters["intake"],
+    admissionMode: parseList(params, "admissionMode") as Filters["admissionMode"],
+    mode: parseList(params, "mode") as Filters["mode"],
+    tuition: parseList(params, "tuition") as Filters["tuition"],
+    tests: parseList(params, "tests"),
+    jointDouble: params.get("jointDouble") === "1" || undefined,
+    semestersMax: params.get("semestersMax") ? Number(params.get("semestersMax")) : undefined,
+    eligibility: parseList(params, "eligibility") as Filters["eligibility"],
+  };
+
+  const { results, total, facets } = useMemo(
+    () => runSearch(programs, filters, sort, hasProfile ? profile : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [programs, params.toString(), sort, profile],
   );
 
-  const matchWithAi = async () => {
-    const prompt = [
-      "Suggest about 5 Master's programs at German PUBLIC universities for this applicant.",
-      "Each: name, university, city, language (EN or DE), and a one-sentence fitReason.",
-      "Only real, plausible public-university programs. Do NOT state admission thresholds,",
-      "grades, fees, or deadlines — those are verified separately.",
-      "",
-      `Applicant field / background / goal: ${field.trim() || "Computer Science Master's, English-taught preferred"}`,
-    ].join("\n");
-    await ai.generate(
-      programMatchesSchema,
-      prompt,
-      "{ programs: { name, university, city, language: EN|DE, fitReason }[] (about 5) }",
-      0.6,
-    );
+  const setListParam = (key: string, list: string[] | undefined) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (list && list.length) next.set(key, list.join(","));
+      else next.delete(key);
+      return next;
+    });
+
+  const toggleFacet = (key: FacetKey, value: string) => {
+    const cur = parseList(params, key) ?? [];
+    setListParam(key, cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value]);
+    setPage(0);
   };
+
+  const setSpecial = (patch: Partial<Filters>) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if ("jointDouble" in patch) {
+        if (patch.jointDouble) next.set("jointDouble", "1");
+        else next.delete("jointDouble");
+      }
+      if ("tests" in patch) {
+        if (patch.tests?.length) next.set("tests", patch.tests.join(","));
+        else next.delete("tests");
+      }
+      if ("semestersMax" in patch) {
+        if (patch.semestersMax) next.set("semestersMax", String(patch.semestersMax));
+        else next.delete("semestersMax");
+      }
+      if ("eligibility" in patch) {
+        if (patch.eligibility?.length) next.set("eligibility", patch.eligibility.join(","));
+        else next.delete("eligibility");
+      }
+      return next;
+    });
+    setPage(0);
+  };
+
+  const clearAll = () => {
+    setParams(new URLSearchParams());
+    setQuery("");
+    setPage(0);
+  };
+
+  const toggleShortlist = (id: string) => setShortlist((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleCompare = (id: string) => setCompare((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 4 ? [...prev, id] : prev));
+  const addToTracker = (id: string) => {
+    const p = programs.find((x) => x.id === id);
+    if (!p) return;
+    setApps((prev) => [...prev, { id: uid("app"), university: p.university, program: `${p.name} · ${p.degree}`, stage: "researching", url: p.sourceUrl }]);
+  };
+
+  async function matchWithAi() {
+    const result = await ai.generate(
+      matchSchema,
+      `A prospective Master's student describes their goal. Turn it into a concise search query of 2-6 keywords for a German programme finder, and optionally one subject group from: Engineering, Mathematics & Natural Sciences, Law Economics & Social Sciences, Language & Cultural Studies, Art Music & Design, Medicine & Health.\n\nGoal: ${goal.trim()}`,
+      "{ query: string, subjectGroup?: string }",
+      0.3,
+    );
+    setQuery(result?.query?.trim() || goal.trim());
+    if (result?.subjectGroup) setListParam("subjectGroup", [result.subjectGroup]);
+  }
+
+  const activeChips: { label: string; clear: () => void }[] = [
+    ...FACET_PARAMS.flatMap((key) => (parseList(params, key) ?? []).map((v) => ({ label: facetValueLabel(key, v), clear: () => toggleFacet(key, v) }))),
+    ...(filters.tests ?? []).map((t) => ({ label: t.toUpperCase(), clear: () => setSpecial({ tests: (filters.tests ?? []).filter((x) => x !== t) }) })),
+    ...(filters.jointDouble ? [{ label: "Joint/double degree", clear: () => setSpecial({ jointDouble: undefined }) }] : []),
+    ...(filters.semestersMax ? [{ label: `≤ ${filters.semestersMax} sem`, clear: () => setSpecial({ semestersMax: undefined }) }] : []),
+    ...(filters.eligibility ?? []).map((e) => ({ label: e, clear: () => setSpecial({ eligibility: (filters.eligibility ?? []).filter((x) => x !== e) }) })),
+  ];
+
+  const suggestions = query.trim().length >= 2 ? autocomplete(programs, query) : [];
+  const paged = results.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const pages = Math.ceil(results.length / PAGE_SIZE);
+  const compareItems = programs.filter((p) => compare.includes(p.id));
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Feature 03 · Profile"
-        title="Course & university matching"
-        description="A shortlist of Master's programs at German public universities that fit your background. Use it to plan — then verify each program's actual requirements before applying."
+        title="Course & university finder"
+        description="Search real Master's programmes at German public universities. Filter, compare, and check your eligibility — requirements are indicative and link to the official page to verify."
         category="profile"
         fileRef="§ 03"
       />
 
-      <Alert variant="warning">
-        <AlertTriangle aria-hidden />
+      <Alert variant="info" className="text-xs">
+        <Database aria-hidden />
+        <AlertTitle>{programs.length} programmes · {source === "supabase" ? "live from your database" : "bundled curated set"}</AlertTitle>
         <AlertDescription>
-          These matches are illustrative, generated from a demo profile. Program admission
-          thresholds are program-specific and revised yearly, so every requirement below is flagged
-          for verification with a link to the official source.
+          A hand-verified subset of real programmes (DAAD &amp; Hochschulkompass are the authoritative
+          directories). Admission requirements change yearly and per programme — confirm each one on its
+          official page before applying.
         </AlertDescription>
       </Alert>
 
-      <section className="rounded-lg border bg-card p-4 shadow-sm" aria-labelledby="ai-match-heading">
-        <h2 id="ai-match-heading" className="text-sm font-medium">
-          Match with AI
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Describe your field, background, and goal — get a tailored shortlist. Requirements still
-          need verifying against the official source.
-        </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="match-field" className="sr-only">
-            Your field, background, and goal
-          </label>
-          <Input
-            id="match-field"
-            value={field}
-            onChange={(e) => setField(e.target.value)}
-            placeholder="e.g. CS bachelor, 1 yr backend, want a data-engineering Master's in English"
-            disabled={ai.loading}
-          />
-          <Button onClick={matchWithAi} disabled={ai.loading} aria-busy={ai.loading} className="shrink-0">
-            {ai.loading ? (
-              <>
-                <Loader2 className="animate-spin" aria-hidden />
-                Matching…
-              </>
-            ) : (
-              <>
-                <Sparkles aria-hidden />
-                Match with AI
-              </>
-            )}
-          </Button>
+      <details className="rounded-lg border bg-card p-4">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+          <Sparkles className="h-4 w-4 text-primary" aria-hidden /> Match with AI — describe your goal
+        </summary>
+        <div className="mt-3 space-y-3">
+          <Textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={2} placeholder="e.g. a research-focused master in machine learning, taught in English, ideally low tuition." />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => void matchWithAi()} disabled={!goal.trim() || ai.loading} aria-busy={ai.loading}>
+              {ai.loading ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />} Find programmes
+            </Button>
+            {ai.result && <AiGeneratedBadge />}
+          </div>
+          {ai.noProvider && <NoProviderAlert />}
+          {ai.error && <RetryAlert message={ai.error} onRetry={matchWithAi} />}
         </div>
-        <p className="sr-only" role="status" aria-live="polite">
-          {ai.loading ? "Finding matching programs with AI." : ""}
-        </p>
-        {ai.noProvider && <NoProviderAlert className="mt-3" />}
-        {ai.error && <RetryAlert className="mt-3" message={ai.error} onRetry={matchWithAi} />}
-      </section>
+      </details>
 
-      {ai.result && (
-        <section aria-labelledby="ai-results-heading" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="ai-results-heading" className="text-lg font-semibold tracking-tight">
-              AI-matched programs
-            </h2>
-            <AiGeneratedBadge />
+      <div className="relative">
+        <label htmlFor="prog-search" className="sr-only">Search programmes</label>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Input id="prog-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search programme, university, city, or subject…" className="pl-9" list="prog-ac" />
+        <datalist id="prog-ac">{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
+        <FilterPanel facets={facets} filters={filters} hasProfile={hasProfile} onToggleFacet={toggleFacet} onSpecial={setSpecial} onClear={clearAll} />
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+              {loading ? "Loading programmes…" : <><span className="official-figure font-semibold text-foreground">{total}</span> programme{total === 1 ? "" : "s"} for your criteria</>}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="sort" className="sr-only">Sort</label>
+              <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-8 rounded-md border bg-card px-2 text-sm">
+                <option value="relevance">Relevance</option>
+                <option value="az">University A–Z</option>
+                <option value="tuition">Tuition (low→high)</option>
+                <option value="duration">Duration</option>
+                <option value="deadline">Deadline</option>
+              </select>
+              <div className="flex rounded-md border bg-card p-0.5" role="group" aria-label="View">
+                {([["grid", LayoutGrid], ["list", List], ["map", MapPin]] as const).map(([v, Icon]) => (
+                  <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} aria-label={`${v} view`} className={cn("rounded p-1.5", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {ai.result.programs.map((p, i) => (
-              <AiProgramCard key={`${p.university}-${p.name}-${i}`} program={p} />
-            ))}
+
+          {(activeChips.length > 0 || filters.q) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {filters.q && <Badge variant="secondary" className="gap-1">“{filters.q}”<button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X className="h-3 w-3" aria-hidden /></button></Badge>}
+              {activeChips.map((c, i) => (
+                <Badge key={`${c.label}-${i}`} variant="secondary" className="gap-1">
+                  {c.label}<button type="button" onClick={c.clear} aria-label={`Remove ${c.label}`}><X className="h-3 w-3" aria-hidden /></button>
+                </Badge>
+              ))}
+              <button type="button" onClick={() => setSaved((prev) => [...prev, { id: uid("ss"), name: filters.q || activeChips.map((c) => c.label).slice(0, 2).join(" + ") || "Search", query: params.toString() }])} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                <Save className="h-3 w-3" aria-hidden /> Save search
+              </button>
+            </div>
+          )}
+
+          {saved.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground">Saved:</span>
+              {saved.map((s) => (
+                <span key={s.id} className="inline-flex items-center gap-1 rounded-full border bg-card px-2 py-0.5">
+                  <button type="button" onClick={() => { setParams(new URLSearchParams(s.query)); setQuery(new URLSearchParams(s.query).get("q") ?? ""); }} className="hover:underline">{s.name}</button>
+                  <button type="button" onClick={() => setSaved((prev) => prev.filter((x) => x.id !== s.id))} aria-label={`Delete saved search ${s.name}`}><X className="h-3 w-3" aria-hidden /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {total === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">No programmes match every filter.</p>
+              <p className="mt-1">Try removing a filter, or <button type="button" onClick={clearAll} className="text-primary hover:underline">clear all</button>.</p>
+            </div>
+          ) : view === "map" ? (
+            <MapView items={results} onCity={(city) => setListParam("city", [city])} />
+          ) : (
+            <div className={cn(view === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-4")}>
+              {paged.map(({ program, relevance }) => (
+                <ProgramCard
+                  key={program.id}
+                  program={program}
+                  relevance={relevance}
+                  hasQuery={Boolean(filters.q)}
+                  eligibility={hasProfile ? eligibility(profile, program) : undefined}
+                  shortlisted={shortlist.includes(program.id)}
+                  inCompare={compare.includes(program.id)}
+                  compareDisabled={compare.length >= 4}
+                  onShortlist={() => toggleShortlist(program.id)}
+                  onCompare={() => toggleCompare(program.id)}
+                  onTrack={() => addToTracker(program.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {view !== "map" && pages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+              <span className="official-figure text-sm text-muted-foreground">{page + 1} / {pages}</span>
+              <Button variant="outline" size="sm" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {compare.length > 0 && (
+        <div className="sticky bottom-0 z-20 -mx-4 border-t bg-card/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <p className="text-sm font-medium"><Columns3 className="mr-1 inline h-4 w-4" aria-hidden /> Comparing {compare.length}/4</p>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowCompare(true)}>Compare</Button>
+              <Button size="sm" variant="ghost" onClick={() => setCompare([])}>Clear</Button>
+            </div>
           </div>
-        </section>
+        </div>
       )}
 
-      <section
-        className="rounded-lg border bg-card p-4 shadow-sm"
-        aria-labelledby="filter-heading"
-      >
-        <h2 id="filter-heading" className="sr-only">
-          Filter programs
-        </h2>
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-          <fieldset>
-            <legend className="eyebrow mb-1.5">Language</legend>
-            <div className="flex flex-wrap gap-2">
-              {(["all", "EN", "DE"] as const).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setLanguage(opt)}
-                  aria-pressed={language === opt}
-                  className={cn(
-                    "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    language === opt
-                      ? "border-category-profile bg-category-profile/10 text-category-profile"
-                      : "bg-card text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {opt === "all" ? "All" : LANGUAGE_LABEL[opt]}
-                </button>
-              ))}
+      {showCompare && compareItems.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-label="Compare programmes">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-lg border bg-card p-5 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">Compare programmes</h2>
+              <button type="button" onClick={() => setShowCompare(false)} aria-label="Close"><X className="h-5 w-5" aria-hidden /></button>
             </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="eyebrow mb-1.5">Minimum fit</legend>
-            <div className="flex flex-wrap gap-2">
-              {MIN_FIT_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setMinFit(opt)}
-                  aria-pressed={minFit === opt}
-                  className={cn(
-                    "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    minFit === opt
-                      ? "border-category-profile bg-category-profile/10 text-category-profile"
-                      : "bg-card text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {opt === 0 ? "Any" : `${opt}%+`}
-                </button>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <tbody>
+                  {([
+                    ["Programme", (p: Program) => `${p.name} · ${p.degree}`],
+                    ["University", (p: Program) => p.university],
+                    ["City", (p: Program) => `${p.city}, ${p.bundesland}`],
+                    ["Language", (p: Program) => p.languages],
+                    ["Tuition", (p: Program) => (p.tuitionPerSemester ? `€${p.tuitionPerSemester}/sem` : "None")],
+                    ["Intake", (p: Program) => p.intake],
+                    ["Admission", (p: Program) => p.admissionMode ?? "—"],
+                  ] as [string, (p: Program) => string][]).map(([label, get]) => (
+                    <tr key={label} className="border-b">
+                      <th scope="row" className="whitespace-nowrap py-2 pr-3 text-left align-top font-medium text-muted-foreground">{label}</th>
+                      {compareItems.map((p) => (
+                        <td key={p.id} className="py-2 pr-3 align-top">{get(p)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr>
+                    <th scope="row" className="py-2 pr-3 text-left align-top font-medium text-muted-foreground">Official</th>
+                    {compareItems.map((p) => (
+                      <td key={p.id} className="py-2 pr-3 align-top">
+                        <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Open ↗</a>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </fieldset>
-
-          <p className="ml-auto text-xs text-muted-foreground" aria-live="polite">
-            <span className="official-figure text-foreground">{results.length}</span> of{" "}
-            <span className="official-figure">{MATCHED_PROGRAMS.length}</span> programs
-          </p>
+          </div>
         </div>
-      </section>
-
-      {results.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {results.map((p) => (
-            <ProgramCard key={p.id} program={p} />
-          ))}
-        </div>
-      ) : (
-        <p className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-          No programs match these filters. Try lowering the minimum fit or switching language.
-        </p>
       )}
     </div>
   );
