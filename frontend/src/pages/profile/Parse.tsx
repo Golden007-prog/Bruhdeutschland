@@ -16,6 +16,7 @@ import { toParsedProfile } from "@/lib/profile/profile";
 import { DEFAULT_PROFILE, type UserProfile } from "@/lib/profile/types";
 import { useProfile } from "@/lib/profile/useProfile";
 import { extractTextFromFile, guessProfileFields } from "@/lib/resume/resume";
+import { mapResumeDetails } from "@/lib/intake/resumeMap";
 import type { ParsedProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ function applyAiFacts(draft: UserProfile, result: ParsedProfileResult): Partial<
   }
   return patch;
 }
+
 
 /** Feature 01 — Résumé & LinkedIn parsing: upload/paste → review extracted fields → save to profile. */
 export default function ProfileParse() {
@@ -97,6 +99,11 @@ export default function ProfileParse() {
       "(full_time|part_time|internship|working_student|freelance|research|volunteer), startDate &",
       "endDate as 'YYYY-MM' when known (else empty), ongoing (true if current), domain, skills[], and",
       "relevantToTarget (true if it relates to the target field). Omit a field if the text doesn't say.",
+      "details (only if stated): careerGoal (a one-line objective/summary), englishTestType (IELTS/TOEFL/",
+      "PTE/Duolingo) + englishTestScore, germanTestType (TestDaF/DSH/Goethe/telc/DSD), mediumOfInstruction",
+      "(english if the degree was English-medium, else other), gradeValue + gradeScale (percent/cgpa10/",
+      "gpa4), graduationDate (YYYY-MM), dateOfBirth (YYYY-MM-DD), targetField, highestQualification",
+      "(class12/bachelor/master), coreSkills[]. NEVER invent a score, grade, or date.",
       "skillGaps: skills a German Master's programme typically expects that this profile does not yet",
       "evidence, each with severity low/medium/high. Do not assert official requirements.",
       "",
@@ -106,7 +113,7 @@ export default function ProfileParse() {
     const result = await ai.generate(
       parsedProfileSchema,
       prompt,
-      '{ facts: {label,value}[], workExperiences: {title,employer,country,employmentType,startDate,endDate,ongoing,domain,skills,relevantToTarget}[], skillGaps: {skill, severity: low|medium|high}[] }',
+      '{ facts: {label,value}[], workExperiences: {...}[], details: {careerGoal,englishTestType,englishTestScore,germanTestType,mediumOfInstruction,gradeValue,gradeScale,graduationDate,dateOfBirth,targetField,highestQualification,coreSkills}, skillGaps: {skill, severity}[] }',
       0.3,
     );
     if (result) {
@@ -129,6 +136,8 @@ export default function ProfileParse() {
             relevantToTarget: w.relevantToTarget,
           }));
         }
+        // Fill the remaining résumé-derivable fields (career goal, tests, grade scale, …) where empty.
+        if (result.details) Object.assign(next, mapResumeDetails(next, result.details));
         return next;
       });
     }

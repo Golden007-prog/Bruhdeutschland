@@ -61,6 +61,26 @@ export const parsedProfileSchema = z.object({
     )
     .max(12)
     .default([]),
+  /**
+   * Other résumé-derivable intake fields (data-engine work order). Kept as plain strings and normalised
+   * on apply, so a slightly-off model value never fails validation. Only what the text actually states.
+   */
+  details: z
+    .object({
+      careerGoal: z.string().default(""),
+      englishTestType: z.string().default(""), // ielts | toefl | pte | duolingo
+      englishTestScore: z.string().default(""),
+      germanTestType: z.string().default(""), // testdaf | dsh | goethe | telc | dsd
+      mediumOfInstruction: z.string().default(""), // english | other
+      gradeValue: z.string().default(""),
+      gradeScale: z.string().default(""), // percent | cgpa10 | gpa4
+      graduationDate: z.string().default(""), // YYYY-MM
+      dateOfBirth: z.string().default(""), // YYYY-MM-DD
+      targetField: z.string().default(""),
+      highestQualification: z.string().default(""), // class12 | bachelor | master
+      coreSkills: z.array(z.string()).default([]),
+    })
+    .optional(),
 });
 export type ParsedProfileResult = z.infer<typeof parsedProfileSchema>;
 
