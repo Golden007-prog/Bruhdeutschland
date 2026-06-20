@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { uid } from "@/lib/doc/export";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useTableSync } from "@/lib/persist/useTableSync";
+import { stableUuid, type OwnedRow } from "@/lib/persist/syncTable";
 import { cn } from "@/lib/utils";
 
 type Stage = "researching" | "applying" | "submitted" | "decision";
@@ -32,6 +34,28 @@ const STAGE_ORDER: Stage[] = STAGES.map((s) => s.key);
 /** Application tracker — a Kanban of programmes from researching to decision (work order §8D-32). */
 export default function TrackerPage() {
   const [apps, setApps] = useSyncedState<Application[]>("tracker:apps", []);
+  // Dual-write to the typed `applications` table when signed in (SEC-3); localStorage stays the cache.
+  useTableSync(apps, setApps, {
+    table: "applications",
+    idOf: (a) => a.id,
+    toRow: (a, _uid: string, i: number) => ({
+      id: stableUuid(a.id), // client id isn't a uuid; the table PK is — derive a stable (idempotent) one
+      university: a.university,
+      program: a.program,
+      stage: a.stage,
+      deadline: a.deadline ?? null,
+      url: a.url ?? null,
+      sort_index: i,
+    }),
+    fromRow: (r: OwnedRow): Application => ({
+      id: String(r.id), // on hydrate the table uuid becomes the client id; stableUuid passes it through
+      university: String(r.university ?? ""),
+      program: String(r.program ?? ""),
+      stage: (STAGE_ORDER.includes(r.stage as Stage) ? r.stage : "researching") as Stage,
+      deadline: (r.deadline as string | null) ?? undefined,
+      url: (r.url as string | null) ?? undefined,
+    }),
+  });
   const [university, setUniversity] = useState("");
   const [program, setProgram] = useState("");
 

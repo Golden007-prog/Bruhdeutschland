@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { CATEGORY_ACCENT, CATEGORY_LABELS } from "@/lib/categories";
 import { uid } from "@/lib/doc/export";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useTableSync } from "@/lib/persist/useTableSync";
+import { stableUuid, type OwnedRow } from "@/lib/persist/syncTable";
+import { CATEGORY_KEYS } from "@/lib/progress/progress";
 import { SEED_EVENTS } from "@/lib/seed/events";
 import type { FeatureCategoryKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -64,6 +67,26 @@ export default function CalendarPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [userDeadlines, setUserDeadlines] = useSyncedState<UserDeadline[]>("calendar:deadlines", []);
+  // Dual-write user-added deadlines to the typed `deadlines` table when signed in (SEC-3).
+  useTableSync(userDeadlines, setUserDeadlines, {
+    table: "deadlines",
+    idOf: (d) => d.id,
+    toRow: (d) => ({
+      id: stableUuid(d.id), // table PK is a uuid; client id isn't — derive a stable (idempotent) one
+      title: d.title,
+      due_date: d.date, // domain field `date` → column `due_date`
+      category: d.category ?? null,
+    }),
+    fromRow: (r: OwnedRow): UserDeadline => {
+      const cat = r.category as string | null;
+      return {
+        id: String(r.id), // on hydrate the table uuid becomes the client id
+        title: String(r.title ?? ""),
+        date: String(r.due_date ?? ""),
+        category: cat && (CATEGORY_KEYS as string[]).includes(cat) ? (cat as FeatureCategoryKey) : undefined,
+      };
+    },
+  });
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
 

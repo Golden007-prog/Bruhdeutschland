@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { useRoadmapSync } from "@/lib/persist/useTableSync";
 import { useProfile } from "@/lib/profile/useProfile";
 import { roadmapStepsFor } from "@/lib/pathway/roadmap";
 import { PathwayBanner } from "@/features/pathway/PathwayBanner";
@@ -36,6 +37,8 @@ const STATUS_META: Record<
 export default function RoadmapPage() {
   // Per-step status persists across reloads (localStorage now, Supabase when signed in).
   const [status, setStatus] = useSyncedState<StatusMap>("roadmap:status", EMPTY_STATUS);
+  // Dual-write step statuses to the typed `roadmap_items` table when signed in (SEC-3).
+  useRoadmapSync(status, setStatus);
   const { profile } = useProfile();
   // Pathway-specific sequence (Bachelor/Studienkolleg/Medicine differ from Master's; addendum §4).
   const { steps, label } = roadmapStepsFor({
