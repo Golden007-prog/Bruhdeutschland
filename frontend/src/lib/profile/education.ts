@@ -85,7 +85,9 @@ export function summarizeEducation(p: UserProfile): EducationSummary {
   const degreeOngoing = !completedDegree && !!ongoingDegree;
 
   const currentSemRaw = Number(ongoingDegree?.currentSemester);
-  const currentSemester = Number.isFinite(currentSemRaw) && currentSemRaw > 0 ? currentSemRaw : undefined;
+  // Only meaningful when the degree is actually the ongoing one (a completed degree wins and clears this).
+  const currentSemester =
+    degreeOngoing && Number.isFinite(currentSemRaw) && currentSemRaw > 0 ? currentSemRaw : undefined;
 
   const qualifyingCredential: QualifyingCredential = degreeCompleted
     ? "degree"

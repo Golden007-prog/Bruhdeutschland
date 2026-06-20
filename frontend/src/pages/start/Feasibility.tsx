@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useProfile } from "@/lib/profile/useProfile";
+import { summarizeEducation } from "@/lib/profile/education";
 import { evaluatePathway } from "@/lib/pathway/pathway";
 import { computeFeasibility, type FeasibilityBand } from "@/lib/calc/feasibility";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export default function StartFeasibility() {
         highestQualification: profile.highestQualification,
         targetLevel: profile.targetLevel,
         targetSubject: profile.targetField || profile.currentDegree,
+        education: summarizeEducation(profile),
       }).route,
     [profile],
   );

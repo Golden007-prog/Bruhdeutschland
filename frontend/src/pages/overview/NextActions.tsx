@@ -9,6 +9,7 @@ import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useProfile } from "@/lib/profile/useProfile";
 import { isProfileStarted } from "@/lib/profile/profile";
 import { evaluatePathway } from "@/lib/pathway/pathway";
+import { summarizeEducation } from "@/lib/profile/education";
 import { recommendedTests } from "@/lib/intake/derive";
 import type { GermanLevel } from "@/lib/profile/types";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ export default function NextActionsPage() {
   const started = isProfileStarted(profile);
   const hasLevelQual = Boolean(profile.targetLevel && profile.highestQualification);
   const route = useMemo(
-    () => evaluatePathway({ country: profile.homeCountry, highestQualification: profile.highestQualification, targetLevel: profile.targetLevel, targetSubject: profile.targetField || profile.currentDegree }).route,
+    () => evaluatePathway({ country: profile.homeCountry, highestQualification: profile.highestQualification, targetLevel: profile.targetLevel, targetSubject: profile.targetField || profile.currentDegree, education: summarizeEducation(profile) }).route,
     [profile],
   );
   const germanReady = RANK[profile.germanLevel] >= 4;

@@ -70,6 +70,30 @@ export function computeFeasibility(input: FeasibilityInput): FeasibilityResult {
     };
   }
 
+  // Non-linear: a degree still in progress → not eligible yet, but a timeline, not a rejection.
+  if (input.route === "complete_degree") {
+    return {
+      score: 35,
+      band: "challenging",
+      factors: [{ label: "Finish your Bachelor first", delta: 0, detail: "You're still completing your degree, so you can't be assessed for a Master's yet. Your lateral-entry Bachelor becomes your qualifying credential once it's done." }],
+      estYearsMin: 1,
+      estYearsMax: 3,
+      caveats: ["Complete your Bachelor's, then check it on anabin and order a uni-assist VPD — the missing class 12 is usually not the blocker."],
+    };
+  }
+
+  // Non-linear: diploma only (no Bachelor) → not a university entry by itself.
+  if (input.route === "ausbildung") {
+    return {
+      score: 25,
+      band: "challenging",
+      factors: [{ label: "A diploma alone isn't university entry", delta: 0, detail: "A polytechnic diploma is vocational — not a university entrance qualification on its own. Two honest routes: complete a recognised Bachelor, or pursue a German Ausbildung (where your diploma can earn Anrechnung)." }],
+      estYearsMin: 2,
+      estYearsMax: 4,
+      caveats: ["Check your diploma on anabin; plan either a completed Bachelor or the Ausbildung route — Studienkolleg is hard without a class-12-track base."],
+    };
+  }
+
   // Base by route clarity.
   let score = 55;
   factors.push({ label: "Route is defined", delta: 55, detail: "You have a recognised route into the German system — that's the baseline." });

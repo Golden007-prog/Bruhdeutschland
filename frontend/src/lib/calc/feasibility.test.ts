@@ -42,6 +42,20 @@ describe("computeFeasibility", () => {
     expect(withoutGerman.estYearsMin).toBeGreaterThan(withGerman.estYearsMin);
   });
 
+  it("routes an ongoing-degree (complete_degree) to a 'finish first' read, not a feasible Master's", () => {
+    const r = computeFeasibility({ route: "complete_degree", targetLevel: "master", highestQualification: "some_bachelor", germanLevel: "B1", englishTaught: true });
+    expect(r.band).toBe("challenging");
+    expect(r.score).toBeLessThan(55);
+    expect(r.factors[0].label).toMatch(/finish your bachelor first/i);
+  });
+
+  it("routes diploma-only (ausbildung) to a low, honest read — never 'feasible Master's'", () => {
+    const r = computeFeasibility({ route: "ausbildung", targetLevel: "master", highestQualification: "", germanLevel: "none", englishTaught: true });
+    expect(r.band).toBe("challenging");
+    expect(r.score).toBeLessThan(40);
+    expect(r.factors[0].detail).toMatch(/diploma/i);
+  });
+
   it("keeps the score within 0–100", () => {
     const r = computeFeasibility({
       route: "medicine", targetLevel: "medicine", highestQualification: "class12", germanLevel: "none", englishTaught: false,
