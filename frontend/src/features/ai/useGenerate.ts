@@ -11,12 +11,20 @@
 import { useCallback, useState } from "react";
 import type { ZodType } from "zod";
 
-import { LLMError } from "@/lib/llm/types";
+import { LLMError, type ProviderId } from "@/lib/llm/types";
 import { NoProviderError, resolveProvider } from "@/lib/llm/registry";
+
+/** Which provider/model produced {@link UseGenerateResult.result} — surfaced so the AI badge is traceable. */
+export interface AiProvenance {
+  provider: ProviderId;
+  model: string;
+}
 
 export interface UseGenerateResult<T> {
   /** The last successful AI result, or null. */
   result: T | null;
+  /** Provider + model that produced the last result (null until one succeeds). */
+  provenance: AiProvenance | null;
   /** True while a generation request is in flight. */
   loading: boolean;
   /** Human-readable error message for non-"no provider" failures, else null. */
@@ -57,6 +65,7 @@ function messageFor(err: unknown): string {
 
 export function useGenerate<T>(): UseGenerateResult<T> {
   const [result, setResult] = useState<T | null>(null);
+  const [provenance, setProvenance] = useState<AiProvenance | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noProvider, setNoProvider] = useState(false);
@@ -75,6 +84,7 @@ export function useGenerate<T>(): UseGenerateResult<T> {
         const provider = await resolveProvider();
         const value = await provider.generateJSON<T>(schema, prompt, schemaHint, { temperature });
         setResult(value);
+        setProvenance({ provider: provider.id, model: provider.model });
         return value;
       } catch (err) {
         if (err instanceof NoProviderError) {
@@ -92,9 +102,10 @@ export function useGenerate<T>(): UseGenerateResult<T> {
 
   const reset = useCallback(() => {
     setResult(null);
+    setProvenance(null);
     setError(null);
     setNoProvider(false);
   }, []);
 
-  return { result, loading, error, noProvider, generate, reset };
+  return { result, provenance, loading, error, noProvider, generate, reset };
 }

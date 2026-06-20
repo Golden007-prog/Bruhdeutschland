@@ -50,3 +50,27 @@ describe("reverseTimeline", () => {
     expect(late.find((m) => m.key === "research")?.overdue).toBe(true);
   });
 });
+
+describe("reverseTimeline — SS intake + year-rollover back-dating", () => {
+  const ss = reverseTimeline("SS", 2027, new Date(2025, 0, 1)); // plan SS2027 from Jan 2025
+
+  it("places the arrival milestone at the SS start (April)", () => {
+    expect(ss.find((m) => m.key === "arrival")?.month).toBe("2027-04");
+  });
+  it("back-dates milestones whose offset crosses the year boundary into the PRIOR year", () => {
+    // April 2027 − 4 months = December 2026 (the most off-by-one-prone, prior-year case).
+    expect(ss.find((m) => m.key === "apply")?.month).toBe("2026-12");
+    // April 2027 − 14 months = February 2026.
+    expect(ss.find((m) => m.key === "research")?.month).toBe("2026-02");
+    // April 2027 − 2 months stays in 2027 (February).
+    expect(ss.find((m) => m.key === "admission")?.month).toBe("2027-02");
+  });
+  it("orders monthsFromNow consistently with the rolled-over months", () => {
+    const research = ss.find((m) => m.key === "research");
+    const arrival = ss.find((m) => m.key === "arrival");
+    // Feb 2026 is 13 months after Jan 2025; April 2027 is 27 months after.
+    expect(research?.monthsFromNow).toBe(13);
+    expect(arrival?.monthsFromNow).toBe(27);
+    expect(ss.every((m) => !m.overdue)).toBe(true); // earliest (Feb 2026) is still ahead of Jan 2025
+  });
+});

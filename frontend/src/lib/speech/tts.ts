@@ -77,6 +77,8 @@ export class TtsController {
   private playing = false;
   private stopped = false;
   private watchdog: ReturnType<typeof setInterval> | null = null;
+  /** The utterance currently queued, so we can detach its handlers before an intentional cancel(). */
+  private active: SpeechSynthesisUtterance | null = null;
 
   constructor(text: string, opts: SpeakOptions = {}) {
     this.sentences = splitSentences(text);
@@ -127,6 +129,7 @@ export class TtsController {
       const voice = getVoices().find((v) => v.voiceURI === this.opts.voiceURI);
       if (voice) u.voice = voice;
     }
+    this.active = u;
     this.opts.onSentence?.(this.index, this.sentences.length);
     u.onend = () => {
       if (this.stopped) return;
@@ -134,7 +137,7 @@ export class TtsController {
       this.speakCurrent();
     };
     u.onerror = (e) => {
-      // "interrupted"/"canceled" are expected on stop(); ignore those.
+      // "interrupted"/"canceled" are expected on stop()/next(); ignore those.
       if (this.stopped) return;
       this.opts.onError?.(e.error ?? "speech error");
       this.finish();
@@ -162,6 +165,11 @@ export class TtsController {
     this.stopped = true;
     this.playing = false;
     this.stopWatchdog();
+    if (this.active) {
+      this.active.onerror = null;
+      this.active.onend = null;
+      this.active = null;
+    }
     if (isTtsAvailable()) window.speechSynthesis.cancel();
   }
 
@@ -169,7 +177,14 @@ export class TtsController {
   next(): void {
     if (!isTtsAvailable() || this.index >= this.sentences.length - 1) return;
     this.index += 1;
-    window.speechSynthesis.cancel(); // triggers onend? no — cancel suppresses it; re-speak directly.
+    // Detach the in-flight utterance's handlers BEFORE cancel() so its onerror ("interrupted"/"canceled")
+    // doesn't fire a spurious error and halt playback on this intentional skip — then re-speak directly.
+    if (this.active) {
+      this.active.onerror = null;
+      this.active.onend = null;
+      this.active = null;
+    }
+    window.speechSynthesis.cancel();
     if (this.playing) this.speakCurrent();
   }
 

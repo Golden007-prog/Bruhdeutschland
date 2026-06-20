@@ -37,6 +37,9 @@ export interface AttemptRecord {
   durationMs: number;
   score: ExamScore;
   rubrics?: AttemptRubric[];
+  /** Which provider/model graded the open tasks (AI provenance), when any were AI-graded. */
+  provider?: string;
+  model?: string;
 }
 
 function ls(): Storage | null {
@@ -90,7 +93,15 @@ function makeId(): string {
   return `att_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-const dayStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+/**
+ * Local calendar-date key `YYYY-MM-DD` (NOT UTC). `finishedAt` is a local-epoch `Date.now()`, so a
+ * session finished just after LOCAL midnight in IST/CET must bucket to that local day — `toISOString()`
+ * would shift it to the previous UTC day (off-by-one streak). Mirrors `lib/calc/deadlines.ts`.
+ */
+export const dayStr = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 /**
  * Update a streak given the previous state and today's date string. Pure + tested.
@@ -103,7 +114,10 @@ export function computeStreak(
   if (prev.last === today) {
     return { current: Math.max(1, prev.current), longest: Math.max(prev.longest, Math.max(1, prev.current)), last: today };
   }
-  const yesterday = new Date(new Date(today).getTime() - 86_400_000).toISOString().slice(0, 10);
+  // Derive "yesterday" via LOCAL midnight (parse the local YYYY-MM-DD, step back one day), so the
+  // consecutive-day check stays consistent with the local `dayStr` keys (no UTC off-by-one).
+  const [ty, tm, td] = today.split("-").map(Number);
+  const yesterday = dayStr(new Date(ty, tm - 1, td - 1).getTime());
   const current = prev.last === yesterday ? prev.current + 1 : 1;
   return { current, longest: Math.max(prev.longest, current), last: today };
 }
@@ -130,7 +144,9 @@ async function writeCloud(rec: AttemptRecord): Promise<void> {
         exam_id: rec.examId,
         scale: rec.scale ?? null,
         mode: rec.mode,
-        score: rec.score,
+        // Fold AI grader provenance into the score blob (no dedicated column exists) so it round-trips
+        // through hydrateAttemptsFromCloud — keeps the attempt traceable to a model cross-device.
+        score: rec.provider || rec.model ? { ...rec.score, provider: rec.provider, model: rec.model } : rec.score,
         rubric: rec.rubrics ?? null,
         sections: rec.score.sections,
         correct: rec.score.correct,
@@ -215,6 +231,8 @@ export async function hydrateAttemptsFromCloud(): Promise<void> {
         durationMs: (r.duration_ms as number) ?? 0,
         score: r.score as ExamScore,
         rubrics: (r.rubric as AttemptRubric[]) ?? undefined,
+        provider: (r.score as { provider?: string }).provider ?? undefined,
+        model: (r.score as { model?: string }).model ?? undefined,
       }));
     if (mapped.length) writeLocal(mapped);
   } catch {

@@ -149,21 +149,25 @@ function scoreSection(section: GeneratedSection, answers: AnswerMap): SectionSco
   };
 }
 
-/** Derive a section band from its mark percentage, per the spec's scale. */
-function sectionBand(percent: number, config: ScoreConfig): number | undefined {
+/**
+ * Derive a section band, per the spec's scale. For IELTS/table scales the band is mapped from the raw
+ * correct/total RATIO scaled to /40 directly — NOT from the integer-percent intermediate, which
+ * double-rounds and distorts the band on the short practice sections this app generates (e.g. mini-mode
+ * 4–16 items). `percent` (already rounded) is kept only for the TOEFL-2026 accuracy curve.
+ */
+function sectionBand(correct: number, total: number, percent: number, config: ScoreConfig): number | undefined {
+  const tableBand = (table: { minRaw: number; band: number }[]): number =>
+    rawToBand(total > 0 ? Math.round((correct / total) * 40) : 0, table);
   switch (config.scale) {
     case "toefl-2026":
       return accuracyToBand1to6(percent);
-    case "ielts": {
-      if (!config.bandTable) return undefined;
-      // Scale to the /40 basis the IELTS table assumes, then map.
-      return rawToBand(Math.round((percent / 100) * 40), config.bandTable);
-    }
+    case "ielts":
+      return config.bandTable ? tableBand(config.bandTable) : undefined;
     case "toefl-legacy":
       // 0–30 scaled per section → interpret an overall 0–120 below; no per-section band here.
       return undefined;
     default:
-      return config.bandTable ? rawToBand(Math.round((percent / 100) * 40), config.bandTable) : undefined;
+      return config.bandTable ? tableBand(config.bandTable) : undefined;
   }
 }
 
@@ -184,7 +188,7 @@ export function scoreExam(exam: GeneratedExam, answers: AnswerMap, config: Score
     if (section.open.length > 0) hasOpenTasks = true;
     if (section.objective.length === 0) continue;
     const s = scoreSection(section, answers);
-    s.band = sectionBand(s.percent, config);
+    s.band = sectionBand(s.correct, s.total, s.percent, config);
     sections.push(s);
     correct += s.correct;
     total += s.total;

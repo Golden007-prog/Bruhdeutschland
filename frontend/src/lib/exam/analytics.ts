@@ -3,10 +3,11 @@
  * stored {@link AttemptRecord}s — no fabricated metrics; an empty input yields empty results so the UI
  * shows honest empty states. Pure + unit-tested.
  */
-import { computeStreak, type AttemptRecord } from "./attempts";
+import { computeStreak, dayStr, type AttemptRecord } from "./attempts";
 
 const DAY_MS = 86_400_000;
-const dayStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+/** Local "MM-DD" label for the trend line — local-date based, matching the streak's day-bucketing. */
+const monthDayLabel = (ms: number): string => dayStr(ms).slice(5);
 
 export interface TypeStat {
   type: string;
@@ -49,7 +50,7 @@ export interface HistoryPoint {
 export function scoreHistory(attempts: AttemptRecord[]): HistoryPoint[] {
   return [...attempts]
     .sort((a, b) => a.finishedAt - b.finishedAt)
-    .map((a) => ({ t: a.finishedAt, date: new Date(a.finishedAt).toISOString().slice(5, 10), overall: a.score.overallBand ?? null, percent: a.score.percent, examId: a.examId }));
+    .map((a) => ({ t: a.finishedAt, date: monthDayLabel(a.finishedAt), overall: a.score.overallBand ?? null, percent: a.score.percent, examId: a.examId }));
 }
 
 export interface SkillStat {

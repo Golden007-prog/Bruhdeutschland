@@ -214,22 +214,41 @@ export type GeneratedExam = z.infer<typeof generatedExamSchema>;
  * descriptor phrase + response quote justifying the sub-score (work-order §7 provenance) — and the
  * overall estimate is a RANGE (`bandLow`–`bandHigh`) with a `confidence`, never a bare number.
  */
-export const rubricFeedbackSchema = z.object({
-  criteria: z
-    .array(
-      z.object({
-        name: z.string(),
-        score: z.number(),
-        max: z.number(),
-        evidence: z.string().default(""),
-        comment: z.string(),
-      }),
-    )
-    .min(1),
-  bandLow: z.string(),
-  bandHigh: z.string(),
-  confidence: z.enum(["low", "medium", "high"]).default("medium"),
-  summary: z.string(),
-  improvements: z.array(z.string()).default([]),
-});
+export const rubricFeedbackSchema = z
+  .object({
+    criteria: z
+      .array(
+        z.object({
+          name: z.string(),
+          score: z.number(),
+          max: z.number(),
+          evidence: z.string().default(""),
+          comment: z.string(),
+        }),
+      )
+      .min(1),
+    bandLow: z.string(),
+    bandHigh: z.string(),
+    confidence: z.enum(["low", "medium", "high"]).default("medium"),
+    summary: z.string(),
+    improvements: z.array(z.string()).default([]),
+  })
+  // Reject impossible AI scores before they render as official-looking figures (golden rule #6): each
+  // criterion must satisfy 0 ≤ score ≤ max with max > 0 (so "9/6" or "score 9, max 100" is rejected →
+  // repair retry), and the overall estimate range must be ordered (bandLow ≤ bandHigh).
+  .superRefine((fb, ctx) => {
+    fb.criteria.forEach((c, i) => {
+      if (!(c.max > 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["criteria", i, "max"], message: "max must be > 0" });
+      }
+      if (c.score < 0 || c.score > c.max) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["criteria", i, "score"], message: "score must be within [0, max]" });
+      }
+    });
+    const lo = Number.parseFloat(fb.bandLow);
+    const hi = Number.parseFloat(fb.bandHigh);
+    if (Number.isFinite(lo) && Number.isFinite(hi) && lo > hi) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bandHigh"], message: "bandLow must be ≤ bandHigh" });
+    }
+  });
 export type RubricFeedback = z.infer<typeof rubricFeedbackSchema>;

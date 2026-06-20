@@ -71,6 +71,8 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
   const [score, setScore] = useState<ExamScore | null>(null);
   const [rubrics, setRubrics] = useState<Record<string, RubricFeedback>>({});
   const [rubricNote, setRubricNote] = useState<string>("");
+  // Provider/model that graded the open tasks, surfaced next to the AI badge for traceability.
+  const [grader, setGrader] = useState<{ provider: string; model: string } | null>(null);
   const [adapted, setAdapted] = useState<Set<string>>(new Set());
   const [adapting, setAdapting] = useState(false);
   const qRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -156,7 +158,7 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
     setAdapting(false);
   }
 
-  function persist(result: ExamScore, rubricMap: Record<string, RubricFeedback>) {
+  function persist(result: ExamScore, rubricMap: Record<string, RubricFeedback>, prov?: { provider: string; model: string } | null) {
     const rubricsArr: AttemptRubric[] = exam.sections
       .flatMap((s) => s.open.map((t) => ({ skill: s.skill, task: t })))
       .filter(({ task }) => rubricMap[task.id])
@@ -175,6 +177,8 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
       durationMs: finishedAt - startedAtRef.current,
       score: result,
       rubrics: rubricsArr,
+      provider: prov?.provider,
+      model: prov?.model,
     });
     clearProgress(exam.examId);
   }
@@ -195,6 +199,7 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
       return;
     }
     let map: Record<string, RubricFeedback> = {};
+    let prov: { provider: string; model: string } | null = null;
     try {
       // Route through the ModelRouter (grade kind → Claude-first with Gemini failover).
       const results = await Promise.allSettled(
@@ -209,25 +214,30 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
             RUBRIC_SCHEMA_HINT,
             { temperature: 0.2 },
             "grade",
-          ).then((r) => r.result);
+          );
         }),
       );
       const m: Record<string, RubricFeedback> = {};
       results.forEach((r, i) => {
-        if (r.status === "fulfilled") m[answered[i].task.id] = r.value;
+        if (r.status === "fulfilled") {
+          m[answered[i].task.id] = r.value.result;
+          // Record which model graded (first successful grade; the chain is consistent per submit).
+          if (!prov) prov = { provider: r.value.provenance.provider, model: r.value.provenance.model };
+        }
       });
       map = m;
       setRubrics(m);
+      setGrader(prov);
       if (Object.keys(m).length === 0) setRubricNote("AI feedback wasn't available — your writing/speaking isn't auto-scored.");
     } catch {
       setRubricNote("Connect an AI provider (Settings) to get rubric feedback on Writing & Speaking.");
     }
-    persist(result, map);
+    persist(result, map, prov);
     setPhase("review");
   }
 
   if (phase === "review" && score) {
-    return <ReviewScreen exam={exam} spec={spec} answers={answers} openResponses={openResponses} score={score} rubrics={rubrics} rubricNote={rubricNote} onRestart={onRestart} />;
+    return <ReviewScreen exam={exam} spec={spec} answers={answers} openResponses={openResponses} score={score} rubrics={rubrics} rubricNote={rubricNote} grader={grader} onRestart={onRestart} />;
   }
 
   const objectiveCount = section.objective.length;
@@ -250,6 +260,8 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
         <div className="flex items-center gap-3">
           <p className={`inline-flex items-center gap-1.5 official-figure text-sm font-semibold ${timeLeft <= 30 ? "text-red-600" : ""}`} role="timer" aria-live={timeLeft <= 30 ? "assertive" : "off"}>
             <Clock className="h-4 w-4" aria-hidden /> {clock(timeLeft)}
+            {/* Non-color low-time cue (don't rely on red alone — WCAG 1.4.1); aria-live announces it too. */}
+            {timeLeft <= 30 && <span className="rounded bg-red-600 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">Almost up</span>}
           </p>
         </div>
       </div>
@@ -387,7 +399,7 @@ function WritingTask({ task, value, onChange }: { task: { id: string; typeLabel:
   );
 }
 
-function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubricNote, onRestart }: {
+function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubricNote, grader, onRestart }: {
   exam: GeneratedExam;
   spec: ExamSpec;
   answers: AnswerMap;
@@ -395,6 +407,7 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
   score: ExamScore;
   rubrics: Record<string, RubricFeedback>;
   rubricNote: string;
+  grader: { provider: string; model: string } | null;
   onRestart: () => void;
 }) {
   const reduce = useReducedMotion();
@@ -446,7 +459,14 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
       {/* AI rubric feedback with descriptor evidence + range */}
       {Object.keys(rubrics).length > 0 && (
         <section className="space-y-3">
-          <h3 className="font-semibold">Writing & Speaking feedback</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">Writing & Speaking feedback</h3>
+            {grader && (
+              <Badge variant="outline" className="font-normal">
+                <Sparkles className="h-3 w-3" aria-hidden /> Generated by {grader.model}
+              </Badge>
+            )}
+          </div>
           {exam.sections.flatMap((s) => s.open).map((t) => {
             const fb = rubrics[t.id];
             if (!fb) return null;
@@ -487,6 +507,7 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
       {/* Objective review (all item types) */}
       <section className="space-y-3">
         <h3 className="font-semibold">Answer review</h3>
+        <p className="text-xs text-muted-foreground">Auto-generated answer key — verify each against the explanation.</p>
         {exam.sections.map((sec) =>
           sec.objective.length === 0 ? null : (
             <div key={sec.skill} className="space-y-2">

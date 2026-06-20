@@ -4,7 +4,7 @@ import { Mic, MicOff, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { createRecognizer, isSttAvailable, type SttController } from "@/lib/speech/stt";
-import { speakOnce } from "@/lib/speech/tts";
+import { isTtsAvailable, speakOnce } from "@/lib/speech/tts";
 import type { OpenTask } from "@/lib/exam/schema";
 
 /**
@@ -27,6 +27,7 @@ export function SpeakingTask({
   const [prepping, setPrepping] = useState(false);
   const [recording, setRecording] = useState(false);
   const recRef = useRef<SttController | null>(null);
+  const ttsOk = isTtsAvailable();
   // Text present when recording starts; the live transcript is appended to it so a second take or
   // typing-then-recording never overwrites earlier text (qa-findings P2).
   const baseRef = useRef("");
@@ -70,9 +71,19 @@ export function SpeakingTask({
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium">{task.prompt}</p>
-        <Button size="icon" variant="ghost" aria-label="Read the question aloud" onClick={() => speakOnce(task.prompt, lang)}>
-          <Volume2 aria-hidden />
-        </Button>
+        <div className="flex flex-col items-end">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Read the question aloud"
+            disabled={!ttsOk}
+            title={ttsOk ? undefined : "Audio unavailable in this browser"}
+            onClick={() => speakOnce(task.prompt, lang)}
+          >
+            <Volume2 aria-hidden />
+          </Button>
+          {!ttsOk && <span className="text-[0.65rem] text-muted-foreground">audio unavailable in this browser</span>}
+        </div>
       </div>
       {task.guidance && <p className="text-sm text-muted-foreground">{task.guidance}</p>}
 

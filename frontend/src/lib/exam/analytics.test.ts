@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AttemptRecord } from "./attempts";
-import { bestOverall, improvementPoints, predictedBand, questionTypeStats, streakFromAttempts } from "./analytics";
+import { bestOverall, improvementPoints, latestSkillStats, predictedBand, questionTypeStats, scoreHistory, streakFromAttempts } from "./analytics";
 import type { ExamScore, ItemResult, SectionScore } from "./scoring";
 
 function item(typeLabel: string, earned: number, possible = 1): ItemResult {
@@ -64,6 +64,43 @@ describe("predictedBand", () => {
   });
   it("is honest about no data", () => {
     expect(predictedBand([]).value).toBeUndefined();
+  });
+});
+
+describe("scoreHistory", () => {
+  it("orders points oldest → newest with a local MM-DD label and the overall band", () => {
+    const atts = [
+      attempt(DAY * 3, [section("reading", [item("x", 1)], 6)], 6),
+      attempt(DAY * 1, [section("reading", [item("x", 1)], 5)], 5),
+    ];
+    const hist = scoreHistory(atts);
+    expect(hist.map((h) => h.overall)).toEqual([5, 6]); // sorted ascending by time
+    expect(hist[0].t).toBe(DAY * 1);
+    expect(hist[1].t).toBe(DAY * 3);
+    expect(hist[0].date).toMatch(/^\d{2}-\d{2}$/); // "MM-DD"
+  });
+  it("carries a null overall when an attempt has no band", () => {
+    const hist = scoreHistory([attempt(DAY * 2, [section("reading", [item("x", 1)])])]);
+    expect(hist[0].overall).toBeNull();
+  });
+});
+
+describe("latestSkillStats", () => {
+  it("takes each skill from the MOST RECENT attempt that exercised it", () => {
+    const atts = [
+      // Newer attempt covers reading; older covers reading+listening — listening must come from the older one.
+      attempt(DAY * 5, [section("reading", [item("x", 1)], 7)], 7),
+      attempt(DAY * 2, [section("reading", [item("x", 0)], 5), section("listening", [item("y", 1)], 6)], 5),
+    ];
+    const stats = latestSkillStats(atts);
+    const reading = stats.find((s) => s.skill === "reading");
+    const listening = stats.find((s) => s.skill === "listening");
+    expect(reading?.band).toBe(7); // from the newer attempt
+    expect(listening?.band).toBe(6); // from the older attempt (only it exercised listening)
+    expect(stats).toHaveLength(2);
+  });
+  it("is empty for no attempts", () => {
+    expect(latestSkillStats([])).toEqual([]);
   });
 });
 

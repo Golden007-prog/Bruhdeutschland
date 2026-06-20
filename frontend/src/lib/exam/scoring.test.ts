@@ -78,6 +78,57 @@ describe("scoreExam (IELTS)", () => {
   });
 });
 
+describe("scoreExam (IELTS) — short-set band maps from the raw ratio, not a double-rounded percent", () => {
+  // Build a single reading section of `total` questions with `correct` of them answered correctly.
+  function shortExam(total: number): GeneratedExam {
+    return {
+      examId: "ielts", title: "Test", language: "en", nonce: "n", isSeed: false,
+      sections: [{ skill: "reading", title: "Reading", passages: [], open: [], objective: Array.from({ length: total }, (_, i) => mcq(`q${i}`, "a")) }],
+    };
+  }
+  function scoreShort(correct: number, total: number) {
+    const answers: Record<string, string> = {};
+    for (let i = 0; i < total; i++) answers[`q${i}`] = i < correct ? "a" : "b";
+    return scoreExam(shortExam(total), answers, { bandTable: IELTS_RAW_TO_BAND, scale: "ielts" });
+  }
+
+  it("maps a 12/13 short set from the raw ratio (12/13 → /40 ≈ 37 → band 8.5)", () => {
+    // Documents the post-fix value: derived in ONE rounding step from the fractional ratio,
+    // not via the integer-percent (92%) intermediate.
+    expect(scoreShort(12, 13).sections[0].band).toBe(8.5);
+  });
+
+  it("13/16 reads as 7.5 from the ratio (the old double-round through 81% collapsed it to 7.0)", () => {
+    // round(13/16*40) = round(32.5) = 33 → band 7.5. The double-round path gave round(81/100*40)=32 → 7.0.
+    expect(scoreShort(13, 16).sections[0].band).toBe(7.5);
+  });
+});
+
+describe("scoreExam (TOEFL-legacy 0–120 estimation)", () => {
+  const legacy: GeneratedExam = {
+    examId: "toefl", title: "TOEFL (legacy)", language: "en", nonce: "n", isSeed: false,
+    sections: [
+      { skill: "reading", title: "Reading", passages: [], open: [], objective: [mcq("r1", "a"), mcq("r2", "a")] },
+      { skill: "listening", title: "Listening", passages: [], open: [], objective: [mcq("l1", "a"), mcq("l2", "a")] },
+    ],
+  };
+  it("estimates an overall 0–120, a 1–6 band and CEFR from the scaled sections", () => {
+    const perfect = scoreExam(legacy, { r1: "a", r2: "a", l1: "a", l2: "a" }, { scale: "toefl-legacy" });
+    // 100% each → 30/30 scaled per section → est120 = 120 → band 6.0 / C2 / concordance rep 120.
+    expect(perfect.overallBand).toBe(6.0);
+    expect(perfect.cefr).toBe("C2");
+    expect(perfect.concordance120?.rep).toBe(120);
+    // No per-section band for the legacy scale (overall is interpreted from the 0–120 estimate).
+    expect(perfect.sections[0].band).toBeUndefined();
+  });
+  it("lands a lower band for a half-correct legacy attempt", () => {
+    const half = scoreExam(legacy, { r1: "a", l1: "a" }, { scale: "toefl-legacy" }); // 50% each
+    // 50% → 15/30 scaled per section → est120 = round(0.5*120)=60 → band 3.5 (>=58).
+    expect(half.concordance120?.rep).toBe(60);
+    expect(half.overallBand).toBe(3.5);
+  });
+});
+
 describe("markItem — every response type is deterministically marked", () => {
   it("single: correct only on the exact choice", () => {
     const q = mcq("q", "a");
