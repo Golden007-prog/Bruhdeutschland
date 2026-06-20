@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Columns3, Database, LayoutGrid, List, Loader2, MapPin, Save, Search, Sparkles, X } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { PathwayBanner } from "@/features/pathway/PathwayBanner";
 import { FilterPanel } from "@/features/programs/FilterPanel";
 import { ProgramCard } from "@/features/programs/ProgramCard";
 import { MapView } from "@/features/programs/MapView";
@@ -187,6 +188,8 @@ export default function ProfileMatching() {
         category="profile"
         fileRef="§ 03"
       />
+
+      <PathwayBanner note="These are Master's programmes. Your study level differs — Bachelor/Medicine follow a Studienkolleg / quota route first." />
 
       <Alert variant="info" className="text-xs">
         <Database aria-hidden />

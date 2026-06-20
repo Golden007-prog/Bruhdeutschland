@@ -5,8 +5,13 @@ import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { OfficialFactList } from "@/components/common/OfficialFact";
+import { SourceLink } from "@/components/common/SourceLink";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FINANCE_FACTS } from "@/lib/facts";
+import { source } from "@/lib/sources";
+import { useProfile } from "@/lib/profile/useProfile";
+import { PathwayBanner } from "@/features/pathway/PathwayBanner";
 
 interface Tool {
   to: string;
@@ -61,6 +66,9 @@ const TOOLS: Tool[] = [
 
 /** Finance & Logistics — landing page. Links to the five finance tools and the grounded key facts. */
 export default function FinanceOverview() {
+  const { profile } = useProfile();
+  const onSchool = profile.targetLevel === "bachelor" || profile.targetLevel === "studienkolleg" || profile.targetLevel === "medicine";
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -71,6 +79,35 @@ export default function FinanceOverview() {
       />
 
       <Disclaimer />
+
+      <PathwayBanner />
+
+      {onSchool && (
+        <section className="rounded-lg border bg-card p-5 shadow-sm">
+          <h2 className="font-semibold">Costs on your pathway</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            <li className="rounded-md border border-dashed p-3">
+              <p className="flex items-center gap-2 font-medium">Studienkolleg <Badge variant="outline" className="text-[0.6rem]">needs verification</Badge></p>
+              <p className="mt-0.5 text-muted-foreground">
+                A <strong>public</strong> Studienkolleg is generally free — you pay only the Semesterbeitrag
+                (~€100–350/sem). A <strong>private</strong> Studienkolleg charges fees (often in the
+                thousands of euros) and may use an external FSP.
+              </p>
+              <div className="mt-1"><SourceLink source={source("studienkolleg")} /></div>
+            </li>
+            {profile.targetLevel === "medicine" && (
+              <li className="rounded-md border border-dashed p-3">
+                <p className="flex items-center gap-2 font-medium">Medicine tuition <Badge variant="outline" className="text-[0.6rem]">needs verification</Badge></p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Medicine is tuition-free <strong>except Baden-Württemberg</strong> (€1,500/sem for non-EU
+                  students) + the Semesterbeitrag. DAAD has <strong>no scholarship</strong> for the medicine
+                  Staatsexamen; paid English private programmes are a costly separate track.
+                </p>
+              </li>
+            )}
+          </ul>
+        </section>
+      )}
 
       <p className="max-w-2xl text-sm text-muted-foreground">
         Two numbers do most of the planning: the <strong>blocked-account amount</strong> you must

@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
-import { ROADMAP_STEPS } from "@/lib/seed/process";
+import { useProfile } from "@/lib/profile/useProfile";
+import { roadmapStepsFor } from "@/lib/pathway/roadmap";
+import { PathwayBanner } from "@/features/pathway/PathwayBanner";
 
 type StepStatus = "todo" | "active" | "done";
 type StatusMap = Record<string, StepStatus>;
@@ -34,13 +36,20 @@ const STATUS_META: Record<
 export default function RoadmapPage() {
   // Per-step status persists across reloads (localStorage now, Supabase when signed in).
   const [status, setStatus] = useSyncedState<StatusMap>("roadmap:status", EMPTY_STATUS);
+  const { profile } = useProfile();
+  // Pathway-specific sequence (Bachelor/Studienkolleg/Medicine differ from Master's; addendum §4).
+  const { steps, label } = roadmapStepsFor({
+    country: profile.homeCountry,
+    targetLevel: profile.targetLevel,
+    highestQualification: profile.highestQualification,
+  });
 
   const statusOf = (id: string): StepStatus => status[id] ?? "todo";
   const cycle = (id: string): void =>
     setStatus((prev) => ({ ...prev, [id]: NEXT_STATUS[prev[id] ?? "todo"] }));
 
-  const total = ROADMAP_STEPS.length;
-  const doneCount = ROADMAP_STEPS.filter((s) => statusOf(s.id) === "done").length;
+  const total = steps.length;
+  const doneCount = steps.filter((s) => statusOf(s.id) === "done").length;
   const progressPct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
 
   return (
@@ -49,7 +58,7 @@ export default function RoadmapPage() {
         eyebrow="Aktenplan · Roadmap"
         title="Step-by-step roadmap"
         description="A dependency-ordered plan from profile evaluation to enrolment. Each step links to the tool that completes it."
-        fileRef={`${ROADMAP_STEPS.length} steps`}
+        fileRef={`${steps.length} steps`}
       />
 
       <p className="max-w-2xl text-sm text-muted-foreground">
@@ -58,6 +67,12 @@ export default function RoadmapPage() {
         <span className="font-medium text-amber-700">needs verification</span> with a link to the
         source where you can confirm the current value. Use the duration hints to plan backwards from
         your target intake.
+      </p>
+
+      <PathwayBanner note="This roadmap is tailored to your study level — Bachelor/Medicine differ from Master's." />
+      <p className="flex items-center gap-2 text-sm">
+        <span className="eyebrow">Pathway</span>
+        <Badge variant="secondary">{label}</Badge>
       </p>
 
       <Card>
@@ -75,12 +90,12 @@ export default function RoadmapPage() {
             <Progress value={progressPct} label={`Roadmap progress: ${progressPct}%`} className="h-1.5" />
           </div>
 
-          <StepList steps={ROADMAP_STEPS} />
+          <StepList steps={steps} />
 
           <div className="space-y-2 border-t pt-4">
             <p className="eyebrow">Track each step</p>
             <ul className="space-y-1.5">
-              {ROADMAP_STEPS.map((step) => {
+              {steps.map((step) => {
                 const s = statusOf(step.id);
                 const meta = STATUS_META[s];
                 const Icon = meta.icon;
