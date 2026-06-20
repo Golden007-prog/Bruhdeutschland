@@ -43,11 +43,33 @@ interface SavedSearch {
   query: string;
 }
 
+type ProgramLevel = "bachelor" | "master" | "medicine" | "all";
+
+/** Map the user's pathway target level to the programme pool to show by default. */
+function levelForTarget(t: string): ProgramLevel {
+  if (t === "medicine") return "medicine";
+  if (t === "bachelor" || t === "studienkolleg") return "bachelor";
+  return "master";
+}
+
+const LEVEL_TABS: { key: ProgramLevel; label: string }[] = [
+  { key: "bachelor", label: "Bachelor" },
+  { key: "master", label: "Master's" },
+  { key: "medicine", label: "Medicine" },
+  { key: "all", label: "All" },
+];
+
 /** Feature 03 — a faceted, hybrid-search programme finder over real, provenance-stamped programmes. */
 export default function ProfileMatching() {
   const { programs, loading, source } = useProgramData();
   const { profile } = useProfile();
   const hasProfile = isProfileStarted(profile);
+  // Show the programme pool for the user's pathway (Bachelor / Master / Medicine), switchable.
+  const [level, setLevel] = useState<ProgramLevel>(() => levelForTarget(profile.targetLevel));
+  const pooled = useMemo(
+    () => (level === "all" ? programs : programs.filter((p) => (p.courseType || "master") === level)),
+    [programs, level],
+  );
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [sort, setSort] = useState<SortKey>("relevance");
@@ -98,9 +120,9 @@ export default function ProfileMatching() {
   };
 
   const { results, total, facets } = useMemo(
-    () => runSearch(programs, filters, sort, hasProfile ? profile : undefined),
+    () => runSearch(pooled, filters, sort, hasProfile ? profile : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [programs, params.toString(), sort, profile],
+    [pooled, params.toString(), sort, profile],
   );
 
   const setListParam = (key: string, list: string[] | undefined) =>
@@ -189,11 +211,25 @@ export default function ProfileMatching() {
         fileRef="§ 03"
       />
 
-      <PathwayBanner note="These are Master's programmes. Your study level differs — Bachelor/Medicine follow a Studienkolleg / quota route first." />
+      <PathwayBanner note="Pick your study level below — Bachelor/Medicine follow a Studienkolleg / quota route, shown on your pathway page." />
+
+      <div role="group" aria-label="Study level" className="flex flex-wrap gap-1.5">
+        {LEVEL_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            aria-pressed={level === t.key}
+            onClick={() => { setLevel(t.key); setPage(0); }}
+            className={`rounded-md border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${level === t.key ? "border-primary bg-primary/5 font-medium text-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <Alert variant="info" className="text-xs">
         <Database aria-hidden />
-        <AlertTitle>{programs.length} programmes · {source === "supabase" ? "live from your database" : "bundled curated set"}</AlertTitle>
+        <AlertTitle>{pooled.length} {level === "all" ? "" : `${level} `}programmes · {source === "supabase" ? "live from your database" : "bundled curated set"}</AlertTitle>
         <AlertDescription>
           A hand-verified subset of real programmes (DAAD &amp; Hochschulkompass are the authoritative
           directories). Admission requirements change yearly and per programme — confirm each one on its
