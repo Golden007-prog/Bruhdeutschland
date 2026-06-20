@@ -51,6 +51,14 @@ export const SOURCES = {
   tms: { name: "TMS — Test für Medizinische Studiengänge", url: "https://www.tms-info.org/" },
   testas: { name: "TestAS — Test for Academic Studies (international applicants)", url: "https://www.testas.de/en/" },
   approbation: { name: "Make it in Germany — Recognition for doctors (Approbation)", url: "https://www.make-it-in-germany.com/en/working-in-germany/recognition-of-qualifications/medical-professions" },
+  residencePermit: { name: "Make it in Germany — Residence permit for studying", url: "https://www.make-it-in-germany.com/en/visa-residence/types/visa-residence-permit-study" },
+  auslaenderbehoerde: { name: "BAMF — Foreigners authority (Ausländerbehörde) & residence", url: "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/zuwandererdrittstaaten-node.html" },
+  bankAccount: { name: "Make it in Germany — Opening a bank account", url: "https://www.make-it-in-germany.com/en/living-in-germany/money-banking/bank-account" },
+  rundfunkbeitrag: { name: "Rundfunkbeitrag (broadcasting fee) — official", url: "https://www.rundfunkbeitrag.de/" },
+  jobSeekerPermit: { name: "Make it in Germany — Staying to find work after graduation", url: "https://www.make-it-in-germany.com/en/study-training/studying/job-search-after-studies" },
+  familyReunion: { name: "Make it in Germany — Bringing your family (family reunification)", url: "https://www.make-it-in-germany.com/en/visa-residence/family-reunion" },
+  enrolment: { name: "Study in Germany — Enrolment & semester organisation", url: "https://www.study-in-germany.de/en/plan-your-studies/enrol/" },
+  blueCard: { name: "Make it in Germany — EU Blue Card", url: "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card" },
 } as const satisfies Record<string, Source>;
 
 export type SourceKey = keyof typeof SOURCES;
