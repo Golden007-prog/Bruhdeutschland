@@ -7,7 +7,7 @@ import type { ExamScore } from "./scoring";
 
 const mem = installMemoryStorage();
 
-const emptyScore: ExamScore = { sections: [], correct: 0, total: 0, percent: 0, hasOpenTasks: false };
+const emptyScore: ExamScore = { sections: [], correct: 0, total: 0, percent: 0, bandedSkills: [], hasOpenTasks: false };
 const make = (examId: string): Omit<AttemptRecord, "id"> => ({
   examId, examTitle: examId, mode: "full", startedAt: 0, finishedAt: 1, durationMs: 1, score: emptyScore,
 });

@@ -77,7 +77,7 @@ export default function ProfileMatching() {
   const [page, setPage] = useState(0);
   const [shortlist, setShortlist] = useSyncedState<string[]>("programs:shortlist", []);
   const [saved, setSaved] = useSyncedState<SavedSearch[]>("programs:savedSearches", []);
-  const [, setApps] = useSyncedState<{ id: string; university: string; program: string; stage: string; url?: string }[]>("tracker:apps", []);
+  const [apps, setApps] = useSyncedState<{ id: string; university: string; program: string; stage: string; url?: string }[]>("tracker:apps", []);
   const [compare, setCompare] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [goal, setGoal] = useState("");
@@ -171,10 +171,19 @@ export default function ProfileMatching() {
 
   const toggleShortlist = (id: string) => setShortlist((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const toggleCompare = (id: string) => setCompare((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 4 ? [...prev, id] : prev));
+  // A programme is "tracked" once an app row matches its university + "name · degree" label.
+  const trackedKey = (university: string, program: string) => `${university}::${program}`;
+  const trackedKeys = useMemo(
+    () => new Set(apps.map((a) => trackedKey(a.university, a.program))),
+    [apps],
+  );
+  const programLabel = (p: { name: string; degree: string }) => `${p.name} · ${p.degree}`;
   const addToTracker = (id: string) => {
     const p = programs.find((x) => x.id === id);
     if (!p) return;
-    setApps((prev) => [...prev, { id: uid("app"), university: p.university, program: `${p.name} · ${p.degree}`, stage: "researching", url: p.sourceUrl }]);
+    const key = trackedKey(p.university, programLabel(p));
+    if (trackedKeys.has(key)) return; // already tracked — no silent duplicate
+    setApps((prev) => [...prev, { id: uid("app"), university: p.university, program: programLabel(p), stage: "researching", url: p.sourceUrl }]);
   };
 
   async function matchWithAi() {
@@ -336,6 +345,7 @@ export default function ProfileMatching() {
                   onShortlist={() => toggleShortlist(program.id)}
                   onCompare={() => toggleCompare(program.id)}
                   onTrack={() => addToTracker(program.id)}
+                  tracked={trackedKeys.has(trackedKey(program.university, programLabel(program)))}
                 />
               ))}
             </div>

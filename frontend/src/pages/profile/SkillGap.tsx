@@ -114,6 +114,9 @@ export default function ProfileSkillGap() {
 
   const gaps = aiGaps ?? SEED_GAPS;
   const usingAi = aiGaps !== null;
+  // When not AI-analysed, the cards are the sample profile's gaps — never the user's own. Label them
+  // honestly as an example (CLAUDE.md §2: no fabricated personal data / honest empty states).
+  const isExample = !usingAi;
 
   const analyzeWithAi = async () => {
     const evidenced = exp.skills.length ? exp.skills.join(", ") : "";
@@ -154,13 +157,29 @@ export default function ProfileSkillGap() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm">
             <CircleDot className="h-4 w-4 text-category-profile" aria-hidden />
-            <span>
-              <span className="official-figure font-semibold">{gaps.length}</span> gaps identified
-              for this profile
-            </span>
+            {isExample ? (
+              <span>
+                <span className="official-figure font-semibold">{gaps.length}</span> example gaps from
+                a <span className="font-medium">sample profile</span> — run the analysis for yours
+              </span>
+            ) : (
+              <span>
+                <span className="official-figure font-semibold">{gaps.length}</span> gaps identified
+                for your profile
+              </span>
+            )}
           </div>
           <span className="text-[0.68rem] text-muted-foreground">AI-reasoned · not official</span>
         </div>
+
+        {isExample && (
+          <p className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+            The cards below are a worked <span className="font-medium">example</span> on a sample
+            profile, shown so you can see the format. They are <span className="font-medium">not</span>{" "}
+            an analysis of your own profile — enter your background and run{" "}
+            <span className="font-medium">Analyze with AI</span> to get gaps reasoned from your data.
+          </p>
+        )}
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <label htmlFor="gap-field" className="sr-only">

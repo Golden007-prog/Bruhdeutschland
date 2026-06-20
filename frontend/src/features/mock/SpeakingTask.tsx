@@ -27,6 +27,9 @@ export function SpeakingTask({
   const [prepping, setPrepping] = useState(false);
   const [recording, setRecording] = useState(false);
   const recRef = useRef<SttController | null>(null);
+  // Text present when recording starts; the live transcript is appended to it so a second take or
+  // typing-then-recording never overwrites earlier text (qa-findings P2).
+  const baseRef = useRef("");
   const sttOk = isSttAvailable();
 
   useEffect(() => {
@@ -47,9 +50,13 @@ export function SpeakingTask({
       setRecording(false);
       return;
     }
+    baseRef.current = value.trim();
     const rec = createRecognizer({
       lang,
-      onTranscript: (text) => onChange(text),
+      onTranscript: (text) => {
+        const base = baseRef.current;
+        onChange(base ? `${base} ${text}` : text);
+      },
       onError: () => setRecording(false),
       onEnd: () => setRecording(false),
     });

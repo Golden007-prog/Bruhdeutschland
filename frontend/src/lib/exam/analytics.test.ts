@@ -19,6 +19,7 @@ function attempt(finishedAt: number, sections: SectionScore[], overallBand?: num
     total: sections.reduce((a, s) => a + s.total, 0),
     percent: 0,
     overallBand,
+    bandedSkills: [],
     hasOpenTasks: false,
   };
   return { id: `a${finishedAt}`, examId: "ielts", examTitle: "IELTS", mode: "full", startedAt: finishedAt - 1000, finishedAt, durationMs: 1000, score };

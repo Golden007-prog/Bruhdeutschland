@@ -13,6 +13,11 @@ export interface CountryInfo {
   aps: ApsStatus;
   apsNote: string;
   apsSource?: Source;
+  /**
+   * True when the note contains figures/dates that change and are NOT grounded to a current official
+   * source — the UI must render them as "to confirm", never as a cited fact (CLAUDE.md §2/§3).
+   */
+  needsVerification?: boolean;
 }
 
 /** Keyed by lowercased country name. India-primary; others added as grounded. */
@@ -21,8 +26,9 @@ export const COUNTRIES: Record<string, CountryInfo> = {
     name: "India",
     aps: "required",
     apsNote:
-      "APS certificate mandatory for the student visa since Nov 2022 (~€225; ~10–14 weeks). New anabin criteria apply from 15 Mar 2026 (e.g. ≥70% in Class XII) — re-verify with the APS office.",
+      "APS certificate is mandatory for the student visa (introduced for India in 2022; budget roughly €225 and several weeks). The APS has signalled anabin-based criteria changes taking effect in 2026 — the exact thresholds and cut-offs change and are not grounded here, so confirm the current requirement directly with the APS office in India before you plan your timeline.",
     apsSource: source("apsIndia"),
+    needsVerification: true,
   },
   china: {
     name: "China",
@@ -65,16 +71,24 @@ export function countryInfo(name: string): CountryInfo | undefined {
 }
 
 /** APS status for a country name. Unknown/empty → "verify" (never assume not-required). */
-export function apsStatusFor(name: string): { status: ApsStatus; note: string; source?: Source } {
+export function apsStatusFor(
+  name: string,
+): { status: ApsStatus; note: string; source?: Source; needsVerification?: boolean } {
   const info = countryInfo(name);
   if (!info) {
     return {
       status: "verify",
       note: "Whether you need an APS certificate depends on your country of study. Confirm with your local German mission and the APS office before you plan your timeline.",
       source: source("aps"),
+      needsVerification: true,
     };
   }
-  return { status: info.aps, note: info.apsNote, source: info.apsSource };
+  return {
+    status: info.aps,
+    note: info.apsNote,
+    source: info.apsSource,
+    needsVerification: info.needsVerification,
+  };
 }
 
 /** Country names with grounded entries, for a selector. */

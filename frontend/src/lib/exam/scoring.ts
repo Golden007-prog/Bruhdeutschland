@@ -54,6 +54,13 @@ export interface ExamScore {
   percent: number;
   /** Overall indicative band (mean of section bands, rounded to nearest 0.5), if available. */
   overallBand?: number;
+  /**
+   * Skill names that actually contributed to {@link overallBand}. For IELTS-style exams the band is
+   * the mean of the objectively-marked sections (Listening + Reading) only — Writing/Speaking carry
+   * no objective items and are scored by the AI rubric, not folded into this number. The UI uses this
+   * to label the band honestly ("Listening + Reading only") instead of implying a full four-skill band.
+   */
+  bandedSkills: string[];
   /** CEFR level for the overall band (TOEFL-2026 / CEFR-aligned scales). */
   cefr?: string;
   /** 0–120 concordance for the overall band (TOEFL transition aid). */
@@ -183,7 +190,9 @@ export function scoreExam(exam: GeneratedExam, answers: AnswerMap, config: Score
     total += s.total;
   }
 
-  const banded = sections.filter((s) => s.band !== undefined).map((s) => s.band as number);
+  const bandedSections = sections.filter((s) => s.band !== undefined);
+  const banded = bandedSections.map((s) => s.band as number);
+  const bandedSkills = bandedSections.map((s) => s.skill);
   let overallBand = averageBand(banded);
   let cefr: string | undefined;
   let concordance120: Concordance120 | undefined;
@@ -206,6 +215,7 @@ export function scoreExam(exam: GeneratedExam, answers: AnswerMap, config: Score
     total,
     percent: total > 0 ? Math.round((correct / total) * 100) : 0,
     overallBand,
+    bandedSkills,
     cefr,
     concordance120,
     hasOpenTasks,

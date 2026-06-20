@@ -175,15 +175,27 @@ export type ExamSkill = z.infer<typeof examSkillSchema>;
  * questions, and/or open tasks. A listening section also carries transcripts (kind "listening")
  * that TTS reads aloud and that stay hidden until review.
  */
-export const generatedSectionSchema = z.object({
-  skill: examSkillSchema,
-  title: z.string().min(1),
-  instructions: z.string().optional(),
-  passages: z.array(passageSchema).default([]),
-  objective: z.array(objectiveQuestionSchema).default([]),
-  open: z.array(openTaskSchema).default([]),
-  figure: figureSchema.optional(),
-});
+export const generatedSectionSchema = z
+  .object({
+    skill: examSkillSchema,
+    title: z.string().min(1),
+    instructions: z.string().optional(),
+    passages: z.array(passageSchema).default([]),
+    objective: z.array(objectiveQuestionSchema).default([]),
+    open: z.array(openTaskSchema).default([]),
+    figure: figureSchema.optional(),
+  })
+  // A section must give the candidate something to do — at least one objective question or open task.
+  // Without this, a model can emit a schema-valid but empty section that renders a dead "0/0" page.
+  .superRefine((section, ctx) => {
+    if (section.objective.length === 0 && section.open.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Section must contain at least one objective question or open task.",
+        path: ["objective"],
+      });
+    }
+  });
 export type GeneratedSection = z.infer<typeof generatedSectionSchema>;
 
 /** A fully assembled exam form (one or more sections). */

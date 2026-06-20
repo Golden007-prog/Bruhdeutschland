@@ -75,6 +75,10 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
   const [adapting, setAdapting] = useState(false);
   const qRefs = useRef<Record<string, HTMLElement | null>>({});
   const timeLeftRef = useRef(timeLeft);
+  // Guards against a double-submit: the section timer hitting zero and a manual "Submit exam" click can
+  // otherwise both fire submit() and record the attempt twice (qa-findings P2). A ref is race-free where
+  // reading `phase` from the render closure would be stale.
+  const submittedRef = useRef(false);
 
   const adaptiveSkills = new Set(spec.sections.filter((s) => s.adaptive).map((s) => s.skill));
   const section = exam.sections[sectionIdx];
@@ -176,6 +180,8 @@ export function ExamRunner({ exam: initialExam, spec, mode = "full", resume, onR
   }
 
   async function submit() {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
     setPhase("scoring");
     const result = scoreExam(exam, answers, { bandTable: spec.rawToBand, scale: spec.scale });
     setScore(result);
@@ -393,6 +399,12 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
 }) {
   const reduce = useReducedMotion();
   const headline = score.overallBand !== undefined ? `${spec.bandLabel ?? "Band"} ${score.overallBand}` : `${score.percent}%`;
+  // Honesty: an IELTS-style band derived from objective sections only (Listening + Reading) must not
+  // be presented as a full four-skill band. Caption the basis whenever the exam has open tasks the
+  // band can't include (qa-findings P1-2).
+  const bandPartial =
+    score.overallBand !== undefined && score.hasOpenTasks && score.bandedSkills.length > 0;
+  const bandBasis = score.bandedSkills.join(" + ");
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-6 shadow-sm">
@@ -405,6 +417,7 @@ function ReviewScreen({ exam, spec, answers, openResponses, score, rubrics, rubr
             {score.cefr && <Badge variant="secondary">CEFR {score.cefr}</Badge>}
             {score.concordance120 && <Badge variant="secondary">≈ {score.concordance120.rep}/120</Badge>}
           </div>
+          {bandPartial && <p className="mt-1 text-xs text-amber-700">Indicative band is from {bandBasis} only — Writing/Speaking aren&apos;t folded into this number.</p>}
           {score.hasOpenTasks && <p className="mt-1 text-xs text-muted-foreground">Writing/Speaking estimated by AI rubric — only a certified examiner gives a real score.</p>}
         </div>
         <motion.div initial={reduce ? undefined : { scale: 0.8, opacity: 0 }} animate={reduce ? undefined : { scale: 1, opacity: 1 }} className="stamp-seal flex h-24 w-24 flex-col items-center justify-center rounded-full text-center">

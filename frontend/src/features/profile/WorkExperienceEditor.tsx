@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, type ReactElement } from "react";
 import { Briefcase, Plus, Trash2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -114,14 +114,19 @@ export function WorkExperienceEditor({
             <Field label="Start (month)">
               <Input type="month" value={r.startDate} onChange={(e) => patch(r.id, { startDate: e.target.value })} />
             </Field>
-            <Field label={r.ongoing ? "End (ongoing)" : "End (month)"}>
+            {/* Composite field: a labelled month input + its own "Ongoing" checkbox (each control
+                carries its own label, so this one is built inline rather than via <Field>). */}
+            <div className="space-y-1.5">
+              <label htmlFor={`${r.id}-end`} className="text-xs font-medium text-muted-foreground">
+                {r.ongoing ? "End (ongoing)" : "End (month)"}
+              </label>
               <div className="flex items-center gap-2">
-                <Input type="month" value={r.endDate} disabled={r.ongoing} onChange={(e) => patch(r.id, { endDate: e.target.value })} className="flex-1" />
+                <Input id={`${r.id}-end`} type="month" value={r.endDate} disabled={r.ongoing} onChange={(e) => patch(r.id, { endDate: e.target.value })} className="flex-1" />
                 <label className="flex shrink-0 items-center gap-1 text-xs">
                   <input type="checkbox" checked={r.ongoing} onChange={(e) => patch(r.id, { ongoing: e.target.checked })} className="accent-[hsl(var(--primary))]" /> Ongoing
                 </label>
               </div>
-            </Field>
+            </div>
             <Field label="Domain">
               <Input value={r.domain} onChange={(e) => patch(r.id, { domain: e.target.value })} placeholder="Data engineering" />
             </Field>
@@ -158,11 +163,20 @@ export function WorkExperienceEditor({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * Labels a single form control. Generates an id, renders a real <label htmlFor>, and injects the id
+ * into the child control so screen readers announce the field name (WCAG 1.3.1/3.3.2/4.1.2) — fixes
+ * the previously-unlabelled inputs (qa-findings P1-4).
+ */
+function Field({ label, children }: { label: string; children: ReactElement<{ id?: string }> }) {
+  const id = useId();
+  const control = isValidElement(children) ? cloneElement(children, { id }) : children;
   return (
     <div className="space-y-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      {children}
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      {control}
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EXAM_SPECS } from "@/data/exam-specs";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { onScopeChange } from "@/lib/persist/userScope";
 import { getAttempts, hydrateAttemptsFromCloud, type AttemptRecord } from "@/lib/exam/attempts";
 import {
   bestOverall,
@@ -48,6 +49,17 @@ export default function LanguageExamTracker() {
   useEffect(() => {
     void hydrateAttemptsFromCloud().then(() => setAttempts(getAttempts()));
   }, []);
+
+  // Re-read attempts when the signed-in user changes without a page reload, so a live account switch
+  // never shows the previous user's in-memory attempts (qa-findings P2: stale data on account switch).
+  useEffect(
+    () =>
+      onScopeChange(() => {
+        setAttempts(getAttempts());
+        void hydrateAttemptsFromCloud().then(() => setAttempts(getAttempts()));
+      }),
+    [],
+  );
 
   const now = Date.now();
   const history = useMemo(() => scoreHistory(attempts), [attempts]);

@@ -29,7 +29,7 @@ export default function VisaChecklist() {
         <OfficialFactRow fact={VISA_PROCESSING} />
       </div>
 
-      <Checklist items={VISA_DOCS} title="Student visa documents" />
+      <Checklist items={VISA_DOCS} title="Student visa documents" storageKey="visa-docs" />
 
       <Alert variant="info">
         <Info aria-hidden />

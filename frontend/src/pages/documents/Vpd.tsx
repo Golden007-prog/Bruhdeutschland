@@ -105,7 +105,7 @@ export default function DocumentsVpd() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Checklist items={VPD_PREREQUISITES} title="VPD prerequisites" />
+        <Checklist items={VPD_PREREQUISITES} title="VPD prerequisites" storageKey="vpd-prereqs" />
 
         <Card className="self-start">
           <CardHeader>

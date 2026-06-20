@@ -19,7 +19,7 @@ import { source } from "@/lib/sources";
 function YourApsStatus() {
   const { profile } = useProfile();
   const country = profile.homeCountry.trim();
-  const { status, note, source: src } = apsStatusFor(country);
+  const { status, note, source: src, needsVerification } = apsStatusFor(country);
 
   if (!country) {
     return (
@@ -47,6 +47,12 @@ function YourApsStatus() {
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="space-y-2">
         <p>{note}</p>
+        {needsVerification && (
+          <p className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[0.7rem] font-medium text-amber-900">
+            <AlertTriangle className="h-3 w-3" aria-hidden />
+            Figures &amp; dates here are unverified — confirm with the APS office before relying on them.
+          </p>
+        )}
         {src && <SourceLink source={src} />}
       </AlertDescription>
     </Alert>

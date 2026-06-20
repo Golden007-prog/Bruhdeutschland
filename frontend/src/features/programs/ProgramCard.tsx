@@ -2,6 +2,7 @@ import {
   Bookmark,
   BookmarkCheck,
   CalendarDays,
+  Check,
   CheckCircle2,
   CircleDot,
   CircleHelp,
@@ -40,6 +41,7 @@ export function ProgramCard({
   onShortlist,
   onCompare,
   onTrack,
+  tracked = false,
 }: {
   program: Program;
   relevance: number;
@@ -51,6 +53,8 @@ export function ProgramCard({
   onShortlist: () => void;
   onCompare: () => void;
   onTrack: () => void;
+  /** True once this programme is already in the application tracker (prevents silent duplicates). */
+  tracked?: boolean;
 }) {
   const tuition = p.tuitionPerSemester ? `€${p.tuitionPerSemester}/sem` : "No tuition";
   return (
@@ -151,9 +155,24 @@ export function ProgramCard({
         <button
           type="button"
           onClick={onTrack}
-          className="inline-flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={tracked}
+          aria-label={tracked ? `${p.name} is in your tracker` : `Add ${p.name} to your tracker`}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            tracked
+              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+              : "bg-card hover:bg-muted",
+          )}
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden /> Add to tracker
+          {tracked ? (
+            <>
+              <Check className="h-3.5 w-3.5" aria-hidden /> In tracker
+            </>
+          ) : (
+            <>
+              <Plus className="h-3.5 w-3.5" aria-hidden /> Add to tracker
+            </>
+          )}
         </button>
         <Link
           to="/calendar"

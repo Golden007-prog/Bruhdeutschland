@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -8,6 +8,8 @@ import {
   Lightbulb,
   Loader2,
   MessageSquare,
+  Mic,
+  MicOff,
   Sparkles,
   Target,
   Volume2,
@@ -24,23 +26,65 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiGeneratedBadge, NoProviderAlert, RetryAlert } from "@/features/ai/AiNotices";
 import { interviewFeedbackSchema, type InterviewFeedbackResult } from "@/features/ai/schemas";
 import { useGenerate } from "@/features/ai/useGenerate";
+import { createRecognizer, isSttAvailable, type SttController } from "@/lib/speech/stt";
 import { INTERVIEW_QUESTIONS } from "@/lib/seed/visa";
 
 /** Whether the browser exposes the Web Speech API (the pluggable TTS made concrete). */
 const SPEECH_AVAILABLE = typeof window !== "undefined" && "speechSynthesis" in window;
+/** Whether spoken-answer dictation (SpeechRecognition) is available. */
+const STT_AVAILABLE = isSttAvailable();
 
 /** Visa interview simulator — a stepper through common questions with on-demand tips and TTS. */
 export default function VisaSimulator() {
   const [index, setIndex] = useState(0);
   const [showTips, setShowTips] = useState(false);
   const [answer, setAnswer] = useState("");
+  const [recording, setRecording] = useState(false);
   const ai = useGenerate<InterviewFeedbackResult>();
+  // Dictation: capture the text present when recording starts, then append the live transcript to it
+  // so typing-then-dictating (or a second take) never overwrites earlier text.
+  const recognizerRef = useRef<SttController | null>(null);
+  const baseAnswerRef = useRef("");
 
   const total = INTERVIEW_QUESTIONS.length;
   const current = INTERVIEW_QUESTIONS[index];
   const pct = useMemo(() => Math.round(((index + 1) / total) * 100), [index, total]);
 
+  const stopDictation = () => {
+    recognizerRef.current?.stop();
+    recognizerRef.current = null;
+    setRecording(false);
+  };
+
+  const toggleDictation = () => {
+    if (recording) {
+      stopDictation();
+      return;
+    }
+    baseAnswerRef.current = answer.trim();
+    const rec = createRecognizer({
+      lang: "en-US",
+      onTranscript: (text) => {
+        const base = baseAnswerRef.current;
+        setAnswer(base ? `${base} ${text}` : text);
+      },
+      onError: () => stopDictation(),
+      onEnd: () => {
+        recognizerRef.current = null;
+        setRecording(false);
+      },
+    });
+    if (!rec) return;
+    recognizerRef.current = rec;
+    setRecording(true);
+    rec.start();
+  };
+
+  // Stop any live dictation if the component unmounts.
+  useEffect(() => () => recognizerRef.current?.stop(), []);
+
   const go = (next: number) => {
+    stopDictation();
     setIndex(next);
     setShowTips(false);
     setAnswer("");
@@ -165,18 +209,41 @@ export default function VisaSimulator() {
 
           <div className="space-y-3 border-t pt-4">
             <div className="space-y-1.5">
-              <label htmlFor="visa-answer" className="flex items-center gap-2 text-sm font-medium">
-                <MessageSquare className="h-4 w-4 text-category-visa" aria-hidden />
-                Your answer
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="visa-answer" className="flex items-center gap-2 text-sm font-medium">
+                  <MessageSquare className="h-4 w-4 text-category-visa" aria-hidden />
+                  Your answer
+                </label>
+                {STT_AVAILABLE && (
+                  <Button
+                    type="button"
+                    variant={recording ? "default" : "outline"}
+                    size="sm"
+                    onClick={toggleDictation}
+                    disabled={ai.loading}
+                    aria-pressed={recording}
+                    className={recording ? "animate-pulse" : undefined}
+                  >
+                    {recording ? <MicOff aria-hidden /> : <Mic aria-hidden />}
+                    {recording ? "Stop dictation" : "Dictate"}
+                  </Button>
+                )}
+              </div>
               <Textarea
                 id="visa-answer"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Type or dictate your answer, then get AI feedback before moving on."
+                placeholder={
+                  STT_AVAILABLE
+                    ? "Type your answer, or tap Dictate to speak it, then get AI feedback before moving on."
+                    : "Type your answer, then get AI feedback before moving on."
+                }
                 rows={4}
                 disabled={ai.loading}
               />
+              <p className="sr-only" role="status" aria-live="polite">
+                {recording ? "Listening — speak your answer now." : ""}
+              </p>
             </div>
             <Button
               onClick={getFeedback}

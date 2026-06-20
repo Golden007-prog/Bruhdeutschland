@@ -51,14 +51,22 @@ export default function DocumentsTranslation() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-2">
-          <Checklist items={TRANSLATION_NEEDED} title="Typically needs a certified translation" />
+          <Checklist
+            items={TRANSLATION_NEEDED}
+            title="Typically needs a certified translation"
+            storageKey="translation-needed"
+          />
           <p className="px-1 text-xs text-muted-foreground">
             Required only when the document is not already in German or English. Check each program's
             language policy — many German public universities accept English-language originals.
           </p>
         </div>
         <div className="space-y-2">
-          <Checklist items={TRANSLATION_NOT_NEEDED} title="Usually does not need translation" />
+          <Checklist
+            items={TRANSLATION_NOT_NEEDED}
+            title="Usually does not need translation"
+            storageKey="translation-not-needed"
+          />
           <p className="px-1 text-xs text-muted-foreground">
             You author these directly in the application language, or they are never translated.
           </p>

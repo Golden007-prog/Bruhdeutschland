@@ -25,6 +25,9 @@ B.Tech Computer Science, IIT Delhi (2024) · CGPA 8.4/10
 Experience: 1 yr backend (Python, Go, PostgreSQL)
 Skills: REST APIs, microservices, CI/CD`;
 
+/** Hard upload cap advertised in the UI ("up to 8 MB"); enforced before any extraction work. */
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
 type Mode = "intake" | "review" | "saved";
 
 /** Map an AI extraction's free-form facts onto structured profile fields, without overwriting input. */
@@ -58,6 +61,11 @@ export default function ProfileParse() {
   async function onFile(file: File | undefined) {
     if (!file) return;
     setFileError("");
+    if (file.size > MAX_FILE_BYTES) {
+      setFileName("");
+      setFileError(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 8 MB. Upload a smaller file or paste the text instead.`);
+      return;
+    }
     setExtracting(true);
     setFileName(file.name);
     try {
@@ -155,6 +163,15 @@ export default function ProfileParse() {
     setDraft(DEFAULT_PROFILE);
     ai.reset();
     setMode("intake");
+  }
+
+  /** Guard the destructive "Start over" in review: confirm before discarding an unsaved draft. */
+  function requestReset() {
+    const hasUnsaved = text.trim().length > 0 || draft.name.trim().length > 0;
+    if (hasUnsaved && !window.confirm("Discard the extracted draft and start over? Unsaved changes will be lost.")) {
+      return;
+    }
+    reset();
   }
 
   const preview: ParsedProfile = {
@@ -295,7 +312,7 @@ export default function ProfileParse() {
                   {ai.loading ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
                   Auto-fill with AI
                 </Button>
-                <Button variant="ghost" onClick={reset}>Start over</Button>
+                <Button variant="ghost" onClick={requestReset}>Start over</Button>
               </div>
               <p className="sr-only" role="status" aria-live="polite">
                 {ai.loading ? "Extracting your profile with AI." : ""}
