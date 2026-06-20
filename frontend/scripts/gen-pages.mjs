@@ -15,11 +15,13 @@ const SRC = resolve(__dirname, "../src");
 /** group key -> {label}. Order here is the sidebar order. */
 const GROUPS = {
   overview: "Overview",
+  start: "Start Here",
   profile: "Profile & Assessment",
   documents: "Document Prep",
   language: "Language & Test Prep",
   finance: "Finance & Logistics",
   visa: "Visa & Relocation",
+  arrival: "Arrival & Settling In",
   campus: "Campus Life",
   system: "System",
 };
@@ -41,6 +43,13 @@ const PAGES = [
   { path: "/sources", file: "overview/Sources", comp: "SourcesPage", label: "Sources", eyebrow: "Quellen · Sources", title: "Source registry", desc: "Every official source DeutschPrep cites. Specific figures are grounded against these or flagged for verification.", group: "overview", icon: "Library" },
   { path: "/tracker", file: "overview/Tracker", comp: "TrackerPage", label: "Application tracker", eyebrow: "Bewerbungen · Tracker", title: "Application tracker", desc: "A Kanban board of every programme you're applying to — from researching to decision. Syncs to your account.", group: "overview", icon: "Columns3" },
   { path: "/calendar", file: "overview/Calendar", comp: "CalendarPage", label: "Deadline calendar", eyebrow: "Kalender · Calendar", title: "Deadline calendar", desc: "Every application, VPD, visa, and Sperrkonto date on a month grid — plus deadlines you add yourself.", group: "overview", icon: "CalendarDays" },
+
+  // ── Start Here — Orientation funnel (gap analysis G01–G04) ──────────────────
+  { path: "/start", file: "start/Overview", comp: "StartOverview", label: "Start here", title: "Start here — orient yourself in 5 minutes", eyebrow: "Phase 0 · Orientation", desc: "New to studying in Germany? Four quick tools to learn whether you're eligible, by which route, by when, and at what total cost — before you invest in the full plan.", group: "start", icon: "Compass" },
+  { path: "/start/eligibility", file: "start/Eligibility", comp: "StartEligibility", label: "Eligibility quick-check", title: "Am I eligible? — 30-second check", eyebrow: "Phase 0 · Orientation", desc: "Answer four questions and see whether — and by which route (direct Bachelor, Studienkolleg, Master, Medicine) — you can study in Germany. No signup, deterministic, grounded rules to verify.", group: "start", icon: "ClipboardCheck" },
+  { path: "/start/feasibility", file: "start/Feasibility", comp: "StartFeasibility", label: "Reality check", title: "Reality check — feasibility & years to finish", eyebrow: "Phase 0 · Orientation", desc: "A blunt, honest read on how realistic your plan is and roughly how long it takes end-to-end, given your level, language, and target. A heuristic, not a guarantee.", group: "start", icon: "Gauge" },
+  { path: "/start/timeline-planner", file: "start/TimelinePlanner", comp: "StartTimelinePlanner", label: "Reverse timeline planner", title: "Reverse timeline — work back from your intake", eyebrow: "Phase 0 · Orientation", desc: "Pick a target intake and we back-date every milestone — language tests, APS, applications, visa, Sperrkonto — so you know what to start by when.", group: "start", icon: "CalendarRange" },
+  { path: "/start/budget", file: "start/Budget", comp: "StartBudget", label: "Total-journey budget", title: "Total-journey budget — one-time + recurring", eyebrow: "Phase 0 · Orientation", desc: "Add up the real end-to-end cost: APS, uni-assist, translations, visa, Sperrkonto, flights, deposit, and monthly living — with every official figure grounded or flagged.", group: "start", icon: "Calculator", disclaimer: true },
 
   // ── Profile & Assessment (features 1–5) ────────────────────────────────────
   { path: "/profile", file: "profile/Overview", comp: "ProfileOverview", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", desc: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: "UserCircle" },

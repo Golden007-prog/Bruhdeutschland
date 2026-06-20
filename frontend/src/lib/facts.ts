@@ -131,7 +131,7 @@ export const APS_INDIA: OfficialFact = {
   value: "Mandatory for the student visa since 1 Nov 2022",
   source: source("apsIndia"),
   needsVerification: true,
-  note: "Required for applicants from several countries (India, China, Vietnam, and others). New anabin criteria apply from 15 Mar 2026 — see your country's status below and confirm with the APS office.",
+  note: "Required for applicants from several countries (India, China, Vietnam, and others). The APS has signalled anabin-based criteria changes taking effect in 2026; the exact thresholds and dates change and aren't grounded here — see your country's status below and confirm with the APS office.",
 };
 
 export const ANMELDUNG_WINDOW: OfficialFact = {

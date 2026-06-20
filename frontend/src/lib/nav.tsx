@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Coins,
   Columns3,
+  Compass,
   Eye,
   FileBadge,
   FileCheck,
@@ -68,21 +69,25 @@ import type { FeatureCategoryKey } from "@/lib/types";
 
 export type NavGroupKey =
   | "overview"
+  | "start"
   | "profile"
   | "documents"
   | "language"
   | "finance"
   | "visa"
+  | "arrival"
   | "campus"
   | "system";
 
 export const NAV_GROUPS: Record<NavGroupKey, string> = {
   overview: "Overview",
+  start: "Start Here",
   profile: "Profile & Assessment",
   documents: "Document Prep",
   language: "Language & Test Prep",
   finance: "Finance & Logistics",
   visa: "Visa & Relocation",
+  arrival: "Arrival & Settling In",
   campus: "Campus Life",
   system: "System",
 };
@@ -115,6 +120,11 @@ const TimelinePage = lazy(() => import("@/pages/overview/Timeline"));
 const SourcesPage = lazy(() => import("@/pages/overview/Sources"));
 const TrackerPage = lazy(() => import("@/pages/overview/Tracker"));
 const CalendarPage = lazy(() => import("@/pages/overview/Calendar"));
+const StartOverview = lazy(() => import("@/pages/start/Overview"));
+const StartEligibility = lazy(() => import("@/pages/start/Eligibility"));
+const StartFeasibility = lazy(() => import("@/pages/start/Feasibility"));
+const StartTimelinePlanner = lazy(() => import("@/pages/start/TimelinePlanner"));
+const StartBudget = lazy(() => import("@/pages/start/Budget"));
 const ProfileOverview = lazy(() => import("@/pages/profile/Overview"));
 const ProfileParse = lazy(() => import("@/pages/profile/Parse"));
 const ProfileEvaluate = lazy(() => import("@/pages/profile/Evaluate"));
@@ -182,6 +192,11 @@ export const NAV: NavItem[] = [
   { path: "/sources", label: "Sources", title: "Source registry", eyebrow: "Quellen · Sources", description: "Every official source DeutschPrep cites. Specific figures are grounded against these or flagged for verification.", group: "overview", icon: Library, Component: SourcesPage },
   { path: "/tracker", label: "Application tracker", title: "Application tracker", eyebrow: "Bewerbungen · Tracker", description: "A Kanban board of every programme you're applying to — from researching to decision. Syncs to your account.", group: "overview", icon: Columns3, Component: TrackerPage },
   { path: "/calendar", label: "Deadline calendar", title: "Deadline calendar", eyebrow: "Kalender · Calendar", description: "Every application, VPD, visa, and Sperrkonto date on a month grid — plus deadlines you add yourself.", group: "overview", icon: CalendarDays, Component: CalendarPage },
+  { path: "/start", label: "Start here", title: "Start here — orient yourself in 5 minutes", eyebrow: "Phase 0 · Orientation", description: "New to studying in Germany? Four quick tools to learn whether you're eligible, by which route, by when, and at what total cost — before you invest in the full plan.", group: "start", icon: Compass, Component: StartOverview },
+  { path: "/start/eligibility", label: "Eligibility quick-check", title: "Am I eligible? — 30-second check", eyebrow: "Phase 0 · Orientation", description: "Answer four questions and see whether — and by which route (direct Bachelor, Studienkolleg, Master, Medicine) — you can study in Germany. No signup, deterministic, grounded rules to verify.", group: "start", icon: ClipboardCheck, Component: StartEligibility },
+  { path: "/start/feasibility", label: "Reality check", title: "Reality check — feasibility & years to finish", eyebrow: "Phase 0 · Orientation", description: "A blunt, honest read on how realistic your plan is and roughly how long it takes end-to-end, given your level, language, and target. A heuristic, not a guarantee.", group: "start", icon: Gauge, Component: StartFeasibility },
+  { path: "/start/timeline-planner", label: "Reverse timeline planner", title: "Reverse timeline — work back from your intake", eyebrow: "Phase 0 · Orientation", description: "Pick a target intake and we back-date every milestone — language tests, APS, applications, visa, Sperrkonto — so you know what to start by when.", group: "start", icon: CalendarRange, Component: StartTimelinePlanner },
+  { path: "/start/budget", label: "Total-journey budget", title: "Total-journey budget — one-time + recurring", eyebrow: "Phase 0 · Orientation", description: "Add up the real end-to-end cost: APS, uni-assist, translations, visa, Sperrkonto, flights, deposit, and monthly living — with every official figure grounded or flagged.", group: "start", icon: Calculator, disclaimer: true, Component: StartBudget },
   { path: "/profile", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", description: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: UserCircle, Component: ProfileOverview },
   { path: "/profile/parse", label: "Resume / LinkedIn parsing", title: "Resume & LinkedIn parsing", eyebrow: "Feature 01 · Profile", description: "Extract structured facts from a resume, LinkedIn export, or intake form — handled as personal data.", group: "profile", category: "profile", icon: ScanLine, featureNo: 1, Component: ProfileParse },
   { path: "/profile/evaluate", label: "Profile evaluation (GPA)", title: "Profile evaluation — GPA → German grade", eyebrow: "Feature 02 · Profile", description: "Convert your grade to the German 1.0–4.0 scale with the deterministic Modified Bavarian Formula.", group: "profile", category: "profile", icon: Gauge, featureNo: 2, Component: ProfileEvaluate },
