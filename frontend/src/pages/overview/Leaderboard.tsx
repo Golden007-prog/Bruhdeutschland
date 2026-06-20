@@ -18,8 +18,9 @@ const DIMENSIONS = [
 
 interface RankRow {
   value: number | null;
-  below: number;
-  total: number;
+  // below/total are null when the opted-in cohort is too small to rank against (min-cohort guard in my_rank).
+  below: number | null;
+  total: number | null;
   avg: number | null;
   p50: number | null;
   p90: number | null;
@@ -50,11 +51,15 @@ export default function LeaderboardPage() {
     if (!supabase || !user) return;
     setLoading(true);
     try {
+      // Recompute the caller's own metrics server-side (readiness/roadmap/best-band/streak) before ranking,
+      // so the leaderboard reflects current activity instead of waiting for the nightly cron.
+      await supabase.rpc("refresh_my_leaderboard");
+      const results = await Promise.all(DIMENSIONS.map((d) => supabase!.rpc("my_rank", { dimension: d.key })));
       const next: Record<string, RankRow | null> = {};
-      for (const d of DIMENSIONS) {
-        const { data } = await supabase.rpc("my_rank", { dimension: d.key });
+      DIMENSIONS.forEach((d, i) => {
+        const data = results[i].data;
         next[d.key] = Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
-      }
+      });
       setRanks(next);
       const { data: row } = await supabase
         .from("leaderboard_stats").select("opted_in, handle").eq("user_id", user.id).maybeSingle();
@@ -118,8 +123,9 @@ export default function LeaderboardPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         {DIMENSIONS.map((d) => {
           const r = ranks[d.key];
-          const ranked = r && r.value != null && r.total > 0;
-          const pct = ranked ? percentileRank({ below: r.below, total: r.total }) : 0;
+          const hasValue = r != null && r.value != null;
+          const ranked = hasValue && r!.below != null && r!.total != null && r!.total > 0;
+          const pct = ranked ? percentileRank({ below: r!.below as number, total: r!.total as number }) : 0;
           return (
             <div key={d.key} className="rounded-lg border bg-card p-4 shadow-sm">
               <p className="eyebrow">{d.label}</p>
@@ -129,10 +135,15 @@ export default function LeaderboardPage() {
                 <>
                   <p className="mt-1 font-mono text-2xl font-semibold tracking-tight">{topPercentLabel(pct)}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    Rank <span className="font-mono">{rankFromBelow({ below: r.below, total: r.total })}</span> of{" "}
-                    <span className="font-mono">{r.total}</span>
-                    {r.avg != null && <> · cohort avg <span className="font-mono">{r.avg}</span></>}
+                    Rank <span className="font-mono">{rankFromBelow({ below: r!.below as number, total: r!.total as number })}</span> of{" "}
+                    <span className="font-mono">{r!.total}</span>
+                    {r!.avg != null && <> · cohort avg <span className="font-mono">{r!.avg}</span></>}
                   </p>
+                </>
+              ) : hasValue ? (
+                <>
+                  <p className="mt-1 font-mono text-2xl font-semibold tracking-tight">{r!.value}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Your score — ranking unlocks once ≥5 people opt into the board.</p>
                 </>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">Not ranked yet — complete more activities; stats refresh nightly.</p>
