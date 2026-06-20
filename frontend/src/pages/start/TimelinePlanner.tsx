@@ -5,8 +5,10 @@ import { AlertTriangle, ArrowRight, CalendarRange, Info } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { SourceLink } from "@/components/common/SourceLink";
 import { useProfile } from "@/lib/profile/useProfile";
 import { reverseTimeline, type DatedMilestone, type IntakeSeason } from "@/lib/calc/reverseTimeline";
+import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 
 const selectClass = cn(
@@ -123,6 +125,7 @@ export default function StartTimelinePlanner() {
           These dates are planning anchors, not official deadlines. Every programme sets its own
           application deadline (winter intakes are often around 15 July, summer around 15 January, but
           many differ) — confirm each on the programme's page and in your uni-assist account.
+          <span className="mt-1 block"><SourceLink source={source("uniAssistDeadlines")} /></span>
         </AlertDescription>
       </Alert>
     </div>

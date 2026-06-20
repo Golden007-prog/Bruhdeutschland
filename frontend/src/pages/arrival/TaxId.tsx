@@ -7,6 +7,7 @@ import { Checklist } from "@/components/common/Checklist";
 import { SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { ChecklistItemDef } from "@/lib/types";
+import { WORK_LIMIT_DAYS } from "@/lib/facts";
 import { source } from "@/lib/sources";
 
 const SETUP: ChecklistItemDef[] = [
@@ -21,7 +22,7 @@ const KNOW = [
   { name: "Tax class (Steuerklasse)", detail: "Single students are usually class I. It sets how much wage tax is withheld; you may get some back via a tax return." },
   { name: "Werkstudent privilege", detail: "As a working student you're often exempt from some social contributions if you work within the hour limits during term." },
   { name: "Mini-job vs Werkstudent", detail: "A mini-job (low monthly cap) has simpler taxation; a Werkstudent role can pay more but has its own rules." },
-  { name: "Work-day limit still applies", detail: "Non-EU students remain bound by the 140-full / 280-half-day annual limit — track it." },
+  { name: "Work-day limit still applies", detail: `Non-EU students remain bound by the ${WORK_LIMIT_DAYS.full}-full / ${WORK_LIMIT_DAYS.half}-half-day annual limit — track it.` },
 ];
 
 /** G49 — Tax-ID & first-job onboarding. */

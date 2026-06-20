@@ -10,6 +10,24 @@ THIS PASS** were regressions in the just-shipped non-linear feature and were cor
 > **P0** data-leak/security/fabricated-fact-as-truth/money-risk/app-break · **P1** broken feature / wrong
 > result · **P2** edge bug / confusing UX · **P3** polish. Sorted severity × likelihood.
 
+## ✅ Resolution — ALL findings fixed (2026-06-20)
+Every item below has since been fixed (3 commits; 314 tests, lint, build green):
+- **Bridge** SEC-1/2/3: `/generate` now 403s non-allowlisted Origins, binds `127.0.0.1` (opt-in `--host`),
+  pins the exact tunnel host instead of a wildcard, + optional `BRIDGE_TOKEN`.
+- **Correctness** COR-1 (free programme can be "cheapest"), COR-3 (medicine +Studienkolleg year),
+  COR-2/COR-5 (education wiring + semester leak — prior commit), COR-4 (direct_bachelor factor),
+  COR-6/SEC-4 (`.ics` extracted to tested `lib/calendar/ics.ts` with DTSTAMP + RFC-5545 escaping),
+  COR-7 (non-linear + Bachelor target uses the degree), COR-8 (no 0/0 work-day rows), COR-9 (Sperrkonto
+  draft re-syncs).
+- **a11y** A11Y-1 (Checklist focus ring), A11Y-2 (Cities sort focus), A11Y-3 (`p-1` on 12 remove buttons),
+  A11Y-4 (empty states on 7 trackers), A11Y-6 (micro-badges → `text-xs`). A11Y-5 left as-is (accessible
+  name already present via `aria-label`).
+- **Honesty/SSOT** HON-1..4 (euro figures now imported from canonical `lib/facts` numeric constants),
+  HON-5 (`<Disclaimer/>` on BankAccount/Renewals), HON-6 (uni-assist deadlines source), HON-7 (CEFR hours
+  no longer styled as precise).
+- **New regression tests:** `lib/calendar/ics.test.ts`, feasibility new-route + medicine-year cases,
+  pathway COR-7/medicine cases, education semester-leak case.
+
 ## Executive summary
 
 **No P0s.** The known **cross-account data-isolation bug is VERIFIED FIXED** (per-user namespaced blob +

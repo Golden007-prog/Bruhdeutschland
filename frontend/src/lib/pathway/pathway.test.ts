@@ -105,4 +105,17 @@ describe("evaluatePathway — non-linear education paths", () => {
     expect(r.route).toBe("master");
     expect(r.title).not.toMatch(/lateral/i);
   });
+
+  it("missing class 12 + completed degree + target BACHELOR → uses the degree, not a blind Studienkolleg (COR-7)", () => {
+    const education = summarizeEducation(profile({ highestQualification: "bachelor", educationPathType: "diploma_lateral" }));
+    const r = evaluatePathway(input({ highestQualification: "bachelor", targetLevel: "bachelor", targetSubject: "Computer Science", education }));
+    expect(r.route).toBe("master"); // lateralMaster nudges them to use the degree they hold
+    expect(r.route).not.toBe("studienkolleg");
+  });
+
+  it("missing class 12 still routes MEDICINE through the medicine route (not lateralMaster)", () => {
+    const education = summarizeEducation(profile({ highestQualification: "bachelor", educationPathType: "diploma_lateral" }));
+    const r = evaluatePathway(input({ highestQualification: "bachelor", targetLevel: "medicine", targetSubject: "Medicine", education }));
+    expect(r.route).toBe("medicine");
+  });
 });

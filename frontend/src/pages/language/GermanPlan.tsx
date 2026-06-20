@@ -56,7 +56,7 @@ export default function LanguageGermanPlan() {
                   <span className="official-figure rounded bg-primary/10 px-2 py-0.5 text-sm text-primary">{l.level}</span>
                   {l.label}
                 </h2>
-                <span className="official-figure text-xs text-muted-foreground">{p?.hours}</span>
+                <span className="text-xs text-muted-foreground">{p?.hours} <span className="opacity-70">· varies by learner</span></span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{p?.focus}</p>
               {p?.target && (

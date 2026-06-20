@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Info, Landmark } from "lucide-react";
 
@@ -10,11 +10,11 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SourceList } from "@/components/common/SourceLink";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
-import { SPERRKONTO_AMOUNT } from "@/lib/facts";
+import { SPERRKONTO_AMOUNT, SPERRKONTO_YEAR_EUR } from "@/lib/facts";
 import { formatEur } from "@/lib/calc/costOfLiving";
 import { source } from "@/lib/sources";
 
-const REQUIRED = 11904; // 2026 Sperrkonto — verify (see fact below)
+const REQUIRED = SPERRKONTO_YEAR_EUR; // single source of truth — see SPERRKONTO_AMOUNT fact below
 
 const FACTORS = [
   { name: "Mission acceptance", detail: "The single most important check — your German embassy must accept the provider. Confirm on its page before opening." },
@@ -27,6 +27,9 @@ const FACTORS = [
 export default function FinanceSperrkontoProviders() {
   const [funded, setFunded] = useSyncedState<number>("sperrkonto:funded", 0);
   const [draft, setDraft] = useState(String(funded || ""));
+  // Keep the field in sync when `funded` changes outside this input (cross-tab / cloud sync). While the
+  // user types, only `draft` changes, so this never fights live editing (qa COR-9).
+  useEffect(() => setDraft(funded ? String(funded) : ""), [funded]);
 
   const pct = Math.min(100, Math.round((funded / REQUIRED) * 100));
 

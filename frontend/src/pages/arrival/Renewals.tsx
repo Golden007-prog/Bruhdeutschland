@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, BellRing, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { Disclaimer } from "@/components/common/Disclaimer";
 import { DeadlineReminder } from "@/components/common/DeadlineReminder";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,8 @@ export default function ArrivalRenewals() {
         description="Two recurring deadlines quietly end people's studies or residence: the residence-permit renewal, and the semester Rückmeldung. Set both here and they'll show in your countdowns."
         category="campus"
       />
+
+      <Disclaimer />
 
       <Alert variant="warning" className="text-sm">
         <TriangleAlert aria-hidden />

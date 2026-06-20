@@ -54,7 +54,7 @@ export default function DocumentsRequirements() {
             <li key={r.id} className="space-y-2 rounded-lg border bg-card p-4 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 font-medium"><FileSearch className="h-4 w-4 text-category-documents" aria-hidden /> {r.programme}</p>
-                <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.programme}`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
+                <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.programme}`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
               </div>
               <div className="space-y-1">
                 <label htmlFor={`${r.id}-deadline`} className="text-xs font-medium text-muted-foreground">Application deadline</label>

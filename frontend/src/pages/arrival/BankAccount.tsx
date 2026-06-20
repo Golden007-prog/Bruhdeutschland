@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Info, Landmark } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { Disclaimer } from "@/components/common/Disclaimer";
 import { Checklist } from "@/components/common/Checklist";
 import { SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,6 +33,8 @@ export default function ArrivalBankAccount() {
         description="The account that unblocks your Sperrkonto payouts, your rent, and your salary. Here's which type to open, what to bring, and the order to do it in."
         category="finance"
       />
+
+      <Disclaimer />
 
       <Alert variant="info" className="text-sm">
         <Info aria-hidden />
@@ -84,8 +87,7 @@ export default function ArrivalBankAccount() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Guidance only, not financial advice. Banks set their own requirements and fees — confirm with the
-        specific bank before opening an account.
+        Banks set their own requirements and fees — confirm with the specific bank before opening an account.
       </p>
 
       <SourceList sources={[source("bankAccount"), source("makeItInGermany")]} />

@@ -41,7 +41,11 @@ export default function ProfileCities() {
       </Alert>
 
       <div className="flex justify-end">
-        <button type="button" onClick={() => setSortByRent((s) => !s)} className="text-xs text-primary underline">
+        <button
+          type="button"
+          onClick={() => setSortByRent((s) => !s)}
+          className="rounded text-xs text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Sort by {sortByRent ? "name" : "cost"}
         </button>
       </div>

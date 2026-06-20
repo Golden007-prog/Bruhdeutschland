@@ -27,6 +27,15 @@ const PORT = Number(opt("--port", process.env.BRIDGE_PORT || 8787));
 const SERVE_DIR = args.includes("--serve") ? resolve(opt("--serve", "")) : null;
 const OPEN = args.includes("--open");
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
+// Bind loopback-only by default (qa SEC-2): never expose the bridge to the LAN. A `--host 0.0.0.0`
+// override exists for advanced/trusted setups but is opt-in.
+const BIND_HOST = opt("--host", process.env.BRIDGE_HOST || "127.0.0.1");
+// Tunnel mode: instead of a `*.trycloudflare.com` wildcard (qa SEC-3 — any ephemeral tunnel page would be
+// trusted), pin the EXACT tunnel hostname via env. Unset → no tunnel origin is trusted (safe default).
+const TUNNEL_HOST = (process.env.BRIDGE_TUNNEL_HOST || "").trim();
+// Optional shared secret (qa SEC-1, tunnel hardening): when set, /generate also requires a matching
+// `X-Bridge-Token` header. Off by default so same-origin/localhost use keeps working unchanged.
+const BRIDGE_TOKEN = (process.env.BRIDGE_TOKEN || "").trim();
 
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
@@ -94,17 +103,27 @@ const ALLOWED_ORIGINS = [
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   /^https:\/\/golden007-prog\.github\.io$/,
-  /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/,
 ];
+if (TUNNEL_HOST) {
+  // Pin the exact tunnel host (no wildcard). Escape regex metacharacters in the hostname.
+  ALLOWED_ORIGINS.push(new RegExp(`^https://${TUNNEL_HOST.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+}
+
+/** True when the request's Origin is allowlisted, or absent (same-origin / non-CORS request). */
+function originAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true; // same-origin requests and curl send no Origin
+  return ALLOWED_ORIGINS.some((re) => re.test(origin));
+}
 
 function cors(req, res) {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.some((re) => re.test(origin))) {
+  if (origin && originAllowed(req)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Bridge-Token");
   // Allow Chrome Private Network Access preflight (public HTTPS page -> localhost). Note: newer Chrome
   // may still show a Local Network Access permission prompt the user must approve — no header suppresses it.
   res.setHeader("Access-Control-Allow-Private-Network", "true");
@@ -153,6 +172,17 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/generate" && req.method === "POST") {
+    // qa SEC-1: reject cross-origin callers whose Origin isn't allowlisted — the ACAO header alone only
+    // stops the browser READING the reply; the work (spending the operator's Claude) would already be done.
+    if (!originAllowed(req)) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Origin not allowed" }));
+    }
+    // Optional shared-secret gate (mainly for tunnel mode): only enforced when BRIDGE_TOKEN is set.
+    if (BRIDGE_TOKEN && req.headers["x-bridge-token"] !== BRIDGE_TOKEN) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Invalid or missing X-Bridge-Token" }));
+    }
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", async () => {
@@ -180,9 +210,12 @@ const server = createServer(async (req, res) => {
   res.end(JSON.stringify({ error: "Not found" }));
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND_HOST, () => {
   const where = SERVE_DIR ? ` and serving the app from ${SERVE_DIR}` : "";
-  console.log(`DeutschPrep Owner-Mode bridge on http://localhost:${PORT}${where}`);
+  console.log(`DeutschPrep Owner-Mode bridge on http://${BIND_HOST}:${PORT}${where}`);
+  if (BIND_HOST !== "127.0.0.1" && BIND_HOST !== "localhost") {
+    console.log(`⚠️  Bound to ${BIND_HOST} (non-loopback) — the bridge is reachable beyond this machine.`);
+  }
   console.log(`Using Claude CLI: ${CLAUDE_BIN} (relies on your existing Claude login).`);
   if (OPEN && SERVE_DIR) {
     const opener = process.platform === "win32" ? "start" : process.platform === "darwin" ? "open" : "xdg-open";

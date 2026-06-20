@@ -334,14 +334,17 @@ export function evaluatePathway(input: PathwayInput): PathwayResult {
     if (e.qualifyingCredential === "diploma" && !e.degreeCompleted && !e.degreeOngoing) {
       return diplomaOnly();
     }
-    // Missing class 12 but a degree is in play:
-    if (e.missingClass12) {
-      // Bachelor still ongoing → finish first (only meaningful when aiming Master/PhD).
-      if (e.degreeOngoing && !e.degreeCompleted && (level === "master" || level === "phd" || level === "")) {
+    // Missing class 12 but a degree is in play. Applies to every target EXCEPT medicine (which has its
+    // own integrated route below) — including a Bachelor target, where the held degree (not the schooling)
+    // is what matters, so the answer is "finish / use your degree", never a blind Studienkolleg (qa COR-7).
+    if (e.missingClass12 && level !== "medicine") {
+      // Degree still ongoing → finish first (a timeline, not a rejection).
+      if (e.degreeOngoing && !e.degreeCompleted) {
         return completeDegreeFirst(e);
       }
-      // Completed degree, targeting Master → the degree qualifies; verify recognition.
-      if (e.degreeCompleted && (level === "master" || level === "phd" || level === "")) {
+      // Completed degree → the degree qualifies; verify recognition (a Master's usually fits better than
+      // redoing a Bachelor).
+      if (e.degreeCompleted) {
         return lateralMaster(e);
       }
     }

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { SourceList } from "@/components/common/SourceLink";
 import { computeJourneyBudget } from "@/lib/calc/journeyBudget";
 import { CITY_PROFILES, formatEur } from "@/lib/calc/costOfLiving";
+import { APS_INDIA_FEE_EUR, SPERRKONTO_MONTH_EUR, SPERRKONTO_YEAR_EUR, UNIASSIST_ADDITIONAL_EUR, UNIASSIST_FIRST_EUR, VISA_FEE_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import { useProfile } from "@/lib/profile/useProfile";
 import { source } from "@/lib/sources";
@@ -20,14 +21,14 @@ const selectClass = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 );
 
-/** Grounded defaults — every official figure carries a verify flag (CLAUDE.md §2/§3). */
+/** Grounded defaults — sourced from the canonical constants in lib/facts so they can't drift. */
 const DEFAULTS = {
-  apsFee: 225, // India APS, illustrative — confirm with the APS office
-  uniAssistFirst: 75,
-  uniAssistAdditional: 30,
+  apsFee: APS_INDIA_FEE_EUR,
+  uniAssistFirst: UNIASSIST_FIRST_EUR,
+  uniAssistAdditional: UNIASSIST_ADDITIONAL_EUR,
   translationPerDoc: 40,
-  visaFee: 75,
-  blockedAccount: 11904, // 2026 Sperrkonto
+  visaFee: VISA_FEE_EUR,
+  blockedAccount: SPERRKONTO_YEAR_EUR,
 };
 
 function NumberField({
@@ -158,8 +159,8 @@ export default function StartBudget() {
                 <div key={line.key} className="flex items-center justify-between py-1.5">
                   <dt className="flex items-center gap-2">
                     {line.label}
-                    {line.grounded && <Badge variant="outline" className="text-[0.6rem]">grounded</Badge>}
-                    {line.needsVerification && <Badge variant="outline" className="text-[0.6rem] text-amber-700">verify</Badge>}
+                    {line.grounded && <Badge variant="outline" className="text-xs">grounded</Badge>}
+                    {line.needsVerification && <Badge variant="outline" className="text-xs text-amber-700">verify</Badge>}
                   </dt>
                   <dd className="official-figure">{formatEur(line.amount)}</dd>
                 </div>
@@ -175,7 +176,7 @@ export default function StartBudget() {
             <h3 className="mb-2 text-sm font-semibold">Blocked account &amp; living</h3>
             <dl className="divide-y text-sm">
               <div className="flex items-center justify-between py-1.5">
-                <dt className="flex items-center gap-2">Blocked account (Sperrkonto) <Badge variant="outline" className="text-[0.6rem] text-amber-700">verify · 2026</Badge></dt>
+                <dt className="flex items-center gap-2">Blocked account (Sperrkonto) <Badge variant="outline" className="text-xs text-amber-700">verify · 2026</Badge></dt>
                 <dd className="official-figure">{formatEur(result.blockedAccount)}</dd>
               </div>
               <div className="flex items-center justify-between py-1.5">
@@ -189,7 +190,7 @@ export default function StartBudget() {
             <Info aria-hidden />
             <AlertDescription>
               The blocked account is the largest single number but it is <strong>not a cost</strong> — it's
-              your own money, paid in once and released to you (~{formatEur(992)}/month) after you arrive.
+              your own money, paid in once and released to you (~{formatEur(SPERRKONTO_MONTH_EUR)}/month) after you arrive.
               Plan to <em>mobilise</em> it, not spend it.
             </AlertDescription>
           </Alert>

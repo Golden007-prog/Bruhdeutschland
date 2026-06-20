@@ -66,13 +66,14 @@ export function Checklist({ items, title, sources, storageKey, className }: Chec
             <li key={item.id}>
               <label
                 className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-md border border-transparent p-2 transition-colors hover:bg-muted/50",
+                  "group flex cursor-pointer items-start gap-3 rounded-md border border-transparent p-2 transition-colors hover:bg-muted/50",
                   isChecked && "opacity-70",
                 )}
               >
                 <span
                   className={cn(
                     "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                    "group-focus-within:ring-2 group-focus-within:ring-ring group-focus-within:ring-offset-1",
                     isChecked ? "border-primary bg-primary text-primary-foreground" : "bg-card",
                   )}
                 >

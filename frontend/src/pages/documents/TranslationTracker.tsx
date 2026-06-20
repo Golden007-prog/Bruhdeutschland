@@ -50,6 +50,9 @@ export default function DocumentsTranslationTracker() {
           <Button onClick={add} variant="outline"><Plus aria-hidden /> Add</Button>
         </div>
 
+        {rows.length === 0 && (
+          <p className="mt-4 rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">No documents added yet.</p>
+        )}
         {rows.length > 0 && (
           <ul className="mt-4 space-y-2">
             {rows.map((r) => {
@@ -60,7 +63,7 @@ export default function DocumentsTranslationTracker() {
                     <span className="text-sm font-medium">{r.document}</span>
                     <span className="flex items-center gap-2">
                       <button type="button" onClick={() => cycle(r.id)} aria-label={`Status: ${meta.label}. Select to advance.`} className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", meta.cls)}>{meta.label}</button>
-                      <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.document}`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
+                      <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.document}`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">

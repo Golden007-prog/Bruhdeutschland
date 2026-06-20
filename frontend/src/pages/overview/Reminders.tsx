@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { OFFERS_KEY, type Offer } from "@/lib/offers/offers";
 import { formatDate, relativeLabel, severityFor, sortByDate } from "@/lib/calc/deadlines";
+import { buildIcs, toIcsStamp } from "@/lib/calendar/ics";
 import type { DeadlineSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,27 +30,6 @@ const REMINDER_DEFS: { key: string; label: string }[] = [
   { key: "rueckmeldung", label: "Semester Rückmeldung" },
 ];
 
-function icsDate(iso: string): string {
-  return iso.replace(/-/g, "");
-}
-
-/** Build a minimal VCALENDAR from dated reminders (deterministic, no network). */
-function buildIcs(events: { label: string; date: string }[]): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//DeutschPrep//Reminders//EN", "CALSCALE:GREGORIAN"];
-  events.forEach((e, i) => {
-    const d = icsDate(e.date);
-    lines.push(
-      "BEGIN:VEVENT",
-      `UID:deutschprep-${i}-${d}@local`,
-      `DTSTART;VALUE=DATE:${d}`,
-      `SUMMARY:${e.label.replace(/[\n,;]/g, " ")}`,
-      "END:VEVENT",
-    );
-  });
-  lines.push("END:VCALENDAR");
-  return lines.join("\r\n");
-}
-
 /** G51 — Reminders hub + calendar (.ics) export. Surfaces every personal deadline you've set. */
 export default function RemindersPage() {
   // One synced value per known reminder key; offers carry their own accept-by dates.
@@ -70,7 +50,7 @@ export default function RemindersPage() {
   }, [r0, r1, r2, r3, r4, r5, r6, offers]);
 
   const downloadIcs = () => {
-    const blob = new Blob([buildIcs(events)], { type: "text/calendar;charset=utf-8" });
+    const blob = new Blob([buildIcs(events, toIcsStamp(new Date()))], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

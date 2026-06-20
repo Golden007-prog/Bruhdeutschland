@@ -173,7 +173,7 @@ export default function DocumentsVpd() {
                         type="button"
                         onClick={() => removeEntry(entry.id)}
                         aria-label={`Remove ${entry.university}`}
-                        className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />
                       </button>

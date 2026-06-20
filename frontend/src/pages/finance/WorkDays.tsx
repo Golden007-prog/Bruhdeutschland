@@ -23,7 +23,7 @@ export default function FinanceWorkDays() {
   const budget = useMemo(() => computeWorkDayBudget(entries), [entries]);
 
   const add = () => {
-    if (!month && full <= 0 && half <= 0) return;
+    if (full <= 0 && half <= 0) return; // require at least one day — no empty rows
     setEntries((prev) => [...prev, { id: uid("wd"), month: month || "—", fullDays: Math.max(0, full), halfDays: Math.max(0, half) }]);
     setMonth("");
     setFull(0);
@@ -78,13 +78,16 @@ export default function FinanceWorkDays() {
           </div>
         </div>
 
+        {entries.length === 0 && (
+          <p className="mt-4 rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">No days logged yet.</p>
+        )}
         {entries.length > 0 && (
           <ul className="mt-4 space-y-2">
             {entries.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 rounded-md border bg-card p-2.5 text-sm">
                 <span className="official-figure">{e.month}</span>
                 <span className="text-muted-foreground">{e.fullDays} full · {e.halfDays} half</span>
-                <button type="button" onClick={() => remove(e.id)} aria-label={`Remove ${e.month} entry`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <button type="button" onClick={() => remove(e.id)} aria-label={`Remove ${e.month} entry`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>
               </li>

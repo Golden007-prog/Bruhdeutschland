@@ -78,6 +78,9 @@ export default function DocumentsLorTracker() {
           </div>
         </div>
 
+        {items.length === 0 && (
+          <p className="mt-4 rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">No requests yet.</p>
+        )}
         {items.length > 0 && (
           <ul className="mt-4 space-y-2">
             {items.map((r) => {
@@ -94,7 +97,7 @@ export default function DocumentsLorTracker() {
                     <button type="button" onClick={() => cycle(r.id)} aria-label={`Status: ${meta.label}. Select to advance.`} className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", meta.cls)}>
                       <Icon className="h-3 w-3" aria-hidden /> {meta.label}
                     </button>
-                    <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.recommender}`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <button type="button" onClick={() => remove(r.id)} aria-label={`Remove ${r.recommender}`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <Trash2 className="h-4 w-4" aria-hidden />
                     </button>
                   </span>

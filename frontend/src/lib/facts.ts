@@ -21,6 +21,17 @@ export const WORK_LIMIT_DAYS = { full: 140, half: 280 } as const;
 /** Anmeldung (address registration) deadline, in days after moving in. */
 export const ANMELDUNG_DAYS = 14 as const;
 
+/**
+ * Numeric euro figures (single source of truth — calculators/estimators import these so a hardcoded
+ * literal can't drift from the user-facing `OfficialFact`s below). All 2026, all needs_verification.
+ */
+export const SPERRKONTO_YEAR_EUR = 11904 as const;
+export const SPERRKONTO_MONTH_EUR = 992 as const; // = 11904 / 12
+export const VISA_FEE_EUR = 75 as const;
+export const UNIASSIST_FIRST_EUR = 75 as const;
+export const UNIASSIST_ADDITIONAL_EUR = 30 as const;
+export const APS_INDIA_FEE_EUR = 225 as const; // illustrative — confirm with the APS office
+
 /** Countries whose applicants need an APS certificate — single source of truth in lib/country. */
 export { APS_REQUIRED_COUNTRIES } from "@/lib/country/country";
 

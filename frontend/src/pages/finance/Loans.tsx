@@ -71,13 +71,16 @@ export default function FinanceLoans() {
           <Input value={lender} onChange={(e) => setLender(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Lender / bank" aria-label="Lender" />
           <Button onClick={add} variant="outline"><Plus aria-hidden /> Add</Button>
         </div>
+        {offers.length === 0 && (
+          <p className="mt-4 rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">No offers added yet.</p>
+        )}
         {offers.length > 0 && (
           <ul className="mt-4 space-y-2">
             {offers.map((o) => (
               <li key={o.id} className="space-y-2 rounded-md border bg-card p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{o.lender}</span>
-                  <button type="button" onClick={() => remove(o.id)} aria-label={`Remove ${o.lender}`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
+                  <button type="button" onClick={() => remove(o.id)} aria-label={`Remove ${o.lender}`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
                 </div>
                 <Input value={o.notes} onChange={(e) => patch(o.id, { notes: e.target.value })} placeholder="Rate, collateral, moratorium, margin…" aria-label={`Notes for ${o.lender}`} className="h-8 text-xs" />
               </li>

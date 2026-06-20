@@ -113,6 +113,10 @@ export function computeFeasibility(input: FeasibilityInput): FeasibilityResult {
   } else if (input.route === "phd") {
     score += 5;
     factors.push({ label: "PhD is supervisor-led", delta: 5, detail: "Doctoral entry hinges on finding a supervisor who accepts you, more than on a central application." });
+  } else if (input.route === "direct_bachelor") {
+    score += 5;
+    factors.push({ label: "Direct Bachelor entry (carve-out)", delta: 5, detail: "Your prior study may grant direct Bachelor admission without a Studienkolleg — but only if anabin recognises it; verify your specific case." });
+    caveats.push("Direct entry depends entirely on your anabin category — confirm before assuming it.");
   }
 
   // Language readiness.
@@ -156,8 +160,13 @@ export function computeFeasibility(input: FeasibilityInput): FeasibilityResult {
     prepMin += 1;
     prepMax += 1;
   }
-  const skMin = input.route === "studienkolleg" ? 1 : 0;
-  const skMax = input.route === "studienkolleg" ? 1 : 0;
+  // A Studienkolleg/FSP year applies to the Studienkolleg route AND to a school-leaver Medicine applicant
+  // (the medicine route itself requires an M-Kurs + FSP first) — qa COR-3.
+  const medicineNeedsKolleg =
+    input.route === "medicine" && (input.highestQualification === "class10" || input.highestQualification === "class12");
+  const needsKollegYear = input.route === "studienkolleg" || medicineNeedsKolleg;
+  const skMin = needsKollegYear ? 1 : 0;
+  const skMax = needsKollegYear ? 1 : 0;
 
   return {
     score,

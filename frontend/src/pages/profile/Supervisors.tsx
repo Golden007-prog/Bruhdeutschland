@@ -71,6 +71,9 @@ export default function ProfileSupervisors() {
           <Input value={group} onChange={(e) => setGroup(e.target.value)} placeholder="University / group" aria-label="University or group" />
           <Button onClick={add} variant="outline"><Plus aria-hidden /> Add</Button>
         </div>
+        {items.length === 0 && (
+          <p className="mt-4 rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">No outreach tracked yet.</p>
+        )}
         {items.length > 0 && (
           <ul className="mt-4 space-y-2">
             {items.map((c) => {
@@ -80,7 +83,7 @@ export default function ProfileSupervisors() {
                   <span className="min-w-0"><span className="font-medium">{c.name}</span>{c.group && <span className="text-muted-foreground"> · {c.group}</span>}</span>
                   <span className="flex items-center gap-2">
                     <button type="button" onClick={() => cycle(c.id)} aria-label={`Stage: ${meta.label}. Select to advance.`} className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", meta.cls)}>{meta.label}</button>
-                    <button type="button" onClick={() => remove(c.id)} aria-label={`Remove ${c.name}`} className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
+                    <button type="button" onClick={() => remove(c.id)} aria-label={`Remove ${c.name}`} className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4" aria-hidden /></button>
                   </span>
                 </li>
               );

@@ -19,10 +19,15 @@ export default function OfferComparisonPage() {
   const remove = (id: string) => setOffers((prev) => prev.filter((o) => o.id !== id));
   const patch = (id: string, p: Partial<Offer>) => setOffers((prev) => prev.map((o) => (o.id === id ? { ...o, ...p } : o)));
 
-  const withTuition = offers.filter((o) => o.tuitionPerSem > 0);
-  const cheapestId = withTuition.length ? withTuition.reduce((a, b) => (b.tuitionPerSem < a.tuitionPerSem ? b : a)).id : null;
+  // Cheapest across ALL offers — a tuition-free (€0) programme is the genuinely cheapest case and must be
+  // eligible (qa COR-1). Only badge when there are ≥2 offers AND a real difference exists.
+  const minTuition = offers.length ? Math.min(...offers.map((o) => o.tuitionPerSem)) : 0;
+  const cheapestId =
+    offers.length >= 2 && offers.some((o) => o.tuitionPerSem !== minTuition)
+      ? (offers.find((o) => o.tuitionPerSem === minTuition)?.id ?? null)
+      : null;
   const dated = offers.filter((o) => o.acceptBy);
-  const soonestId = dated.length ? dated.reduce((a, b) => (b.acceptBy < a.acceptBy ? b : a)).id : null;
+  const soonestId = dated.length >= 2 ? dated.reduce((a, b) => (b.acceptBy < a.acceptBy ? b : a)).id : null;
 
   return (
     <div className="space-y-6">
@@ -46,10 +51,10 @@ export default function OfferComparisonPage() {
             <div key={o.id} className="space-y-2 rounded-lg border bg-card p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="flex gap-1">
-                  {o.id === cheapestId && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[0.6rem] font-medium text-emerald-900">cheapest</span>}
-                  {o.id === soonestId && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[0.6rem] font-medium text-amber-900">soonest deadline</span>}
+                  {o.id === cheapestId && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-900">cheapest</span>}
+                  {o.id === soonestId && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">soonest deadline</span>}
                 </span>
-                <button type="button" onClick={() => remove(o.id)} aria-label="Remove offer" className="rounded text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <button type="button" onClick={() => remove(o.id)} aria-label="Remove offer" className="rounded p-1 text-muted-foreground hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>
               </div>

@@ -12,10 +12,11 @@ import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useProfile } from "@/lib/profile/useProfile";
 import { uniAssistCost } from "@/lib/calc/journeyBudget";
 import { formatEur } from "@/lib/calc/costOfLiving";
+import { APS_INDIA_FEE_EUR, UNIASSIST_ADDITIONAL_EUR, UNIASSIST_FIRST_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import { source } from "@/lib/sources";
 
-const DEFAULTS = { uniAssistFirst: 75, uniAssistAdditional: 30, apsFee: 225 };
+const DEFAULTS = { uniAssistFirst: UNIASSIST_FIRST_EUR, uniAssistAdditional: UNIASSIST_ADDITIONAL_EUR, apsFee: APS_INDIA_FEE_EUR };
 
 function Num({ id, label, value, onChange, hint }: { id: string; label: string; value: number; onChange: (n: number) => void; hint?: string }) {
   return (
@@ -67,11 +68,11 @@ export default function FinanceApplicationCosts() {
           </div>
           <dl className="rounded-lg border bg-card p-4 text-sm">
             <div className="flex items-center justify-between py-1.5">
-              <dt className="flex items-center gap-2">uni-assist ({applications} programme{applications === 1 ? "" : "s"}) <Badge variant="outline" className="text-[0.6rem] text-amber-700">verify</Badge></dt>
+              <dt className="flex items-center gap-2">uni-assist ({applications} programme{applications === 1 ? "" : "s"}) <Badge variant="outline" className="text-xs text-amber-700">verify</Badge></dt>
               <dd className="official-figure">{formatEur(uniAssist)}</dd>
             </div>
             <div className="flex items-center justify-between border-t py-1.5">
-              <dt className="flex items-center gap-2">APS certificate {apsRequired && <Badge variant="outline" className="text-[0.6rem] text-amber-700">verify</Badge>}</dt>
+              <dt className="flex items-center gap-2">APS certificate {apsRequired && <Badge variant="outline" className="text-xs text-amber-700">verify</Badge>}</dt>
               <dd className="official-figure">{formatEur(apsFee)}</dd>
             </div>
           </dl>
