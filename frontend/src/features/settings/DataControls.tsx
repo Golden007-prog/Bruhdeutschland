@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import { syncedStore } from "@/lib/persist/syncedStore";
 import { clearAttempts } from "@/lib/exam/attempts";
 import { clearAllProgress } from "@/lib/exam/examProgress";
+import { deleteAllUserData, exportAllUserData } from "@/lib/gdpr/userData";
 
 /**
  * GDPR + data-isolation controls. Export downloads the CURRENT user's stored blob. "Reset my data"
@@ -18,8 +19,21 @@ import { clearAllProgress } from "@/lib/exam/examProgress";
 export function DataControls() {
   const [busy, setBusy] = useState(false);
 
-  const exportData = () => {
-    downloadText("deutschprep-data.json", JSON.stringify(syncedStore.snapshot(), null, 2), "application/json");
+  /** §9.6 export: bundle EVERY per-user row + Storage file list + the local snapshot (not just settings). */
+  const exportData = async () => {
+    setBusy(true);
+    try {
+      const local = syncedStore.snapshot();
+      let payload: unknown = { generatedAt: new Date().toISOString(), userId: null, localSnapshot: local };
+      if (supabase) {
+        const { data } = await supabase.auth.getUser();
+        const id = data.user?.id;
+        if (id) payload = await exportAllUserData(supabase, id, local, new Date().toISOString());
+      }
+      downloadText("deutschprep-data.json", JSON.stringify(payload, null, 2), "application/json");
+    } finally {
+      setBusy(false);
+    }
   };
 
   /** Clear every per-user local store for the current account (state, exam attempts, in-progress exams). */
@@ -48,8 +62,8 @@ export function DataControls() {
         const { data } = await supabase.auth.getUser();
         const id = data.user?.id;
         if (id) {
-          await supabase.from("settings").delete().eq("user_id", id);
-          await supabase.from("profiles").delete().eq("id", id);
+          // §9.6: erase EVERY per-user table + Storage object, not just settings + profiles (SEC-1 fix).
+          await deleteAllUserData(supabase, id);
           await supabase.auth.signOut();
         }
       }
@@ -67,7 +81,7 @@ export function DataControls() {
         signed in). You can take it with you or remove it at any time.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Button variant="outline" onClick={exportData}>
+        <Button variant="outline" onClick={() => void exportData()} disabled={busy}>
           <Download aria-hidden /> Export my data (JSON)
         </Button>
         <Button variant="outline" onClick={() => void resetData()} disabled={busy}>
@@ -80,8 +94,9 @@ export function DataControls() {
       <Alert variant="info" className="mt-4 text-xs">
         <AlertDescription>
           Data is isolated per account — a different login on this browser never sees yours. "Reset"
-          gives this account a clean slate (keeps your login); "Delete &amp; sign out" also removes your
-          profile row. To erase the login itself, email us.
+          gives this account a clean slate (keeps your login); "Delete &amp; sign out" erases all your
+          data and stored files across every feature, then signs you out. To erase the login record
+          itself, email us.
         </AlertDescription>
       </Alert>
     </section>
