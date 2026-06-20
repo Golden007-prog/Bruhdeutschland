@@ -9,6 +9,7 @@
  */
 import type { Source } from "@/lib/types";
 import { source } from "@/lib/sources";
+import { TUITION_BW_EUR } from "@/lib/facts";
 import type { HighestQualification, TargetLevel } from "@/lib/profile/types";
 import type { EducationSummary } from "@/lib/profile/education";
 import { kursForSubject, type KursInfo } from "./kurs";
@@ -183,7 +184,7 @@ const medicine = (country: string, qualification: HighestQualification): Pathway
       },
       {
         label: "Costs",
-        detail: "Tuition-free except Baden-Württemberg (€1,500/sem for non-EU) + the Semesterbeitrag. DAAD has no scholarship for the medicine Staatsexamen. Paid English private options exist (e.g. UMCH ~€34,800/yr non-EU) as a costly separate track.",
+        detail: `Tuition-free except Baden-Württemberg (€${TUITION_BW_EUR.toLocaleString("en-US")}/sem for non-EU) + the Semesterbeitrag. DAAD has no scholarship for the medicine Staatsexamen. Paid English private options exist (e.g. UMCH) as a costly separate track — check the provider's own page for current fees.`,
         tone: "info",
         source: source("daadScholarships"),
         needsVerification: true,

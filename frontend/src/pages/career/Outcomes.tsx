@@ -7,7 +7,7 @@ import { SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { CAREER_FIELDS, isShortageOccupation, type Demand } from "@/lib/career/fields";
-import { BLUE_CARD_THRESHOLD } from "@/lib/facts";
+import { BLUE_CARD_SHORTAGE_EUR, BLUE_CARD_STANDARD_EUR, BLUE_CARD_THRESHOLD } from "@/lib/facts";
 import { useProfile } from "@/lib/profile/useProfile";
 import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ export default function CareerOutcomes() {
               <p className="mt-1.5 text-sm text-muted-foreground">{f.roles.join(" · ")}</p>
               <p className="mt-1.5 text-sm">{f.note}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                EU Blue Card: <span className="font-medium text-foreground">{f.blueCardTier === "shortage" ? "lower threshold (€45,934.20)" : "standard threshold (€50,700)"}</span> — verify.
+                EU Blue Card: <span className="font-medium text-foreground">{f.blueCardTier === "shortage" ? `lower threshold (€${BLUE_CARD_SHORTAGE_EUR.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : `standard threshold (€${BLUE_CARD_STANDARD_EUR.toLocaleString("en-US")})`}</span> — verify.
               </p>
             </div>
           );

@@ -27,6 +27,7 @@ export const ANMELDUNG_DAYS = 14 as const;
  */
 export const SPERRKONTO_YEAR_EUR = 11904 as const;
 export const SPERRKONTO_MONTH_EUR = 992 as const; // = 11904 / 12
+export const TUITION_BW_EUR = 1500 as const; // Baden-Württemberg non-EU/EEA tuition per semester
 export const VISA_FEE_EUR = 75 as const;
 export const UNIASSIST_FIRST_EUR = 75 as const;
 export const UNIASSIST_ADDITIONAL_EUR = 30 as const;
@@ -67,7 +68,7 @@ export const TUITION_PUBLIC: OfficialFact = {
 
 export const TUITION_BW: OfficialFact = {
   label: "Tuition — Baden-Württemberg (non-EU/EEA)",
-  value: "€1,500 / semester",
+  value: `€${TUITION_BW_EUR.toLocaleString("en-US")} / semester`,
   source: source("daadCosts"),
   needsVerification: true,
   note: "Baden-Württemberg charges non-EU/EEA students this fee; other states may revisit fees. Verify with the specific university.",
@@ -243,6 +244,7 @@ export const FINANCE_FACTS: OfficialFact[] = [
   HEALTH_INSURANCE,
   SEMESTERBEITRAG,
   TUITION_PUBLIC,
+  TUITION_BW,
   WORK_LIMIT,
   DEUTSCHLANDTICKET_PRICE,
 ];

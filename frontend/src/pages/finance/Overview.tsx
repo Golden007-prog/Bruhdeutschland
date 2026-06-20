@@ -8,7 +8,7 @@ import { OfficialFactList } from "@/components/common/OfficialFact";
 import { SourceLink } from "@/components/common/SourceLink";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FINANCE_FACTS } from "@/lib/facts";
+import { FINANCE_FACTS, TUITION_BW_EUR } from "@/lib/facts";
 import { source } from "@/lib/sources";
 import { useProfile } from "@/lib/profile/useProfile";
 import { PathwayBanner } from "@/features/pathway/PathwayBanner";
@@ -108,8 +108,8 @@ export default function FinanceOverview() {
               <li className="rounded-md border border-dashed p-3">
                 <p className="flex items-center gap-2 font-medium">Medicine tuition <Badge variant="outline" className="text-[0.6rem]">needs verification</Badge></p>
                 <p className="mt-0.5 text-muted-foreground">
-                  Medicine is tuition-free <strong>except Baden-Württemberg</strong> (€1,500/sem for non-EU
-                  students) + the Semesterbeitrag. DAAD has <strong>no scholarship</strong> for the medicine
+                  Medicine is tuition-free <strong>except Baden-Württemberg</strong> (€{TUITION_BW_EUR.toLocaleString("en-US")}/sem for
+                  non-EU students) + the Semesterbeitrag. DAAD has <strong>no scholarship</strong> for the medicine
                   Staatsexamen; paid English private programmes are a costly separate track.
                 </p>
               </li>

@@ -3,6 +3,8 @@
  * provenance-stamped (`source`, `sourceUrl`, `retrievedAt`) and keeps `needsVerification: true` on
  * admission requirements — the app assists, it does not certify. Never fabricate programmes.
  */
+import { TUITION_BW_EUR } from "@/lib/facts";
+
 export type ProgramLanguage = "de" | "en" | "de_en" | "other";
 export type InstitutionType = "uni" | "uas" | "art_music";
 export type Intake = "winter" | "summer" | "both";
@@ -57,5 +59,5 @@ export const SUBJECT_GROUPS = [
   "Agriculture, Forestry & Nutrition",
 ] as const;
 
-export const BUNDESLAND_TUITION_NOTE = "Baden-Württemberg charges non-EU/EEA students €1,500/semester.";
+export const BUNDESLAND_TUITION_NOTE = `Baden-Württemberg charges non-EU/EEA students €${TUITION_BW_EUR.toLocaleString("en-US")}/semester.`;
 export const TUITION_STATES = new Set(["Baden-Württemberg"]);

@@ -6,6 +6,7 @@
  */
 import type { ProcessStep } from "@/lib/types";
 import { source } from "@/lib/sources";
+import { TUITION_BW_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import type { HighestQualification, TargetLevel } from "@/lib/profile/types";
 import { ROADMAP_STEPS } from "@/lib/seed/process";
@@ -55,7 +56,7 @@ function medicineSteps(country: string, q: HighestQualification): ProcessStep[] 
     { id: "pw-m-c1", title: "Reach C1 (DSH-2 / TestDaF TDN 4)", detail: "Required for German-taught medicine.", durationHint: "Before applying", href: "/language/goethe-testdaf" },
     { id: "pw-m-test", title: "Sit the required admission test", detail: "Non-EU internationals usually take TestAS (per-university quota); EU/HZB applicants use TMS via hochschulstart (TMS slated to change from 2027).", durationHint: "Test windows", needsVerification: true, source: source("testas") },
     { id: "pw-m-apply", title: "Apply into the medicine quota", detail: "Non-EU: per-university / uni-assist international quota (GPA-gated, small). EU/HZB: hochschulstart.de.", durationHint: "By the deadline", needsVerification: true, source: source("hochschulstart"), href: "/profile/pathway" },
-    { id: "pw-m-finance", title: "Arrange finances", detail: "Tuition-free except Baden-Württemberg (€1,500/sem non-EU) + Semesterbeitrag. No DAAD scholarship for the medicine Staatsexamen.", durationHint: "After admission", needsVerification: true, href: "/finance" },
+    { id: "pw-m-finance", title: "Arrange finances", detail: `Tuition-free except Baden-Württemberg (€${TUITION_BW_EUR.toLocaleString("en-US")}/sem non-EU) + Semesterbeitrag. No DAAD scholarship for the medicine Staatsexamen.`, durationHint: "After admission", needsVerification: true, href: "/finance" },
     { id: "pw-m-visa", title: "Apply for your student visa", detail: "Book early; bring admission, financing, insurance, and (India) APS.", durationHint: "Several weeks", needsVerification: true, source: source("autoVisaFaq"), href: "/visa/checklist" },
     { id: "pw-m-after", title: "Later: Staatsexamen → Approbation", detail: "After the ~6.25-yr degree: Staatsexamen → Approbation; practising also needs the medical-German Fachsprachprüfung.", durationHint: "Long-term", needsVerification: true, source: source("approbation") },
   ].filter((s): s is ProcessStep => s !== null);

@@ -1,4 +1,5 @@
 import type { Program } from "@/lib/programs/types";
+import { TUITION_BW_EUR } from "@/lib/facts";
 
 /**
  * Curated REAL English-taught Master's programmes at German public universities (ADR-0006). Real
@@ -8,7 +9,7 @@ import type { Program } from "@/lib/programs/types";
  * data partnership. Used offline and as the fallback when the Supabase `programs` table is empty.
  */
 const R = "2026-06-20";
-const BW = 1500; // Baden-Württemberg non-EU/EEA tuition per semester
+const BW = TUITION_BW_EUR; // Baden-Württemberg non-EU/EEA tuition per semester
 
 export const SEED_PROGRAMS: Program[] = [
   {
@@ -317,7 +318,7 @@ export const SEED_PROGRAMS: Program[] = [
     subjectGroup: "Medicine & Health", areasOfStudy: ["Medicine"],
     mode: "full_time", semesters: 13, intake: "winter", tuitionPerSemester: BW, semesterContribution: 180,
     admissionMode: "nc", needsVerification: true,
-    description: "Top-ranked German-taught medicine (NC). Baden-Württemberg charges €1,500/sem for non-EU students.",
+    description: `Top-ranked German-taught medicine (NC). Baden-Württemberg charges €${TUITION_BW_EUR.toLocaleString("en-US")}/sem for non-EU students.`,
   },
   {
     id: "lmu-medizin", source: "curated", sourceUrl: "https://www.lmu.de/en/study/", retrievedAt: R,

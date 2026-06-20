@@ -5,6 +5,12 @@
  * by source so nothing is restated as a bare literal.
  */
 import { source } from "@/lib/sources";
+import {
+  BLUE_CARD_PR_MONTHS_B1,
+  BLUE_CARD_PR_MONTHS_NO_B1,
+  BLUE_CARD_SHORTAGE_EUR,
+  BLUE_CARD_STANDARD_EUR,
+} from "@/lib/facts";
 import type { Source } from "@/lib/types";
 
 export interface LadderStep {
@@ -47,15 +53,15 @@ export const IMMIGRATION_LADDER: LadderStep[] = [
     phase: "Employed",
     title: "EU Blue Card (if salary qualifies)",
     detail: "For graduates earning above the threshold (lower for shortage occupations, STEM & recent graduates). It shortens the path to permanent residence considerably.",
-    timing: "€50,700 / €45,934.20 (2026)",
+    timing: `€${BLUE_CARD_STANDARD_EUR.toLocaleString("en-US")} / €${BLUE_CARD_SHORTAGE_EUR.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (2026)`,
     source: source("blueCard"),
   },
   {
     key: "pr",
     phase: "Settle",
     title: "Permanent residence (Niederlassungserlaubnis)",
-    detail: "On a Blue Card you can reach PR in 21 months with B1 German (27 without) — much faster than a standard permit (~5 years).",
-    timing: "21 / 27 months (Blue Card)",
+    detail: `On a Blue Card you can reach PR in ${BLUE_CARD_PR_MONTHS_B1} months with B1 German (${BLUE_CARD_PR_MONTHS_NO_B1} without) — much faster than a standard permit (~5 years).`,
+    timing: `${BLUE_CARD_PR_MONTHS_B1} / ${BLUE_CARD_PR_MONTHS_NO_B1} months (Blue Card)`,
     source: source("settlement"),
   },
   {
