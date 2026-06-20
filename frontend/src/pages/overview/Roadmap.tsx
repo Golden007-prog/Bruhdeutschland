@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useRoadmapSync } from "@/lib/persist/useTableSync";
 import { useProfile } from "@/lib/profile/useProfile";
+import { summarizeEducation } from "@/lib/profile/education";
 import { roadmapStepsFor } from "@/lib/pathway/roadmap";
 import { PathwayBanner } from "@/features/pathway/PathwayBanner";
 
@@ -41,10 +42,12 @@ export default function RoadmapPage() {
   useRoadmapSync(status, setStatus);
   const { profile } = useProfile();
   // Pathway-specific sequence (Bachelor/Studienkolleg/Medicine differ from Master's; addendum §4).
+  // Pass the same EducationSummary the Pathway page uses so non-linear applicants get consistent advice.
   const { steps, label } = roadmapStepsFor({
     country: profile.homeCountry,
     targetLevel: profile.targetLevel,
     highestQualification: profile.highestQualification,
+    education: summarizeEducation(profile),
   });
 
   const statusOf = (id: string): StepStatus => status[id] ?? "todo";

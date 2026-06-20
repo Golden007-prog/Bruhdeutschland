@@ -22,6 +22,22 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { deleteRow, loadRows, stableUuid, upsertRows, type OwnedRow } from "./syncTable";
 
+/**
+ * Union local + cloud lists by stable client id (data-loss fix). On sign-in we adopt every cloud row
+ * AND keep any local item the cloud doesn't have yet (e.g. programmes the user added while signed out),
+ * so hydrate never silently discards signed-out edits. Cloud wins on id collision (it's the durable copy
+ * that another device may have refined); the returned `localOnly` items are the ones to push up.
+ */
+export function mergeByClientId<Item>(
+  local: Item[],
+  cloud: Item[],
+  idOf: (item: Item) => string,
+): { merged: Item[]; localOnly: Item[] } {
+  const cloudIds = new Set(cloud.map(idOf));
+  const localOnly = local.filter((item) => !cloudIds.has(idOf(item)));
+  return { merged: [...cloud, ...localOnly], localOnly };
+}
+
 export interface TableSyncConfig<Item> {
   /** Target typed table (e.g. "applications"). */
   table: string;
@@ -85,9 +101,19 @@ export function useTableSync<Item>(
         lastRowIds.current = snapshot(itemsRef.current, uid);
         return;
       }
+      // UNION, never replace: keep every cloud row PLUS any local item the cloud doesn't have yet, so
+      // data the user entered while signed out isn't wiped on sign-in. Then push the local-only items up.
       const mapped = rows.map(fromRow);
-      lastRowIds.current = snapshot(mapped, uid);
-      setItems(mapped);
+      const { merged, localOnly } = mergeByClientId(itemsRef.current, mapped, idOf);
+      lastRowIds.current = snapshot(merged, uid);
+      if (localOnly.length > 0 && supabase) {
+        const upserts: OwnedRow[] = localOnly.map((item, i) => ({
+          ...toRow(item, uid, mapped.length + i),
+          user_id: uid,
+        }));
+        void upsertRows(supabase, table, upserts, onConflict);
+      }
+      setItems(merged);
     });
     return () => {
       active = false;

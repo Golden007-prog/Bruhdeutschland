@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -17,12 +17,52 @@ export function AppShell() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const reduce = useReducedMotion();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Close the mobile drawer and reset scroll whenever the route changes.
   useEffect(() => {
     setOpen(false);
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  // Modal a11y for the slide-over drawer: move focus in on open, trap Tab, close on Escape, and restore
+  // focus to the trigger on close so keyboard / screen-reader users can't Tab behind the overlay.
+  useEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const panel = drawerRef.current;
+    panel?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      trigger?.focus(); // restore focus to the menu button that opened the drawer
+    };
+  }, [open]);
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
@@ -44,7 +84,7 @@ export function AppShell() {
         <p className="text-lg font-bold tracking-tight">
           Deutsch<span className="text-primary">Prep</span>
         </p>
-        <Button variant="outline" size="icon" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}>
+        <Button ref={triggerRef} variant="outline" size="icon" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}>
           <Menu aria-hidden />
         </Button>
       </header>
@@ -58,7 +98,14 @@ export function AppShell() {
             className="absolute inset-0 bg-foreground/30"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r bg-card shadow-xl">
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            tabIndex={-1}
+            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r bg-card shadow-xl focus:outline-none"
+          >
             <div className="flex justify-end p-2">
               <Button variant="ghost" size="icon" aria-label="Close navigation" onClick={() => setOpen(false)}>
                 <X aria-hidden />

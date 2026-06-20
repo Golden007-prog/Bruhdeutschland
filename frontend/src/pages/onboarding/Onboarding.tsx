@@ -33,8 +33,10 @@ export default function Onboarding() {
   if (configured) {
     if (loading || !hydrated) return <GateLoader />;
     if (!user) return <Navigate to="/welcome" replace />;
-    if (onboarded) return <Navigate to="/" replace />;
   }
+  // Already-onboarded users skip the wizard — applies in guest mode too (configured === false), so a
+  // returning guest who reopens /onboarding isn't made to re-run setup.
+  if (onboarded) return <Navigate to="/" replace />;
 
   const finish = (to: string) => {
     setOnboarded(true);

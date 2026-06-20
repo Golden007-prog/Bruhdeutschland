@@ -9,12 +9,19 @@ import { source } from "@/lib/sources";
 import { TUITION_BW_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import type { HighestQualification, TargetLevel } from "@/lib/profile/types";
+import type { EducationSummary } from "@/lib/profile/education";
 import { ROADMAP_STEPS } from "@/lib/seed/process";
 
 export interface RoadmapInput {
   country: string;
   targetLevel: TargetLevel;
   highestQualification: HighestQualification;
+  /**
+   * Structured education summary — when present, drives the SAME non-linear routing as `evaluatePathway`
+   * so the Roadmap and Pathway pages never give opposite advice (e.g. a diploma-only applicant must not
+   * get Studienkolleg steps here while the Pathway page rules that route out).
+   */
+  education?: EducationSummary;
 }
 
 /** APS step, included only for countries that require it (India/China/Vietnam/…). */
@@ -62,9 +69,49 @@ function medicineSteps(country: string, q: HighestQualification): ProcessStep[] 
   ].filter((s): s is ProcessStep => s !== null);
 }
 
+/** diploma_only (no Bachelor) → no university HZB yet: complete a Bachelor or take the Ausbildung route. */
+function diplomaOnlySteps(): ProcessStep[] {
+  return [
+    { id: "pw-d-anabin", title: "Check your diploma's status on anabin", detail: "A polytechnic diploma is usually partial/vocational recognition, NOT a university entrance qualification (HZB) on its own.", needsVerification: true, source: source("anabin"), href: "/profile/pathway" },
+    { id: "pw-d-route-a", title: "Route A — complete a recognised Bachelor first", detail: "Finish a recognised Bachelor (in your country or via lateral entry), then follow the Master's path. Studienkolleg is generally hard without a class-12-track base.", needsVerification: true, href: "/profile/pathway" },
+    { id: "pw-d-route-b", title: "Route B — pursue a German Ausbildung", detail: "German vocational training (Ausbildung) is paid and leads to recognised qualifications; your diploma may earn Anrechnung (credit) that shortens it by ~6–12 months. Verify with the provider/chamber.", needsVerification: true, source: source("ausbildung") },
+    { id: "pw-d-german", title: "Build German A1 → B1 in parallel", detail: "Either route needs German — start now so you're ready when you commit to a path.", href: "/language/german" },
+  ];
+}
+
+/** missingClass12 + degree ongoing → finish the degree first; this is a timeline, not a rejection. */
+function completeDegreeSteps(country: string): ProcessStep[] {
+  return [
+    { id: "pw-cd-finish", title: "Finish your Bachelor's degree first", detail: "A German Master's needs a COMPLETED Bachelor — an ongoing degree can't be assessed yet. The missing class 12 is usually NOT the blocker once the degree is done.", needsVerification: true, source: source("anabin"), href: "/profile/pathway" },
+    { id: "pw-cd-tests", title: "Build German and/or sit IELTS/TOEFL meanwhile", detail: "Be test-ready the moment you graduate so you can apply in your final year for the next cycle.", href: "/language/german" },
+    apsStep(country),
+    { id: "pw-cd-anabin", title: "On graduation: check anabin (H+) & order a uni-assist VPD", detail: "Confirm your degree's recognition and full 10 → diploma → degree chain via a uni-assist VPD.", needsVerification: true, source: source("uniAssistVpd"), href: "/documents/uni-assist" },
+    { id: "pw-cd-apply", title: "Then follow the Master's path", detail: "Match programmes, meet the language requirement, and apply via uni-assist / the university.", href: "/profile/matching" },
+  ].filter((s): s is ProcessStep => s !== null);
+}
+
 /** Choose the roadmap sequence for a profile's pathway. Master's/default keeps the canonical steps. */
 export function roadmapStepsFor(input: RoadmapInput): { steps: ProcessStep[]; label: string } {
-  const { country, targetLevel: level, highestQualification: q } = input;
+  const { country, targetLevel: level, highestQualification: q, education: e } = input;
+
+  // ── Non-linear paths (diploma / lateral entry / no class 12) take priority — mirror evaluatePathway ──
+  if (e && e.isNonLinear) {
+    // diploma only, no Bachelor → Ausbildung / complete-a-Bachelor (regardless of target level).
+    if (e.qualifyingCredential === "diploma" && !e.degreeCompleted && !e.degreeOngoing) {
+      return { label: "Complete a Bachelor or take an Ausbildung", steps: diplomaOnlySteps() };
+    }
+    // Missing class 12 but a degree is in play (every target EXCEPT medicine, which has its own route).
+    if (e.missingClass12 && level !== "medicine") {
+      if (e.degreeOngoing && !e.degreeCompleted) {
+        return { label: "Finish your Bachelor first", steps: completeDegreeSteps(country) };
+      }
+      if (e.degreeCompleted) {
+        // The held degree is the qualifying credential → the Master's path, not a Studienkolleg.
+        return { label: "Master's (on your lateral-entry Bachelor)", steps: ROADMAP_STEPS };
+      }
+    }
+  }
+
   if (q === "class10") {
     return {
       label: "Finish Class 12 first",

@@ -80,6 +80,12 @@ export interface ProgramData {
   loading: boolean;
   /** Where the data came from — for honest "live from Supabase" vs "bundled" labelling. */
   source: "supabase" | "seed";
+  /**
+   * True when a live fetch was attempted but FAILED (Supabase error). The hook still falls back to the
+   * curated seed, but the UI should signal "couldn't reach live data, showing bundled set" rather than
+   * letting the failure pass silently. Stays false when Supabase is simply unconfigured (expected offline).
+   */
+  error: boolean;
 }
 
 /**
@@ -90,6 +96,7 @@ export function useProgramData(): ProgramData {
   const [programs, setPrograms] = useState<Program[]>(SEED_PROGRAMS);
   const [loading, setLoading] = useState<boolean>(Boolean(supabase));
   const [source, setSource] = useState<"supabase" | "seed">("seed");
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -100,11 +107,14 @@ export function useProgramData(): ProgramData {
     void supabase
       .from("programs")
       .select(COLUMNS)
-      .then(({ data, error }) => {
+      .then(({ data, error: fetchError }) => {
         if (!active) return;
-        if (!error && data && data.length > 0) {
+        if (!fetchError && data && data.length > 0) {
           setPrograms((data as unknown as ProgramRow[]).map(mapRow));
           setSource("supabase");
+        } else if (fetchError) {
+          // Live fetch failed — keep the curated seed but flag it so the UI doesn't pretend it's live.
+          setError(true);
         }
         setLoading(false);
       });
@@ -113,5 +123,5 @@ export function useProgramData(): ProgramData {
     };
   }, []);
 
-  return { programs, loading, source };
+  return { programs, loading, source, error };
 }

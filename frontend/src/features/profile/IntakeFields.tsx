@@ -162,9 +162,15 @@ export function IntakeFields({
             <option key={s.key} value={s.key}>{s.label}</option>
           ))}
         </select>
-        {conv && (
+        {conv && !conv.clamped && (
           <p className="text-xs font-medium text-emerald-700" role="status">
             → German grade {formatGermanGrade(conv.germanGrade)} (1,0 best · 4,0 pass)
+          </p>
+        )}
+        {conv && conv.clamped && (
+          <p className="text-xs font-medium text-amber-700" role="status">
+            Your grade {conv.sourceGrade} is outside this scale ({conv.scale.minPass}–{conv.scale.best}); shown
+            clamped to German {formatGermanGrade(conv.germanGrade)}. Check the value and scale.
           </p>
         )}
       </div>

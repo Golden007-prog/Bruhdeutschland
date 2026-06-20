@@ -76,6 +76,9 @@ class SyncedStore {
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
   private hydrated = !isSupabaseConfigured;
+  // Keys the user changed locally since the last identity load but before the cloud pull settled. The
+  // cloud pull must NOT overwrite these (would silently lose edits made while signed out / mid-pull).
+  private dirtyKeys = new Set<string>();
 
   constructor() {
     migrateLegacyGlobalKey();
@@ -97,15 +100,25 @@ class SyncedStore {
   }
 
   /**
-   * Apply a new identity: RESET the in-memory blob to that identity's own namespace (no carryover from
-   * the previous user), then pull its cloud blob. Public so tests can drive auth transitions.
+   * Apply a new identity: RESET the in-memory blob to that identity's own namespace (no carryover from a
+   * previous SIGNED-IN user — the isolation invariant), then pull its cloud blob. The one thing carried
+   * forward on an anon→user sign-in is the GUEST's own unsaved edits (dirtyKeys), so logging in never
+   * silently discards what you just typed. Public so tests can drive auth transitions.
    */
   setIdentity(id: string | null): void {
     const changed = id !== this.userId || !this.identityKnown;
     this.identityKnown = true;
     if (!changed) return;
+    const prevWasAnon = this.userId === null;
+    // Values the user edited while signed out — carried into the new identity so signing in doesn't
+    // discard guest edits, and protected (below) from being overwritten by the cloud pull.
+    const carried: Blob =
+      id && prevWasAnon && this.dirtyKeys.size > 0
+        ? Object.fromEntries([...this.dirtyKeys].filter((k) => k in this.blob).map((k) => [k, this.blob[k]]))
+        : {};
     this.userId = id;
-    this.blob = loadLocalFor(id); // <- the isolation guarantee: only this identity's namespace
+    this.blob = { ...loadLocalFor(id), ...carried }; // identity's own namespace + carried guest edits
+    if (Object.keys(carried).length > 0) this.persistLocal();
     if (id && isSupabaseConfigured) {
       this.hydrated = false;
       this.emit();
@@ -114,6 +127,8 @@ class SyncedStore {
         this.emit();
       });
     } else {
+      // Signed out / unconfigured: a clean slate for the next signed-out session's dirty tracking.
+      this.dirtyKeys = new Set();
       this.hydrated = true;
       this.emit();
     }
@@ -129,11 +144,18 @@ class SyncedStore {
       const { data } = await supabase.from("settings").select("data").eq("user_id", id).maybeSingle();
       if (this.userId !== id) return; // identity changed mid-flight — drop the stale result
       if (data?.data && typeof data.data === "object") {
-        // This user's own namespace ∪ this user's own cloud blob. No other identity is present.
-        this.blob = { ...this.blob, ...(data.data as Blob) };
+        // This user's own namespace ∪ this user's own cloud blob. Cloud merges in EXCEPT for keys the
+        // user changed while signed out / mid-pull — those keep the local edit (never silently lost).
+        const cloud = data.data as Blob;
+        const incoming = this.dirtyKeys.size === 0
+          ? cloud
+          : Object.fromEntries(Object.entries(cloud).filter(([k]) => !this.dirtyKeys.has(k)));
+        this.blob = { ...this.blob, ...incoming };
         this.persistLocal();
         this.emit();
       }
+      // The pull has reconciled; subsequent local edits are tracked fresh for the next transition.
+      this.dirtyKeys = new Set();
     } catch {
       /* offline / RLS / table missing — stay on local */
     }
@@ -170,6 +192,8 @@ class SyncedStore {
 
   set<T>(key: string, value: T): void {
     this.blob = { ...this.blob, [key]: value };
+    // Track the edit so an in-flight / subsequent cloud pull won't clobber it (data-loss fix).
+    this.dirtyKeys.add(key);
     this.persistLocal();
     this.scheduleCloudFlush();
     this.emit();

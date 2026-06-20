@@ -8,6 +8,13 @@
  * is deliberately worded as indicative guidance ("typically ~", "verify on the programme page"),
  * and every entry carries a `homepage` link to the official university/programme page so the user
  * can confirm the current, binding requirements themselves.
+ *
+ * SINGLE SOURCE OF TRUTH: `lib/seed/programs.ts` (SEED_PROGRAMS) is canonical. Each entry below mirrors
+ * a real SEED_PROGRAMS master row on the OVERLAPPING fields (university, programme name, city, field,
+ * language) so the Universities explorer and the Matching page never present contradictory data. Only the
+ * explorer-specific UX fields (the indicative `note`, the official `homepage` link, and the degree label)
+ * are curated here. When SEED_PROGRAMS changes, keep these aligned — do not add a programme that isn't in
+ * SEED_PROGRAMS, or the two pages diverge again.
  */
 export type ProgramLanguage = "EN" | "DE";
 
@@ -39,8 +46,9 @@ export interface UniversityProgram {
 
 export const UNIVERSITY_PROGRAMS: UniversityProgram[] = [
   {
+    // Mirrors SEED_PROGRAMS `tum-data-eng` (Data Engineering and Analytics, EN).
     id: "uni-tum-data-eng",
-    university: "Technical University of Munich (TUM)",
+    university: "Technical University of Munich",
     city: "Munich",
     program: "Data Engineering and Analytics",
     degree: "M.Sc.",
@@ -50,26 +58,29 @@ export const UNIVERSITY_PROGRAMS: UniversityProgram[] = [
     note: "English-taught; typically expects a strong computer-science / quantitative bachelor plus English proof (e.g. IELTS in the ~6.5 range) and TUM's aptitude assessment — exact thresholds vary, verify on the programme page.",
   },
   {
-    id: "uni-rwth-sse",
+    // Mirrors SEED_PROGRAMS `rwth-data-science` (Data Science, EN). (RWTH's "Software Systems Engineering"
+    // is a real programme but isn't in SEED_PROGRAMS, so it's not listed here — keep the two sets aligned.)
+    id: "uni-rwth-data-science",
     university: "RWTH Aachen University",
     city: "Aachen",
-    program: "Software Systems Engineering",
+    program: "Data Science",
+    degree: "M.Sc.",
+    language: "EN",
+    field: "Data Science",
+    homepage: "https://www.rwth-aachen.de/cms/root/studium/Vor-dem-Studium/lidx/1/",
+    note: "English-taught; typically wants a solid CS/quantitative foundation and an English-language certificate, with a subject-specific curriculum check — confirm the current admission rules on the official page.",
+  },
+  {
+    // Mirrors SEED_PROGRAMS `freiburg-cs` (University of Freiburg, Computer Science, EN).
+    id: "uni-freiburg-cs",
+    university: "University of Freiburg",
+    city: "Freiburg",
+    program: "Computer Science",
     degree: "M.Sc.",
     language: "EN",
     field: "Computer Science",
-    homepage: "https://www.rwth-aachen.de/cms/root/studium/vor-dem-studium/studiengaenge/liste-studiengaenge/~bnfd/software-systems-engineering-m-sc/",
-    note: "English-taught; typically wants a solid CS foundation and an English-language certificate, with a subject-specific curriculum check — confirm the current admission rules on the official page.",
-  },
-  {
-    id: "uni-tu-berlin-cs",
-    university: "Technische Universität Berlin",
-    city: "Berlin",
-    program: "Computer Science (Informatik)",
-    degree: "M.Sc.",
-    language: "DE",
-    field: "Computer Science",
-    homepage: "https://www.tu.berlin/en/studying/study-programs/all-programs-from-a-to-z",
-    note: "German-taught; typically requires proof of German (e.g. DSH/TestDaF) and sufficient ECTS in core CS subjects. Language and credit minimums change — verify per programme.",
+    homepage: "https://www.uni-freiburg.de/en/studies",
+    note: "English-taught; typically expects a CS bachelor and an English certificate, subject to a curriculum check. Strong in ML, robotics, and bioinformatics — verify the current rules per programme.",
   },
   {
     id: "uni-stuttgart-infotech",
@@ -83,19 +94,21 @@ export const UNIVERSITY_PROGRAMS: UniversityProgram[] = [
     note: "English-taught; typically expects an electrical/computer-engineering background plus English proof — the precise score and prerequisite list are set per intake, verify on the programme page.",
   },
   {
-    id: "uni-kit-mecheng",
-    university: "Karlsruhe Institute of Technology (KIT)",
+    // Mirrors SEED_PROGRAMS `kit-optics` (Optics and Photonics, EN).
+    id: "uni-kit-optics",
+    university: "Karlsruhe Institute of Technology",
     city: "Karlsruhe",
-    program: "Mechanical Engineering (Maschinenbau)",
+    program: "Optics and Photonics",
     degree: "M.Sc.",
-    language: "DE",
-    field: "Mechanical Engineering",
-    homepage: "https://www.kit.edu/studies/master-degree-programs.php",
-    note: "Primarily German-taught; typically requires German proficiency and an engineering bachelor with a matching curriculum. Requirements vary — confirm on the official KIT page.",
+    language: "EN",
+    field: "Physics",
+    homepage: "https://www.kit.edu/studying.php",
+    note: "English-taught; typically expects a physics/engineering bachelor with a matching curriculum and English proof. Requirements vary — confirm on the official KIT page.",
   },
   {
+    // Mirrors SEED_PROGRAMS `lmu-data-science` (Data Science, EN).
     id: "uni-lmu-data-science",
-    university: "Ludwig-Maximilians-Universität München (LMU Munich)",
+    university: "LMU Munich",
     city: "Munich",
     program: "Data Science",
     degree: "M.Sc.",
@@ -105,17 +118,19 @@ export const UNIVERSITY_PROGRAMS: UniversityProgram[] = [
     note: "English-taught; typically wants a statistics/maths/CS foundation, programming experience, and English proof. Exact prerequisites are programme-specific — verify on the official page.",
   },
   {
-    id: "uni-tu-darmstadt-cs",
-    university: "Technical University of Darmstadt (TU Darmstadt)",
+    // Mirrors SEED_PROGRAMS `darmstadt-dss` (Distributed Software Systems, EN).
+    id: "uni-tu-darmstadt-dss",
+    university: "Technical University of Darmstadt",
     city: "Darmstadt",
-    program: "Computer Science (Informatik)",
+    program: "Distributed Software Systems",
     degree: "M.Sc.",
     language: "EN",
     field: "Computer Science",
     homepage: "https://www.tu-darmstadt.de/studieren/studierende_tu/studiengaenge/index.en.jsp",
-    note: "Offered with English-taught options; typically expects a CS bachelor and an English certificate, subject to an aptitude/curriculum assessment. Verify the current language and admission rules per programme.",
+    note: "English-taught; typically expects a CS bachelor and an English certificate, subject to an aptitude/curriculum assessment. Verify the current language and admission rules per programme.",
   },
   {
+    // Mirrors SEED_PROGRAMS `mannheim-management` (Management, EN).
     id: "uni-mannheim-management",
     university: "University of Mannheim",
     city: "Mannheim",
@@ -127,25 +142,27 @@ export const UNIVERSITY_PROGRAMS: UniversityProgram[] = [
     note: "English-taught; business/management programmes are competitive and may consider GMAT/GRE alongside prior grades plus English proof. Indicative only — verify selection criteria on the programme page.",
   },
   {
-    id: "uni-heidelberg-scico",
+    // Mirrors SEED_PROGRAMS `heidelberg-data-cs` (Data and Computer Science, EN).
+    id: "uni-heidelberg-data-cs",
     university: "Heidelberg University",
     city: "Heidelberg",
-    program: "Scientific Computing",
+    program: "Data and Computer Science",
     degree: "M.Sc.",
     language: "EN",
-    field: "Computational Science",
+    field: "Computer Science",
     homepage: "https://www.uni-heidelberg.de/en/study/all-subjects",
     note: "English-taught; typically expects a quantitative bachelor with mathematics/programming prerequisites and English proof. The exact prerequisite list is programme-specific — verify on the official page.",
   },
   {
-    id: "uni-tu-dresden-mecheng",
-    university: "Technische Universität Dresden (TU Dresden)",
+    // Mirrors SEED_PROGRAMS `dresden-cms` (Computational Modeling and Simulation, EN).
+    id: "uni-tu-dresden-cms",
+    university: "TU Dresden",
     city: "Dresden",
-    program: "Advanced Computational and Civil Engineering Structural Studies (ACCESS)",
+    program: "Computational Modeling and Simulation",
     degree: "M.Sc.",
     language: "EN",
-    field: "Civil / Computational Engineering",
+    field: "Computational Engineering",
     homepage: "https://tu-dresden.de/studium/vor-dem-studium/studienangebot",
-    note: "English-taught; typically requires a relevant engineering bachelor and English proof, with a subject-specific check. Requirements vary by intake — confirm on the official TU Dresden page.",
+    note: "English-taught; typically requires a relevant engineering/science bachelor and English proof, with a subject-specific check. Requirements vary by intake — confirm on the official TU Dresden page.",
   },
 ];

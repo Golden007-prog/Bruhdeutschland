@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HEALTH_INSURANCE } from "@/lib/facts";
 import { source } from "@/lib/sources";
 import { INSURANCE_OPTIONS } from "@/lib/seed/finance";
+import { useProfile } from "@/lib/profile/useProfile";
+import { ageOn } from "@/lib/intake/derive";
 
 type Tri = "yes" | "no";
 
@@ -52,7 +54,12 @@ function recommend(under30: boolean, hasAgreement: Tri): Recommendation {
 
 /** Feature 19 — Health-insurance selector. */
 export default function FinanceHealthInsurance() {
-  const [under30, setUnder30] = useState(true);
+  const { profile } = useProfile();
+  // Default the under-30 toggle from the profile's date of birth when known — this is an irreversible
+  // choice, so a 30+ career-switcher shouldn't silently get the under-30 default. Falls back to true
+  // (the common student case) when no DOB is on file. The user can still flip it manually below.
+  const profileAge = ageOn(profile.dateOfBirth, new Date().toISOString());
+  const [under30, setUnder30] = useState(profileAge == null ? true : profileAge < 30);
   const [hasAgreement, setHasAgreement] = useState<Tri>("no");
 
   const rec = useMemo(() => recommend(under30, hasAgreement), [under30, hasAgreement]);
