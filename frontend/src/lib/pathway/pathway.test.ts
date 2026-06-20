@@ -57,3 +57,52 @@ describe("evaluatePathway", () => {
     expect(r.title).toMatch(/already hold a degree/i);
   });
 });
+
+import { summarizeEducation } from "@/lib/profile/education";
+import { DEFAULT_PROFILE, type UserProfile } from "@/lib/profile/types";
+
+const profile = (o: Partial<UserProfile>): UserProfile => ({ ...DEFAULT_PROFILE, ...o });
+
+describe("evaluatePathway — non-linear education paths", () => {
+  it("diploma+lateral, Bachelor COMPLETED, target Master → master route + verify-recognition notes", () => {
+    const education = summarizeEducation(profile({ highestQualification: "bachelor", educationPathType: "diploma_lateral" }));
+    const r = evaluatePathway(input({ highestQualification: "bachelor", targetLevel: "master", education }));
+    expect(r.route).toBe("master");
+    expect(r.title).toMatch(/lateral-entry/i);
+    expect(r.notes.some((n) => /qualifying credential/i.test(n.label))).toBe(true);
+    expect(r.notes.some((n) => /schooling chain/i.test(n.label))).toBe(true);
+    expect(r.sources.some((s) => /uni-assist/i.test(s.name))).toBe(true);
+  });
+
+  it("diploma+lateral, Bachelor ONGOING (sem 3) → complete_degree (finish first), not a rejection", () => {
+    const education = summarizeEducation(
+      profile({
+        educationPathType: "diploma_lateral",
+        educationStages: [
+          { id: "1", level: "diploma", status: "completed", startYear: "2019", endYear: "2022", institution: "", board: "" },
+          { id: "2", level: "bachelor", status: "ongoing", entryType: "lateral", currentSemester: "3", startYear: "2022", endYear: "2025", institution: "", board: "" },
+        ],
+      }),
+    );
+    const r = evaluatePathway(input({ highestQualification: "some_bachelor", targetLevel: "master", education }));
+    expect(r.route).toBe("complete_degree");
+    expect(r.title).toMatch(/finish your bachelor first/i);
+    expect(r.summary).toMatch(/semester 3/i);
+  });
+
+  it("diploma only, no Bachelor → ausbildung route surfaces the Ausbildung alternative", () => {
+    const education = summarizeEducation(profile({ educationPathType: "diploma_only" }));
+    const r = evaluatePathway(input({ highestQualification: "", targetLevel: "master", education }));
+    expect(r.route).toBe("ausbildung");
+    expect(r.notes.some((n) => /Ausbildung/i.test(n.label))).toBe(true);
+    expect(r.notes.some((n) => /university HZB/i.test(n.label))).toBe(true);
+    expect(r.sources.some((s) => /Ausbildung/i.test(s.name))).toBe(true);
+  });
+
+  it("a linear bachelor is unaffected (still the standard Master's route)", () => {
+    const education = summarizeEducation(profile({ highestQualification: "bachelor", educationPathType: "regular" }));
+    const r = evaluatePathway(input({ highestQualification: "bachelor", targetLevel: "master", education }));
+    expect(r.route).toBe("master");
+    expect(r.title).not.toMatch(/lateral/i);
+  });
+});

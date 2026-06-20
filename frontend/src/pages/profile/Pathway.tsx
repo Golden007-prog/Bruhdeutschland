@@ -8,6 +8,7 @@ import { SourceLink } from "@/components/common/SourceLink";
 import { formatGermanGrade } from "@/lib/calc/gpa";
 import { deriveGermanGpa } from "@/lib/profile/profile";
 import { useProfile } from "@/lib/profile/useProfile";
+import { summarizeEducation } from "@/lib/profile/education";
 import { evaluatePathway, type PathwayNote } from "@/lib/pathway/pathway";
 import { recommendedTests } from "@/lib/intake/derive";
 import { cn } from "@/lib/utils";
@@ -22,11 +23,13 @@ const TONE: Record<PathwayNote["tone"], { cls: string; Icon: typeof Info }> = {
 /** Study-pathway page (addendum) — routes the user by level + qualification + country into the right route. */
 export default function ProfilePathway() {
   const { profile } = useProfile();
+  const education = summarizeEducation(profile);
   const result = evaluatePathway({
     country: profile.homeCountry,
     highestQualification: profile.highestQualification,
     targetLevel: profile.targetLevel,
     targetSubject: profile.targetField || profile.currentDegree,
+    education,
   });
 
   const hzbLevel = profile.targetLevel === "bachelor" || profile.targetLevel === "studienkolleg" || profile.targetLevel === "medicine";
@@ -71,6 +74,24 @@ export default function ProfilePathway() {
           </p>
         )}
       </section>
+
+      {/* Education-path context (non-linear paths) — shows what was captured, never a computed penalty. */}
+      {education.isNonLinear && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50/40 p-4 dark:bg-amber-950/20">
+          <h3 className="text-sm font-semibold">Your education path</h3>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {education.bachelorEntryType === "lateral" && <Badge variant="outline">lateral entry</Badge>}
+            {!education.hasClass12 && <Badge variant="outline">no class 12</Badge>}
+            {education.degreeCompleted && <Badge variant="outline">degree completed</Badge>}
+            {education.degreeOngoing && <Badge variant="outline">degree ongoing{education.currentSemester ? ` · sem ${education.currentSemester}` : ""}</Badge>}
+            {education.totalYears > 0 && <Badge variant="outline" className="official-figure">~{education.totalYears} yrs total</Badge>}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Shown as context, not a penalty. Recognition of a non-standard path is decided by anabin / uni-assist
+            and the university — we route you to the official check rather than guess a yes/no.
+          </p>
+        </section>
+      )}
 
       {/* Indicative HZB grade for school-leaver routes */}
       {hzbLevel && (

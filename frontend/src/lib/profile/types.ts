@@ -17,6 +17,40 @@ export type TargetLevel = "" | "bachelor" | "master" | "phd" | "medicine" | "stu
 /** The applicant's highest completed qualification — gates HZB / Studienkolleg / direct-entry decisions. */
 export type HighestQualification = "" | "class10" | "class12" | "some_bachelor" | "bachelor" | "master";
 
+/**
+ * The SHAPE of the applicant's education history (non-linear-paths addendum §1). Real applicants don't
+ * all go 10 → 12 → Bachelor: a very common South-Asian path is 10th → polytechnic diploma → LATERAL
+ * entry into year 2 of a B.Tech (i.e. NO class 12 / no Abitur-equivalent). Capturing the path lets the
+ * engine route on the BACHELOR's recognition, not the schooling route — without fabricating any rule.
+ */
+export type EducationPathType =
+  | "" // unset → fall back to highestQualification
+  | "regular" //            10 + 12 + Bachelor (the linear default)
+  | "diploma_lateral" //    10 + diploma + lateral-entry Bachelor (no class 12)
+  | "diploma_only" //       diploma, no Bachelor (vocational — not a university HZB)
+  | "class12_only" //       12, no Bachelor yet
+  | "integrated" //         integrated / dual degree
+  | "other";
+
+export type EducationStageLevel = "class10" | "class12" | "diploma" | "bachelor" | "master" | "integrated";
+/** How the applicant entered a degree — lateral entry (e.g. diploma → year 2) is the key non-linear case. */
+export type DegreeEntryType = "regular" | "lateral";
+
+/** One stage in the education timeline. Years are "YYYY" strings (kept as strings for controlled inputs). */
+export interface EducationStage {
+  id: string;
+  level: EducationStageLevel;
+  status: "completed" | "ongoing";
+  startYear: string;
+  endYear: string; // expected end if ongoing
+  institution: string;
+  board: string; // board / awarding university
+  /** Degree stages only — regular vs lateral entry. */
+  entryType?: DegreeEntryType;
+  /** Ongoing degree stages only — current semester (e.g. "3" for a lateral-entry sem-3 student). */
+  currentSemester?: string;
+}
+
 /** Keys into {@link COMMON_SCALES} plus an explicit custom scale. */
 export type GradeScaleKey = "percent" | "cgpa10" | "gpa4" | "custom";
 
@@ -71,6 +105,10 @@ export interface UserProfile {
   targetLevel: TargetLevel;
   /** The user's highest completed qualification — gates Studienkolleg-vs-direct-entry. */
   highestQualification: HighestQualification;
+  /** Shape of the education history (non-linear-paths addendum). Drives lateral-entry / diploma routing. */
+  educationPathType: EducationPathType;
+  /** Optional structured education timeline (stages). Empty → the engine falls back to highestQualification. */
+  educationStages: EducationStage[];
   /** Month the current degree was (or will be) obtained, "YYYY-MM". Drives "degree within N years". */
   graduationDate: string;
   /** Professional history (addendum §1). Empty for a new user → no fake experience value shown. */
@@ -124,6 +162,8 @@ export const DEFAULT_PROFILE: UserProfile = {
   germanLevel: "",
   targetLevel: "",
   highestQualification: "",
+  educationPathType: "",
+  educationStages: [],
   graduationDate: "",
   workExperiences: [],
   dateOfBirth: "",

@@ -59,6 +59,8 @@ export const SOURCES = {
   familyReunion: { name: "Make it in Germany — Bringing your family (family reunification)", url: "https://www.make-it-in-germany.com/en/visa-residence/family-reunion" },
   enrolment: { name: "Study in Germany — Enrolment & semester organisation", url: "https://www.study-in-germany.de/en/plan-your-studies/enrol/" },
   blueCard: { name: "Make it in Germany — EU Blue Card", url: "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card" },
+  ausbildung: { name: "Make it in Germany — Vocational training (Ausbildung)", url: "https://www.make-it-in-germany.com/en/study-training/training" },
+  uniAssistEval: { name: "uni-assist — Individual document assessment", url: "https://www.uni-assist.de/en/how-to-apply/assemble-your-documents/" },
 } as const satisfies Record<string, Source>;
 
 export type SourceKey = keyof typeof SOURCES;

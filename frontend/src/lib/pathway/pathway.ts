@@ -10,9 +10,19 @@
 import type { Source } from "@/lib/types";
 import { source } from "@/lib/sources";
 import type { HighestQualification, TargetLevel } from "@/lib/profile/types";
+import type { EducationSummary } from "@/lib/profile/education";
 import { kursForSubject, type KursInfo } from "./kurs";
 
-export type PathwayRoute = "blocked" | "studienkolleg" | "direct_bachelor" | "master" | "medicine" | "phd" | "unknown";
+export type PathwayRoute =
+  | "blocked"
+  | "studienkolleg"
+  | "direct_bachelor"
+  | "master"
+  | "medicine"
+  | "phd"
+  | "ausbildung"
+  | "complete_degree"
+  | "unknown";
 
 export interface PathwayNote {
   label: string;
@@ -27,6 +37,8 @@ export interface PathwayInput {
   highestQualification: HighestQualification;
   targetLevel: TargetLevel;
   targetSubject: string;
+  /** Optional structured education summary — when present, drives non-linear (diploma/lateral) routing. */
+  education?: EducationSummary;
 }
 
 export interface PathwayResult {
@@ -204,9 +216,136 @@ const master = (): PathwayResult => ({
   needsVerification: true,
 });
 
+/* ── Non-linear-path notes (diploma / lateral entry / no class 12) ──────────────────────────────── */
+
+const LATERAL_ENTRY_NOTE: PathwayNote = {
+  label: "Your Bachelor is the qualifying credential — not your schooling",
+  detail:
+    "For a Master's, what matters is your BACHELOR'S recognition, not the route you took to it. A completed lateral-entry B.Tech/B.E. (10th + diploma + ~3-yr degree) is still a recognised engineering Bachelor. If it's anabin “H+”, you're generally eligible for (subject-restricted) Master's admission — the missing class 12 is usually NOT the decisive blocker.",
+  tone: "ok",
+  source: source("anabin"),
+  needsVerification: true,
+};
+
+const MISSING_CLASS12_NOTE: PathwayNote = {
+  label: "A minority of universities scrutinise the full schooling chain",
+  detail:
+    "Because you don't hold class 12 / an Abitur-equivalent, some universities look harder at the whole 10 → diploma → degree chain. Confirm your case with a uni-assist VPD (Vorprüfungsdokumentation) and the specific programme before relying on eligibility.",
+  tone: "warn",
+  source: source("uniAssistVpd"),
+  needsVerification: true,
+};
+
+const UNIASSIST_INDIVIDUAL_NOTE: PathwayNote = {
+  label: "If your degree isn't in anabin → uni-assist individual assessment",
+  detail:
+    "When anabin doesn't list your exact degree/institution, uni-assist does an individual document assessment (allow ~4–6 weeks). Start it early so it doesn't hold up your application.",
+  tone: "info",
+  source: source("uniAssistEval"),
+  needsVerification: true,
+};
+
+const NONLINEAR_TIME_NOTE: PathwayNote = {
+  label: "Non-standard paths take longer to verify",
+  detail:
+    "Recognition for non-linear paths is decided by uni-assist / the university, not by us — and it takes longer to confirm. We never give a guessed yes/no; we point you to the official check.",
+  tone: "info",
+  needsVerification: true,
+};
+
+/** diploma + lateral, Bachelor COMPLETED, target Master → the degree qualifies; verify recognition. */
+const lateralMaster = (e: EducationSummary): PathwayResult => {
+  const base = master();
+  const totalYears = e.totalYears > 0 ? ` Your timeline totals ~${e.totalYears} years of education.` : "";
+  return {
+    ...base,
+    title: "Route: Master's on a lateral-entry Bachelor (likely eligible — verify recognition)",
+    summary:
+      "You reached your Bachelor via 10th → diploma → lateral entry (no class 12). That's fine for a Master's: the Bachelor is your qualifying credential. You're likely eligible for subject-restricted admission IF your degree is anabin H+ — confirm via a uni-assist VPD." +
+      totalYears,
+    steps: [
+      "Check your DEGREE's status on anabin (H+ = recognised/equivalent). The class-12 gap is usually not the blocker.",
+      "If anabin lists it as H+, you're generally eligible for subject-restricted Master's admission — but order a uni-assist VPD to confirm your full chain.",
+      "If your degree isn't in anabin, start a uni-assist individual assessment (~4–6 weeks).",
+      "Use Profile evaluation for your Bachelor's German grade + ECTS; match programmes; meet the language requirement; apply (India: APS first).",
+    ],
+    notes: [LATERAL_ENTRY_NOTE, MISSING_CLASS12_NOTE, UNIASSIST_INDIVIDUAL_NOTE, NONLINEAR_TIME_NOTE, HZB_NOTE],
+    sources: [source("anabin"), source("uniAssistVpd"), source("uniAssist"), source("daad")],
+    needsVerification: true,
+  };
+};
+
+/** diploma + lateral, Bachelor ONGOING → finish the degree first; show a timeline, not a rejection. */
+const completeDegreeFirst = (e: EducationSummary): PathwayResult => {
+  const sem = e.currentSemester ? ` You're around semester ${e.currentSemester}.` : "";
+  return {
+    route: "complete_degree",
+    title: "Finish your Bachelor first — then the Master's path opens",
+    summary:
+      "You're still completing your Bachelor, so you're NOT yet eligible for a German Master's — but this is a timeline, not a rejection." +
+      sem +
+      " Complete the degree, then your lateral-entry Bachelor becomes your qualifying credential.",
+    steps: [
+      "Complete your Bachelor's degree (a completed degree is what a Master's requires).",
+      "Meanwhile, build German and/or sit IELTS/TOEFL so you're test-ready the moment you graduate.",
+      "Plan a realistic FUTURE intake (use the reverse-timeline planner) — apply in your final year for the next cycle.",
+      "Once you graduate, check your degree on anabin (H+) and order a uni-assist VPD; the class-12 gap is usually not the blocker.",
+    ],
+    notes: [
+      { label: "Not yet eligible — finish first", detail: "A German Master's needs a COMPLETED Bachelor. An ongoing degree (e.g. semester 3) can't be assessed yet.", tone: "warn", needsVerification: true },
+      LATERAL_ENTRY_NOTE,
+      MISSING_CLASS12_NOTE,
+      NONLINEAR_TIME_NOTE,
+    ],
+    sources: [source("anabin"), source("uniAssistVpd"), source("daad")],
+    needsVerification: true,
+  };
+};
+
+/** diploma_only (no Bachelor) → two honest routes: complete a Bachelor, or Ausbildung (vocational). */
+const diplomaOnly = (): PathwayResult => ({
+  route: "ausbildung",
+  title: "A diploma alone isn't a university entry — two honest routes",
+  summary:
+    "A 3-year polytechnic diploma is vocational / partial recognition — it is NOT a university entrance qualification (HZB) on its own. There are two realistic paths: (A) complete a recognised Bachelor first, or (B) pursue a German Ausbildung (vocational training), where your diploma can help and Anrechnung may shorten it.",
+  steps: [
+    "Check your diploma's status on anabin — it usually confers partial/vocational recognition, not a university HZB.",
+    "Route A — complete a recognised Bachelor (in your country or via lateral entry), then follow the Master's path.",
+    "Route B — apply for a German Ausbildung in a related trade; ask about Anrechnung (credit for your diploma) to shorten it by ~6–12 months.",
+    "For either route, confirm specifics with uni-assist / the Ausbildung provider — Studienkolleg is generally hard without a class-12-track base.",
+  ],
+  notes: [
+    { label: "Diploma ≠ university HZB", detail: "A polytechnic diploma is vocational. It does not, by itself, grant German university entrance — plan to complete a Bachelor or take the Ausbildung route.", tone: "warn", source: source("anabin"), needsVerification: true },
+    { label: "Ausbildung (vocational training) — a real alternative", detail: "German vocational training (Ausbildung) is paid, leads to recognised qualifications and work, and your diploma may earn Anrechnung (credit) that shortens it by roughly 6–12 months. Verify with the provider/chamber.", tone: "info", source: source("ausbildung"), needsVerification: true },
+    UNIASSIST_INDIVIDUAL_NOTE,
+    NONLINEAR_TIME_NOTE,
+  ],
+  sources: [source("anabin"), source("ausbildung"), source("uniAssist")],
+  needsVerification: true,
+});
+
 /** Route the applicant to the correct German pathway. Pure + deterministic + grounded. */
 export function evaluatePathway(input: PathwayInput): PathwayResult {
-  const { country, highestQualification: q, targetLevel: level, targetSubject } = input;
+  const { country, highestQualification: q, targetLevel: level, targetSubject, education: e } = input;
+
+  // ── Non-linear paths (diploma / lateral entry / no class 12) take priority when captured ──────────
+  if (e && e.isNonLinear) {
+    // diploma only, no Bachelor → Ausbildung / complete-a-Bachelor (regardless of target level).
+    if (e.qualifyingCredential === "diploma" && !e.degreeCompleted && !e.degreeOngoing) {
+      return diplomaOnly();
+    }
+    // Missing class 12 but a degree is in play:
+    if (e.missingClass12) {
+      // Bachelor still ongoing → finish first (only meaningful when aiming Master/PhD).
+      if (e.degreeOngoing && !e.degreeCompleted && (level === "master" || level === "phd" || level === "")) {
+        return completeDegreeFirst(e);
+      }
+      // Completed degree, targeting Master → the degree qualifies; verify recognition.
+      if (e.degreeCompleted && (level === "master" || level === "phd" || level === "")) {
+        return lateralMaster(e);
+      }
+    }
+  }
 
   if (q === "class10") {
     return {

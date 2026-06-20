@@ -8,6 +8,7 @@
  * Grounded rules stay needs_verification in the UI; this module only routes/derives.
  */
 import { apsStatusFor } from "@/lib/country/country";
+import { summarizeEducation } from "@/lib/profile/education";
 import type { UserProfile } from "@/lib/profile/types";
 
 export interface DocItem {
@@ -27,12 +28,24 @@ export const DOC_CATALOG: DocItem[] = [
   { key: "aps", label: "APS certificate" },
   { key: "financial_proof", label: "Proof of finances (blocked account)" },
   { key: "photos", label: "Biometric photos" },
+  // Non-linear-path documents (diploma / lateral entry / no class 12) — surfaced conditionally below.
+  { key: "diploma_transcript", label: "Diploma transcript & certificate" },
+  { key: "vpd", label: "uni-assist VPD (Vorprüfungsdokumentation)" },
 ];
 
-/** Which documents apply to this profile (drops APS for non-APS countries). */
+const NONLINEAR_DOC_KEYS = new Set(["diploma_transcript", "vpd"]);
+
+/** Which documents apply to this profile (drops APS for non-APS countries + non-linear docs for linear paths). */
 function applicableDocs(p: UserProfile): DocItem[] {
   const apsRequired = apsStatusFor(p.homeCountry).status === "required";
-  return DOC_CATALOG.filter((d) => (d.key === "aps" ? apsRequired : true));
+  const e = summarizeEducation(p);
+  // Show diploma/VPD docs when the path is non-linear (diploma or missing class 12).
+  const nonLinear = e.isNonLinear || e.missingClass12 || e.qualifyingCredential === "diploma";
+  return DOC_CATALOG.filter((d) => {
+    if (d.key === "aps") return apsRequired;
+    if (NONLINEAR_DOC_KEYS.has(d.key)) return nonLinear;
+    return true;
+  });
 }
 
 /** Split the applicable documents into what the user already holds vs what's still needed. */

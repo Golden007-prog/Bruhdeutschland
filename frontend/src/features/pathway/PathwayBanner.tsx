@@ -4,6 +4,7 @@ import { Route } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useProfile } from "@/lib/profile/useProfile";
 import { evaluatePathway, type PathwayRoute } from "@/lib/pathway/pathway";
+import { summarizeEducation } from "@/lib/profile/education";
 
 const LABEL: Record<PathwayRoute, string> = {
   blocked: "finish Class 12 first",
@@ -12,6 +13,8 @@ const LABEL: Record<PathwayRoute, string> = {
   master: "Master's",
   medicine: "Medicine (Humanmedizin)",
   phd: "Doctorate",
+  ausbildung: "diploma → Bachelor or Ausbildung",
+  complete_degree: "finish your Bachelor first",
   unknown: "",
 };
 
@@ -22,12 +25,16 @@ const LABEL: Record<PathwayRoute, string> = {
  */
 export function PathwayBanner({ note }: { note?: string }) {
   const { profile } = useProfile();
-  if (!profile.targetLevel || profile.targetLevel === "master") return null;
+  const education = summarizeEducation(profile);
+  // Show for non-Master targets, OR for any non-linear path (a lateral/diploma Master applicant still
+  // needs the recognition heads-up even though their target is "Master's").
+  if ((!profile.targetLevel || profile.targetLevel === "master") && !education.isNonLinear) return null;
   const r = evaluatePathway({
     country: profile.homeCountry,
     highestQualification: profile.highestQualification,
     targetLevel: profile.targetLevel,
     targetSubject: profile.targetField || profile.currentDegree,
+    education,
   });
   if (r.route === "master" || r.route === "unknown") return null;
 

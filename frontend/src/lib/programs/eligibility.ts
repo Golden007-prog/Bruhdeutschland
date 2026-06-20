@@ -8,6 +8,7 @@ import { formatGermanGrade } from "@/lib/calc/gpa";
 import { apsStatusFor } from "@/lib/country/country";
 import { deriveGermanGpa } from "@/lib/profile/profile";
 import { currentYM, formatYearsMonths, summarizeExperience, yearsFrom } from "@/lib/profile/experience";
+import { summarizeEducation } from "@/lib/profile/education";
 import type { UserProfile } from "@/lib/profile/types";
 import type { Program } from "./types";
 
@@ -105,6 +106,24 @@ function experienceCriterion(profile: UserProfile, p: Program): Criterion | null
   return { key: "experience", label: "Work experience", status: "maybe", detail: `You have ${formatYearsMonths(s.totalMonths)}; this programme indicates ~${req}+ yrs. Verify the exact rule on the official page.` };
 }
 
+/**
+ * Schooling-chain criterion — only shown when the applicant holds a degree/diploma but NO class 12
+ * (e.g. the 10th → diploma → lateral-entry B.Tech path). Never auto-fails: the degree is usually the
+ * qualifying credential, but the chain must be verified via uni-assist VPD (non-linear-paths addendum).
+ */
+function schoolingChainCriterion(profile: UserProfile): Criterion | null {
+  const e = summarizeEducation(profile);
+  if (!e.missingClass12) return null;
+  return {
+    key: "schooling_chain",
+    label: "Schooling chain",
+    status: "maybe",
+    detail:
+      "You reached your degree without class 12 (e.g. diploma + lateral entry). Your BACHELOR is usually the qualifying credential, but some universities scrutinise the full chain — verify via a uni-assist VPD.",
+    gapHref: "/documents/vpd-helper",
+  };
+}
+
 function rollupOf(criteria: Criterion[]): EligibilityRollup {
   if (criteria.some((c) => c.status === "doesnt_meet")) return "stretch";
   const known = criteria.filter((c) => c.status !== "unknown");
@@ -122,6 +141,7 @@ export function eligibility(profile: UserProfile, p: Program): Eligibility {
     gradeCriterion(profile),
     englishTestCriterion(p),
     experienceCriterion(profile, p),
+    schoolingChainCriterion(profile),
     apsCriterion(profile),
   ].filter((c): c is Criterion => c !== null);
   return { rollup: rollupOf(criteria), criteria };

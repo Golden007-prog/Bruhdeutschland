@@ -4,6 +4,7 @@ import { SCALE_OPTIONS, deriveGermanGpa } from "@/lib/profile/profile";
 import type { UserProfile } from "@/lib/profile/types";
 import { DOC_CATALOG } from "@/lib/intake/derive";
 import { WorkExperienceEditor } from "./WorkExperienceEditor";
+import { EducationTimelineEditor } from "./EducationTimelineEditor";
 import { cn } from "@/lib/utils";
 
 const selectClass = cn(
@@ -371,6 +372,8 @@ export function IntakeFields({
         ))}
       </div>
     </fieldset>
+
+    <EducationTimelineEditor value={value} onChange={onChange} />
 
     <WorkExperienceEditor
       value={value.workExperiences}
