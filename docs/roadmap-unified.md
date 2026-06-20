@@ -5,6 +5,15 @@ One prioritized sequence merging the defect register (`qa-findings.md`) and the 
 gaps that unblock a real student → P2 correctness/a11y/perf → P3 polish.** Each line shows id + rough
 effort (S<½d · M~1–3d · L~1wk+).
 
+> **BUILD STATUS (2026-06-20): ✅ DELIVERED.** All **P0/P1 defects** + the folded correctness **P2s**
+> are fixed, and **all 51 gaps (G01–G51) are implemented** as real, route-registered, grounded pages —
+> shipped across 7 waves, all green (typecheck + 293 tests + lint) and deployed. Every official figure is
+> grounded or carries `needs_verification`; no German fact was fabricated (datasets we lack — anabin
+> recognition, Studienkolleg directory, city liveability, loan/Sperrkonto rates — are honest guided
+> lookups that defer to the official source). New deterministic, tested engines: `journeyBudget`,
+> `reverseTimeline`, `feasibility`, `workDays`, `fundingGap`. Remaining open items below are the **P2/P3
+> a11y/perf/locale polish** (Wave 6 of the original plan) and the i18n infra bet — not yet done.
+
 ## Wave 0 — Honesty & data-integrity P0s (do first; ~½ day total)
 - **QA P0-1** SkillGap: gate/relabel so a fresh user never sees the Jane-Doe mock as their own gaps. (S)
 - **QA P0-2** APS-India: make `apsStatusFor` carry `needsVerification:true` (render unstamped) and
