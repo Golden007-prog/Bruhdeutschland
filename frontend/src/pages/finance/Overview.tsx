@@ -12,6 +12,7 @@ import { FINANCE_FACTS } from "@/lib/facts";
 import { source } from "@/lib/sources";
 import { useProfile } from "@/lib/profile/useProfile";
 import { PathwayBanner } from "@/features/pathway/PathwayBanner";
+import { insuranceTierHint } from "@/lib/intake/derive";
 
 interface Tool {
   to: string;
@@ -68,6 +69,7 @@ const TOOLS: Tool[] = [
 export default function FinanceOverview() {
   const { profile } = useProfile();
   const onSchool = profile.targetLevel === "bachelor" || profile.targetLevel === "studienkolleg" || profile.targetLevel === "medicine";
+  const insurance = insuranceTierHint(profile, new Date().toISOString().slice(0, 10));
 
   return (
     <div className="space-y-6">
@@ -81,6 +83,13 @@ export default function FinanceOverview() {
       <Disclaimer />
 
       <PathwayBanner />
+
+      {insurance.age != null && (
+        <p className="rounded-md border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Health insurance:</span> {insurance.hint}{" "}
+          <Link to="/finance/health-insurance" className="text-primary hover:underline">Choose insurance →</Link>
+        </p>
+      )}
 
       {onSchool && (
         <section className="rounded-lg border bg-card p-5 shadow-sm">

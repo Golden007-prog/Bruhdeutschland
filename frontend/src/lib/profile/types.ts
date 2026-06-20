@@ -75,6 +75,37 @@ export interface UserProfile {
   graduationDate: string;
   /** Professional history (addendum §1). Empty for a new user → no fake experience value shown. */
   workExperiences: WorkExperience[];
+
+  // ── Intake "data engine" fields (each powers a downstream feature) ────────────────────────────
+  /** "YYYY-MM-DD" — drives health-insurance tier (under/over 30) + age-capped scholarships. */
+  dateOfBirth: string;
+  /** Target intake year (e.g. "2026") — with the season, drives deadline math + the roadmap. */
+  targetIntakeYear: string;
+  /** Was your degree taught in English? → IELTS/TOEFL waiver logic (Master's). */
+  mediumOfInstruction: "" | "english" | "other";
+  /** English test taken/planned → eligibility + mock-test recommendations. */
+  englishTestType: "" | "ielts" | "toefl" | "pte" | "duolingo" | "none" | "planned";
+  englishTestScore: string;
+  /** German test taken/planned → eligibility + mock-test recommendations. */
+  germanTestType: "" | "testdaf" | "dsh" | "goethe" | "telc" | "dsd" | "none" | "planned";
+  /** How you'll fund your studies → finance + scholarship surfacing. */
+  fundingSource: "" | "self" | "family" | "loan" | "scholarship";
+  /** Blocked-account (Sperrkonto) progress → finance + visa readiness. */
+  sperrkontoStatus: "" | "not_started" | "opening" | "done";
+  /** Accompanying dependents → finance budget + family-reunion visa. */
+  dependents: "" | "none" | "spouse" | "spouse_children";
+  /** Passport expiry "YYYY-MM" → visa readiness (must be valid well beyond your stay). */
+  passportExpiry: string;
+  /** Previous Schengen/German visa refusal → visa interview prep. */
+  visaRefusal: boolean;
+  /** Documents you already hold → auto-derives the "documents you still need" list. */
+  documentsOnHand: string[];
+  /** One-line career goal/motivation → SOP generator + programme fit. */
+  careerGoal: string;
+  /** Number of recommenders available (for the LOR feature). */
+  recommendersAcademic: number;
+  recommendersProfessional: number;
+
   /** ISO timestamp of the last edit; null when never saved. */
   updatedAt: string | null;
 }
@@ -95,6 +126,21 @@ export const DEFAULT_PROFILE: UserProfile = {
   highestQualification: "",
   graduationDate: "",
   workExperiences: [],
+  dateOfBirth: "",
+  targetIntakeYear: "",
+  mediumOfInstruction: "",
+  englishTestType: "",
+  englishTestScore: "",
+  germanTestType: "",
+  fundingSource: "",
+  sperrkontoStatus: "",
+  dependents: "",
+  passportExpiry: "",
+  visaRefusal: false,
+  documentsOnHand: [],
+  careerGoal: "",
+  recommendersAcademic: 0,
+  recommendersProfessional: 0,
   updatedAt: null,
 };
 

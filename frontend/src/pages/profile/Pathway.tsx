@@ -9,6 +9,7 @@ import { formatGermanGrade } from "@/lib/calc/gpa";
 import { deriveGermanGpa } from "@/lib/profile/profile";
 import { useProfile } from "@/lib/profile/useProfile";
 import { evaluatePathway, type PathwayNote } from "@/lib/pathway/pathway";
+import { recommendedTests } from "@/lib/intake/derive";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<PathwayNote["tone"], { cls: string; Icon: typeof Info }> = {
@@ -127,6 +128,27 @@ export default function ProfilePathway() {
           })}
         </section>
       )}
+
+      {/* Recommended tests — derived from your level + medium of instruction + test status */}
+      {(() => {
+        const recs = recommendedTests(profile);
+        if (recs.length === 0) return null;
+        return (
+          <section className="rounded-lg border bg-card p-5 shadow-sm">
+            <h3 className="font-semibold">Recommended tests for your pathway</h3>
+            <ul className="mt-2 space-y-2 text-sm">
+              {recs.map((r, i) => (
+                <li key={i} className={cn("rounded-md border p-2.5", r.tone === "ok" ? "border-emerald-200 bg-emerald-50/40" : r.tone === "warn" ? "border-amber-200 bg-amber-50/40" : "border-dashed")}>
+                  <span className="font-medium">{r.test}</span> — <span className="text-muted-foreground">{r.reason}</span>
+                </li>
+              ))}
+            </ul>
+            <Link to="/language/exams" className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+              Practise in the Mock Exam Centre <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          </section>
+        );
+      })()}
 
       {/* Quick links to relevant tools */}
       <section className="flex flex-wrap gap-2">
