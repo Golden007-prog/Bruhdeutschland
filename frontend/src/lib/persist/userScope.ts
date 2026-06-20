@@ -4,8 +4,9 @@
  * {@link scopedKey} so two accounts on the same browser can never read each other's cache. The active
  * id is driven by Supabase auth; `setActiveUser` is also the test seam. Signed-out → the `anon` scope.
  *
- * Non-personal device prefs (theme, BYOK API keys, TTS tier) deliberately stay global and do NOT use
- * this — they are not personal data and are expected to be device-wide.
+ * Non-personal device prefs (theme, TTS tier, the Owner-Mode bridge URL) deliberately stay global and do
+ * NOT use this — they are not personal data and are expected to be device-wide. BYOK API keys, by
+ * contrast, ARE per-user secrets and now scope through {@link scopedKey} (see lib/llm/keys.ts, SEC-7).
  */
 import { onAuthChange } from "@/lib/supabase/auth";
 
