@@ -64,6 +64,42 @@ explainer. See `gap-analysis.md` (corrected) for the full prioritized list.
 
 ---
 
+---
+
+## Addendum 2 — Second full re-audit (audit-2, 2026-06-20): zero P0s; P1+P2 batch fixed
+
+A full fresh independent 6-subagent re-audit of the post-Section-9 app. **Result: ZERO P0s** — the two
+prior P0s (cross-user isolation, GDPR delete/export) **verified CLOSED** (role-impersonation + forged-JWT
+writes rolled back). Registers refreshed: `qa-findings.md` (47 findings — P1=10, P2=19, P3=18) and
+`gap-analysis.md` (55-gap v2 backlog). The user authorized fixing **all P1 + P2** this pass.
+
+**P1 + P2 fixes shipped (audit-2):**
+- **Ranking** (migration 0014): server-author leaderboard metrics so clients can't self-set scores
+  (SEC-A); `my_rank` aggregates over the opt-in cohort with a ≥5 min-cohort guard (SEC-B); `readiness`
+  now populated via `refresh_my_leaderboard` (was permanently 0).
+- **Exam engine**: local-date streak bucketing (was UTC), IELTS short-set band fix, AI model provenance
+  surfaced, rubric schema bounds, TTS dead-button + spurious-cancel-error, timer a11y cue.
+- **Grounding**: `TUITION_BW_EUR` single-sourced, Blue Card literals → facts, UMCH citation fixed, prompt
+  sandboxing, balanced-bracket JSON parse, résumé prompt length cap.
+- **Persistence/UX**: dual-write hydrate UNION (no signed-out data wipe), syncedStore merge keeps guest
+  edits, Roadmap↔Pathway consistency for non-linear applicants, onboarding redirect, mobile-drawer focus
+  trap, grade-clamp validation message, program-fetch error surface, HealthInsurance age default from
+  profile DOB.
+
+**Deferred / risk-accepted (documented, not fixed):**
+- **SEC-E (encrypt PII at rest)** — RLS-protected; `auth.users` already stores `email` in plaintext (so
+  encrypting `profiles.email` is theater); the sensitive career tables are barely populated; real column
+  encryption needs a per-user KMS/client-crypto strategy that breaks server-side features. Deferred with
+  rationale rather than ship security theater.
+- The **18 P3 polish items** (extensions-in-public, leaked-password toggle, `gdpr_delete` CORS tightening,
+  dead `MockExamRunner`, free-text `maxLength`, screen-reader route focus, …) — polish backlog.
+
+The **55-gap v2 backlog** (`gap-analysis.md`: 9 NEW surfaces + 46 refinements) is the feature roadmap.
+Highest-leverage NEW: Studienkolleg directory · Bachelor/Studienkolleg dataset · Approbation/recognition ·
+visa refusal & remonstration · German job-search toolkit · route-aware planners.
+
+---
+
 ## Wave 0 — Honesty & data-integrity P0s (do first; ~½ day total)
 - **QA P0-1** SkillGap: gate/relabel so a fresh user never sees the Jane-Doe mock as their own gaps. (S)
 - **QA P0-2** APS-India: make `apsStatusFor` carry `needsVerification:true` (render unstamped) and
