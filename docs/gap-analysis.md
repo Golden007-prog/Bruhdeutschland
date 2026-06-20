@@ -1,569 +1,812 @@
 # DeutschPrep — Gap Analysis (v2 Backlog)
 
-> **Read this first.** The first build is **shipped**: all 51 first-build features (G01–G51) exist
-> as route-registered pages in `frontend/src/lib/nav.tsx` — each carries its `G##` id in the page
-> eyebrow there (e.g. `/profile/studienkolleg` → "G06 · Foundations", `/visa/appointment` →
-> "G34 · Visa", `/arrival/family-reunion` → "G45 · Ongoing", `/reminders` → "G51 · Overview").
-> This document is therefore **not** a "missing-feature" register. It is the **v2 backlog**, split into:
+> **Read this first.** The journey is **shipped.** Every journey feature exists as a
+> route-registered page in `frontend/src/lib/nav.tsx` (~125 routes) — the pathway engine routes all
+> three personas correctly (Class-10 → blocked, India/Bangladesh Class-12 → Studienkolleg with the
+> raised-70% WS-2026/27 note, non-linear diploma/lateral routes), and the recent **Section-9
+> persistence layer** is in place (`useSyncedState` → `syncedStore` is localStorage-first **and**
+> mirrors to a per-user `settings.data` JSONB blob in Supabase when signed in; `applications`,
+> `roadmap_items` and `deadlines` additionally dual-write to typed tables). **A page existing is not
+> "done."** This document is therefore **not** a missing-feature register — it is a **v2 backlog**,
+> split into:
 >
-> - **Section A — Genuinely missing (NEW).** Surfaces that have **no page at all** today — verified
->   against `nav.tsx` and the `frontend/src/pages/**` tree. These cluster in failure/contingency paths
->   and the German job-search / career-execution layer.
-> - **Section B — Depth / refinement on shipped pages.** Integration and quality gaps **on top of
->   pages that already exist**. Every Section-B item names the live route it `refines:`.
+> - **Section A — Genuinely missing (NEW).** Surfaces with **no page at all** today — each verified
+>   against `nav.tsx` and the `frontend/src/pages/**` tree.
+> - **Section B — Depth / integration / failure-path refinement on shipped pages.** Every item names
+>   the live route it `refines:`.
 >
-> **Method (unchanged):** walked the journey as real personas — Class-12 India school-leaver, Class-10
-> student (honestly blocked, verified), Bangladesh Master's applicant (no APS), career-switcher with
-> work experience, Medicine/NC aspirant, and a student already settling in Germany. A page that already
-> covers a need is not a gap; refinements say what the shipped page still lacks.
+> **Persona framing (least-served first):** **Class-12 India school-leaver** (the journey's headline
+> "from scratch" student, today the thinnest-served on dataset + route-aware planning) · **Class-10
+> student** (must stay honestly blocked) · **Bangladesh Master's applicant** (no APS) ·
+> **career-switcher with work experience** (often 30+) · **Medicine/NC/TMS aspirant** · a **student
+> already settling in Germany**. A page that already covers a need is not a gap; refinements say what
+> the shipped page still lacks.
 >
 > **Grounding discipline (CLAUDE.md §2/§3):** any item surfacing an official German fact (visa rules,
-> deadlines, thresholds, fees, processing windows) must be **grounded (source + `needs_verification`)**
-> — never assert an official number without provenance.
+> deadlines, thresholds, fees, processing/appeal windows) must be **grounded (source +
+> `needs_verification`)** — never assert an official number without provenance. This audit found **no
+> fabricated official fact** anywhere in the shipped journey; grounding routes through
+> `frontend/src/lib/facts.ts` / `lib/seed/*` as `OfficialFact`s with a `FACTS_RETRIEVED_AT` stamp.
 
 ---
 
-## 0. Status & counts
+## 1. Executive summary
 
-**Shipped (v1):** 51 features, all route-registered in `nav.tsx` (G01–G51). Confirmed present, not re-listed here.
+This register is the second, independent audit pass (audit-2). It judges **depth, integration, and
+failure paths — not existence**. Of **55** items, **9 are genuinely-missing NEW surfaces** and **46
+are refinements** on shipped pages. The journey's happy path is broad and, in phases 7–9, deep; the
+backlog concentrates where a real student hits a **wall the app doesn't yet handle** (refusal,
+no-appointment, no-job-in-18-months, no-address) or a **re-entry / drift seam** between tools that
+should share state.
 
-**v2 backlog:** 16 NEW surfaces (Section A) + 31 depth/refinements on shipped pages (Section B) = **47 backlog items.**
+**Standout structural themes** (each spans several gaps):
 
-| Section | Items | must | should | could |
-|---|---:|---:|---:|---:|
-| A — Genuinely missing (NEW) | 16 | 4 | 9 | 3 |
-| B — Depth / refinement on shipped pages | 31 | 6 | 19 | 6 |
-| **Total** | **47** | **10** | **28** | **9** |
+1. **Shared programme identity across stores.** Document, application and offer stores
+   (`programme:requirements`, `tracker:apps`, `OFFERS_KEY`) don't reference one another, so the
+   spine **apply → admit → accept → enrol** is re-entered at every step (G4-01/03, G5-01/03/04,
+   G2-5).
+2. **One reconciled money total.** The three money tools (application costs, journey budget, funding
+   gap) each hold their own numbers; nothing computes "total need" once (G6-03/05), and a literal
+   `992` silently duplicates `SPERRKONTO_MONTH_EUR` instead of importing it (finance euro-literal
+   drift, G6-03).
+3. **Route-aware planners (Studienkolleg).** Timeline and Budget treat every route as a
+   direct-admission Master's and hide the school-leaver's extra ~12–14 months + FSP/Semesterbeitrag
+   (G0-1/2).
+4. **Failure / contingency paths.** The single most damaging boundaries are unhandled: visa refusal
+   (G7-01), no-appointment-available (G7-02), no-job-in-18-months (G9-01), permit-loss/out-of-status
+   recovery (G9-03), entry-gap insurance (G7-03).
+5. **The German job-search execution layer.** The app helps you *qualify* (Blue Card check,
+   outcomes) and *network academically*, but has **no surface for finding and applying for a German
+   job** (G9-02).
+6. **Professional recognition (Approbation).** The largest missing surface in the tail: regulated
+   professions (medicine/nursing/law) can finish a degree, clear the salary check, and still be
+   legally unable to practise without recognition (G8-01).
+7. **The Bachelor / Studienkolleg dataset gap.** Verified **6 Bachelor of 35** seed programmes and
+   **zero Studienkolleg entries**; the headline Class-12 persona has almost nothing to discover or
+   list (G2-1, G1-2).
 
-**Moved out of this backlog (not feature gaps):**
+### Counts by phase
 
-- **Per-user isolation re-verification** (was `GAP-412`) — a defect/verification task, not a feature.
-  → see **`qa-findings.md` (SEC-3)**: log-in-as-A-then-B repro across every Phase 4–6 synced key.
-- **One real grounding defect:** `FamilyReunion.tsx:14-17` states income/housing/A1 expectations as bare
-  prose with no figure and no `needsVerification`, violating CLAUDE.md §2/§3.
-  → logged in **`qa-findings.md` (HON-FamilyReunion)**. The *feature* side (a deterministic
-  income/housing helper) remains here as refinement **R28**; the grounding fix is the qa-findings item.
+| Phase | Surface | Items | NEW | refine |
+|---|---|---:|---:|---:|
+| 0 | Orientation | 5 | 1 | 4 |
+| 1 | Foundations | 5 | 1 | 4 |
+| 2 | Discovery & shortlist | 5 | 0 | 5 |
+| 3 | Tests | 6 | 3 | 3 |
+| 4 | Documents & application | 7 | 0 | 7 |
+| 5 | Offers & enrolment | 6 | 0 | 6 |
+| 6 | Finance & funding | 5 | 0 | 5 |
+| 7 | Visa & pre-departure | 6 | 1 | 5 |
+| 8 | Arrival & settling | 6 | 2 | 4 |
+| 9 | Ongoing | 5 | 1 | 4 |
+| **Total** | | **55** | **9** | **46** |
+
+### Counts by priority
+
+| Priority | Total | NEW | refine |
+|---|---:|---:|---:|
+| **must** | 11 | 2 | 9 |
+| **should** | 31 | 6 | 25 |
+| **could** | 13 | 1 | 12 |
+| **Total** | **55** | **9** | **46** |
+
+**must IDs (11):** **G0-1, G0-2, G1-2, G2-1, G3-1, G6-01, G7-01, G7-02, G7-03, G8-01, G9-01.** Of
+these the highest-stakes are the NEW / failure-path items — G7-01 (refusal), G7-02 (no slot), G8-01
+(Approbation), G9-01 (no job in 18 months), G7-03 (entry-gap insurance) — plus G6-01 (irreversible
+insurance default, defect-adjacent). Two of the eleven are NEW surfaces (G7-01, G8-01); the rest are
+refinements.
+
+> **Cross-link to `qa-findings`:** three items border on defects rather than feature gaps and are
+> tracked there too — **G9-05** (BlueCardCheck inputs use plain `useState`, lost on navigation; +
+> `Outcomes.tsx:63` hardcodes the Blue Card euro literals instead of importing
+> `BLUE_CARD_SHORTAGE_EUR`/`_STANDARD_EUR`), **G6-01** (HealthInsurance `under30` defaults to a manual
+> `useState(true)`, wrong for the 30+ career-switcher on an *irreversible* choice, never reads
+> `profile.dateOfBirth`), and the **finance euro-literal drift** (G6-03, the `992` duplicate of
+> `SPERRKONTO_MONTH_EUR`).
+
+---
+
+## Severity / priority & effort key
+
+- **must** = a real persona is *blocked* or *materially misled* without it.
+  **should** = significant friction or a depth shortfall that pushes the user out of the app.
+  **could** = nice-to-have polish/coverage.
+- **Effort:** **S** ≤ ~½ day (mostly seed + copy) · **M** ~1–3 days (new page / stateful tracker) ·
+  **L** > 3 days (new dataset/engine work).
 
 ---
 
 ## Section A — Genuinely missing (NEW surfaces, no page today)
 
-> Each verified absent: no eyebrow in `nav.tsx` and no dedicated page in `frontend/src/pages/**`.
-> Where a topic is *mentioned in passing* on an existing page (Fiktionsbescheinigung is named on
-> `arrival/ResidencePermit.tsx`, Haftpflicht on `arrival/Rundfunkbeitrag.tsx`, exmatrikulation on
-> `arrival/Renewals.tsx`), it is still NEW because no surface actually *walks* it — but the spec notes
-> the page it should link from.
+Each verified absent in `nav.tsx`. Note: `/profile/recognition` exists but is **academic** recognition
+(anabin / HZB) — distinct from the NEW **`/arrival/recognition`** (professional / Approbation) below.
+`/language/testas` and `/language/tms` exist as **guide** pages but have **no mock** route.
 
-### A — register
+| ID | NEW surface | Suggested route | Phase | Priority | Effort |
+|---|---|---|---|---|---|
+| G0-3 | Class-10 orientation landing (blocked persona's "what now") | — (links from Feasibility/Overview) | 0 | should | S |
+| G1-1 | Grade-scenario simulator (% → German grade → which programmes open) | — | 1 | should | M |
+| G3-3 | TestAS mock (timed core-module, scored) | `/language/testas` (mock) | 3 | should | L |
+| G3-4 | TMS mock (≥1 timed subtest, scored) | `/language/tms` (mock) | 3 | could | L |
+| G3-5 | Test-center locator + booking-date reminders | NEW | 3 | should | M |
+| G7-01 | Visa refusal & remonstration (appeal) path | `/visa/refusal` | 7 | **must** | M |
+| G8-01 | Professional recognition / Approbation (regulated professions) | `/arrival/recognition` | 8 | **must** | M |
+| G8-05 | Emergency / health / community directory + buddy connect | `/arrival/support` | 8 | should | S |
+| G9-02 | Active German job-search toolkit (CV/Anschreiben/portals/networking) | `/career/job-search` | 9 | should | M |
 
-| ID | Phase | Feature (no page today) | Why a student needs it | Pri | Eff | Deps · scratch ref |
-|---|---|---|---|---|---|---|
-| N01 | 7 | Visa refusal & appeal (remonstration) pathway | Every visa page stops dead at a decision; a refused non-EU applicant has zero in-app guidance at peak stress | **must** | M | `seed/visa.ts`, `sources.ts` · 7A |
-| N02 | 7 | Embassy/VFS slot-acquisition strategy + no-slot fallback | #1 real bottleneck is *getting* the slot; `visa/Appointment.tsx` assumes you already have one | should | M | N03; `seed/visa.ts` · 7B |
-| N03 | 7→8 | Travel/entry health insurance for the coverage gap | A few weeks in Germany with no active German cover; the visa often requires incoming insurance for entry | **must** | M | links `finance/health-insurance` · 7C |
-| N04 | 8 | Anmeldung "no-appointment-available" fallback | Anmeldung gates bank/permit/tax-ID; big-city slots vanish for months → student blocked on everything downstream | **must** | S | links `arrival/anmeldung-runbook` · 8C |
-| N05 | 8 | Fiktionsbescheinigung interim-certificate walkthrough | When the entry visa lapses before the permit issues, this is the only thing keeping the student legal; only *named* on ResidencePermit today | should | S | `arrival/residence-permit` · 8D |
-| N06 | 8 | Liability insurance (Privathaftpflicht) guide (+ add source) | Landlords/WGs expect it; cheap + near-universal; only name-dropped on Rundfunkbeitrag; no `haftpflicht` source exists | should | S | add `sources.ts` entry · 8B |
-| N07 | 8 | Finding a Hausarzt + how the health system works (116117/112) | No page covers *using* the system after buying insurance — meds, mental health, sick notes (AU) | should | M | N03 · 8E |
-| N08 | 8 | Emergency / support directory + buddy/community connect | Work-order §3 #50 explicitly; nothing in the cluster provides it; isolation is a top struggle reason | should | S | — · 8F |
-| N09 | 8 | SCHUFA / no-credit-history explainer + bank contingency | SCHUFA gates phone contracts and rentals; foreign students start with no history; `arrival/bank-account` is happy-path | should | S | `arrival/bank-account` · 8G |
-| N10 | 8 | Handyvertrag vs prepaid + prerequisites | Contract needs Anmeldung + bank + often SCHUFA; min-term/cancellation traps; only "get SIM" checklist lines exist | could | S | N09 · 8H |
-| N11 | 9 | German job-search execution kit (market CV + Anschreiben + portals) | The long-game depends on landing a qualified job; app explains the 18-mo window but gives no tool to apply | **must** | L | `lib/profile/experience.ts`, doc-gen, LLM · 9A |
-| N12 | 9 | Regulated-profession recognition (Approbation/Anerkennung) tracker | Medicine/nursing/etc can't practise without it; `approbation` source exists but no page uses it | should | M | `sources.ts`, `career/outcomes` · 9D |
-| N13 | 9 | Permit-loss / exmatrikulation risk explainer | `arrival/renewals` tracks dates but never explains consequences of missing them (exmatrikuliert → permit at risk) | should | S | `arrival/renewals` · 9E |
-| N14 | 9 | Pension/social-security + payslip (Lohnabrechnung) explainer | Working students get a payslip shock; underpins the pension contribution behind PR; `tax-id` doesn't read a payslip | could | S | `arrival/tax-id` · 9F |
-| N15 | 9 | Tax-return (Steuererklärung) helper + deadline reminder | `tax-id` says refunds exist but gives no deadline/reminder/how-to; pairs with the existing `DeadlineReminder` | could | S | `arrival/tax-id` · 9G |
-| N16 | 9 | Networking-events / career-fairs finder | `campus/networking` exists but `job-seeker-permit` links to no events surface; completes the career-execution band | should | M | N11 · 9H |
+### G0-3 · Class-10 orientation landing — the blocked persona's "what now" · NEW
+- **Why.** Eligibility correctly returns `blocked` with three steps for Class-10 (`pathway.ts:363-379`),
+  but Phase-0 hub (`start/Overview.tsx`) and Feasibility offer no Class-10-specific surface — the only
+  blocked-persona experience is one red card, a dead-end after the verdict. P2 needs a short "finish
+  Class 12 → then which route" runway, with a clear statement that there is **no Studienkolleg entry on
+  Class 10**.
+- **Data.** Pathway `blocked` route; A1→B1 German runway copy.
+- **Acceptance.** A blocked verdict links to a Class-10 explainer (finish 12th → German A1→B1 → re-run
+  eligibility) instead of terminating.
+- **Grounding.** N/A (no official numbers). · **Priority** should · **Effort** S · **Deps** none.
 
-**Section A: 16 NEW · must 4 (N01, N03, N04, N11) · should 9 · could 3 (N10, N14, N15).**
+### G1-1 · Grade-scenario simulator (% → German grade → which programmes open) · NEW
+- **Why.** `Evaluate.tsx` converts the user's *own* entered grade (`lib/calc/gpa.ts`, Modified Bavarian)
+  — there is no "what if I score X%" explorer. A Class-12 student planning results, or a Bangladesh
+  applicant estimating a final CGPA, cannot see how 60% vs 75% changes their German grade and programme
+  tier. Pathway shows only an indicative HZB grade.
+- **Data.** `gpa.ts` (deterministic, exists) + programme grade-tier mapping.
+- **Acceptance.** A slider/input over % yields the German grade and an indicative tier band, all flagged
+  "indicative; binding = university/anabin."
+- **Grounding.** Tiers are indicative — label as non-binding. · **Priority** should · **Effort** M ·
+  **Deps** programmes dataset.
 
-### A — full specs
+### G3-3 · TestAS mock · NEW (`refines:/language/testas`)
+- **Why.** `TestAs.tsx` is a guide that explicitly says there's no TestAS mock; no exam route, no seed,
+  no spec entry (mock routes confirmed to exclude TestAS). TestAS is the single most pathway-critical
+  test for the Class-12 school-leaver (Studienkolleg/Bachelor routes expect it) — yet it is the one with
+  no practice.
+- **Data.** Exam runner (exists) + TestAS item bank (offline seed + optional LLM generation).
+- **Acceptance.** A timed core-module mock with scoring; offline seed + optional LLM generation.
+- **Grounding.** N/A (practice items, not official facts). · **Priority** should · **Effort** L ·
+  **Deps** exam runner.
 
-#### N01 · Phase 7 · Visa refusal & appeal (remonstration) pathway — *(scratch 7A)* · **MUST**
-- **Why:** `visa/Overview.tsx`, `visa/Checklist.tsx`, `visa/Appointment.tsx` walk submission → decision
-  but stop dead at a refusal. A refused first-time non-EU applicant — a common, high-stress outcome — has
-  no in-app guidance. The single biggest contingency hole in Phase 7.
-- **Acceptance:** lists common refusal grounds (insufficient funds, doubt about intent, document gaps) as
-  *general guidance*; states the remonstration/appeal concept and that the **deadline + procedure are
-  mission-specific**, rendered with `needs_verification` + a mission link — never a hard number; provides a
-  resubmission checklist reusing `VISA_DOCS`; carries the visa/finance disclaimer.
-- **Grounding:** remonstration deadline is official + mission-specific → `needs_verification`. No fabricated appeal windows.
+### G3-4 · TMS mock · NEW (`refines:/language/tms`)
+- **Why.** `Tms.tsx` is guide-only; no mock route/seed (confirmed). For a Medicine aspirant the TMS
+  materially lifts the application, and there's nowhere to practise the subtests in-app.
+- **Data.** Exam runner + TMS subtest bank.
+- **Acceptance.** At least one timed TMS subtest mock with scoring.
+- **Grounding.** N/A. · **Priority** could · **Effort** L · **Deps** exam runner.
 
-#### N02 · Phase 7 · Embassy/VFS slot-acquisition strategy + no-slot fallback — *(scratch 7B)*
-- **Why:** `visa/Appointment.tsx` (G34) tracks a *booked* slot but assumes you have one. The #1 real
-  bottleneck for Indian/Bangladeshi students is **getting** the slot; the app says waits "run months" but
-  offers no strategy.
-- **Acceptance:** explains slot-release patterns generically (no fabricated release times); lists concrete
-  fallbacks (alternate jurisdiction, VFS premium/Prime-Time where offered, waitlist); mission-specific timing
-  is `needs_verification` + linked. Its slot reminders should feed the existing reminders/calendar surfaces.
-- **Grounding:** no invented slot-release schedules; processing/lead times stay grounded (`VISA_PROCESSING`).
+### G3-5 · Test-center locator + booking-date reminders · NEW
+- **Why.** Nothing locates IELTS/TOEFL/TestDaF/Goethe/TestAS centres or sets booking-window reminders.
+  After a student is "ready" there is no in-app path to the actual sitting — the bridge from practice to
+  a booked exam is absent.
+- **Data.** Reminders/.ics infra (exists at `/reminders`); official booking links per test; centre data.
+- **Acceptance.** Official booking links per test + a reminder the student can add to their calendar;
+  centre data flagged `needs_verification`.
+- **Grounding.** Centre/booking data `needs_verification`. · **Priority** should · **Effort** M ·
+  **Deps** reminders/.ics infra.
 
-#### N03 · Phase 7→8 · Travel/entry health insurance for the coverage gap — *(scratch 7C)* · **MUST**
-- **Why:** `finance/HealthInsurance.tsx` (Feature 19) covers *choosing* statutory vs private for the
-  visa/enrolment, but nothing covers the **gap period** — a few weeks in Germany with no active German
-  cover. The visa itself often requires incoming-travel insurance for entry; `campus/PreDeparture.tsx`
-  lists "insurance" as a bare checklist item.
-- **Acceptance:** distinguishes **entry/travel insurance** from statutory student insurance; explains the
-  activation gap and that public cover starts on enrolment (verify); no fabricated premiums; disclaimer.
-- **Grounding:** activation timing `needs_verification`; no invented coverage amounts.
+### G7-01 · Visa refusal & remonstration (appeal) path · NEW (`/visa/refusal`) — **MUST**
+- **Why.** Refusals are common (insufficient funds, doubts about intent/return, document gaps). The
+  entire visa cluster assumes approval; a refused student today hits a dead end with **no next step** —
+  the single most damaging boundary in phase 7. Repo-wide grep for
+  `refus|appeal|Remonstration|Widerspruch|Ablehnung` across `pages/` returns zero visa-refusal coverage.
+- **Data.** Seed of refusal reason-codes → remedy; the one-month Remonstration window (mission-specific);
+  deferral cross-link to the reverse-timeline planner. Link from `visa/Checklist.tsx`,
+  `visa/Appointment.tsx`, `visa/Simulator.tsx`.
+- **Acceptance.** A refused-visa persona reaches a page that names remonstration, gives the (flagged)
+  window, and offers a concrete decision (object / re-apply / defer) with official source links.
+- **Grounding.** Remonstration window and procedure are mission-specific — **must** be
+  `needs_verification` with a source link to the relevant German mission / Auswärtiges Amt. Do **not**
+  state a fixed appeal deadline as fact. · **Priority** **must** · **Effort** M · **Deps** none.
 
-#### N04 · Phase 8 · Anmeldung "no-appointment-available" fallback — *(scratch 8C)* · **MUST**
-- **Why:** `visa/Anmeldung.tsx` (Feature 26) and `arrival/AnmeldungRunbook.tsx` (G42) assume you can book
-  an appointment. In Berlin/Munich/Hamburg slots vanish for months. Anmeldung gates the bank account,
-  residence permit, and tax ID — a student who can't get a slot is **blocked on everything downstream**.
-- **Acceptance:** section covering walk-in/Spontantermine hours, alternate districts, and documenting your
-  attempts; keeps the 14-day window grounded; states enforcement is practice-dependent (`needs_verification`).
-  Add as a fallback section on / linked from `arrival/anmeldung-runbook`.
-- **Grounding:** registration window stays grounded; no fabricated city-specific wait times.
+### G8-01 · Professional recognition / Approbation (regulated professions) · NEW (`/arrival/recognition`) — **MUST**
+- **Why.** The largest missing surface in the tail. A Medicine persona or a career-switcher into a
+  regulated field (medicine/Approbation, nursing, pharmacy, law, teaching, chamber-regulated
+  engineering/architecture) can finish a degree, clear the Blue Card salary check, and still be **legally
+  unable to work** — recognition adds 6–24 months and gates income/Blue Card planning. The immigration
+  ladder (`ImmigrationPathway.tsx`), `Outcomes.tsx` and `JobSeekerPermit.tsx` never mention it; repo-wide
+  grep for `Approbation`/"regulated profession"/chamber returns zero.
+- **Data.** Seed mapping profession → regulated? → recognising authority + steps; the anabin/ZAB
+  distinction (academic recognition vs. professional licence); the
+  **Defizitbescheid → Kenntnisprüfung/Anpassungslehrgang** path and the **C1 / Fachsprachprüfung** bar.
+  Cross-link from `career/Outcomes.tsx`, `arrival/JobSeekerPermit.tsx`, `arrival/BlueCard.tsx`, the
+  medicine pathway.
+- **Acceptance.** A medicine/nursing/law persona reaches a page explaining recognition is mandatory,
+  naming the recognising-authority class, the language bar, and the deficit-exam path, with official
+  links.
+- **Grounding.** Authorities and language bars are state/profession-specific — `needs_verification`,
+  cite anerkennung-in-deutschland.de / ZAB / relevant Landesärztekammer. Do not invent timelines or
+  fees. · **Priority** **must** · **Effort** M · **Deps** none.
 
-#### N05 · Phase 8 · Fiktionsbescheinigung interim-certificate walkthrough — *(scratch 8D)*
-- **Why:** `arrival/ResidencePermit.tsx` (G39) *warns* to "request a Fiktionsbescheinigung" but never
-  explains how/when (verified: the term appears only as a mention). Given months-long ABH waits, the entry
-  visa frequently lapses first — this certificate is the only thing keeping the student in status.
-- **Acceptance:** explains the trigger (visa expiring pre-permit), how to request it, what it permits
-  (work/travel caveats `needs_verification`); disclaimer. Link from `residence-permit` and `auslaenderbehoerde`.
-- **Grounding:** legal effect `needs_verification`.
+### G8-05 · Emergency / health / community directory + buddy connect · NEW (`/arrival/support`)
+- **Why.** The arrival cluster is all admin (Anmeldung, bank, permit) — there is **no "if something goes
+  wrong / who do I call / how do I see a doctor"** surface. A settling student has nowhere to turn for
+  non-bureaucratic help.
+- **Data.** Seed of emergency numbers (112/110, stable) + Hausarzt / after-hours (Bereitschaftsdienst)
+  basics + university psychological counselling + international-office buddy programmes + crisis lines.
+- **Acceptance.** A new arrival finds emergency numbers, how to see a doctor, and where to get
+  peer/mental support.
+- **Grounding.** Emergency numbers are stable facts; counselling/buddy links per-university → generic +
+  "find yours." · **Priority** should · **Effort** S · **Deps** none.
 
-#### N06 · Phase 8 · Liability insurance (Privathaftpflicht) guide — *(scratch 8B)*
-- **Why:** `arrival/Rundfunkbeitrag.tsx` (G43) name-drops liability insurance in a checklist line but there
-  is **no dedicated guidance** (verified). It's one of the first things a settled student is told to get.
-  No `haftpflicht` source exists in `sources.ts` — a source must be added too.
-- **Acceptance:** explains coverage + norms; no fabricated premiums; disclaimer where cost is discussed.
-- **Grounding:** add a cited source; no invented prices.
-
-#### N07 · Phase 8 · Finding a Hausarzt + how the health system works (116117/112) — *(scratch 8E)*
-- **Why:** no page covers *using* the health system after you've bought insurance.
-  `arrival/UniversityOnboarding.tsx` (G41) has no health entry. For a student needing ongoing meds,
-  mental-health support, or a sick note (AU), this is a real blocker.
-- **Acceptance:** covers GP registration, the two phone numbers (116117 urgent vs 112 emergency), sick-note
-  basics; emergency numbers correct/verifiable; "not medical advice" disclaimer.
-- **Grounding:** emergency numbers must be correct (116117 / 112); no fabricated wait times.
-
-#### N08 · Phase 8 · Emergency / support directory + buddy/community connect — *(scratch 8F)*
-- **Why:** work-order §3 #50 explicitly calls for an "emergency/health/contacts directory + buddy/community
-  connect" and **nothing in the cluster provides it** (verified). Culture-shock and isolation are top
-  reasons students struggle.
-- **Acceptance:** lists 112/116117/110, generic international-office + counselling pointers, buddy-programme
-  concept; no fabricated phone numbers; "guidance, verify locally."
-- **Grounding:** emergency numbers verifiable; institution-specific contacts are user-supplied.
-
-#### N09 · Phase 8 · SCHUFA / no-credit-history explainer + bank contingency — *(scratch 8G)*
-- **Why:** `arrival/BankAccount.tsx` (G38) is happy-path with no named-bank comparison and no SCHUFA
-  concept. SCHUFA gates phone contracts and many rentals; foreign students start with no German history,
-  which surprises them.
-- **Acceptance:** explains SCHUFA + no-history reality; lists fallbacks (prepaid, deposit-based); no
-  fabricated bank fees; disclaimer where relevant. Add to / link from `arrival/bank-account`.
-- **Grounding:** no invented fees; SCHUFA description generic.
-
-#### N10 · Phase 8 · Handyvertrag vs prepaid + prerequisites — *(scratch 8H)*
-- **Why:** complements N09; multiple arrival pages reference "mobile" but none explain the contract path or
-  its prerequisites (Anmeldung + bank + often SCHUFA; cancellation/min-term traps).
-- **Acceptance:** explains prerequisites + min-term/cancellation caveats; no fabricated tariffs.
-- **Grounding:** none beyond avoiding fabricated prices.
-
-#### N11 · Phase 9 · German job-search execution kit — *(scratch 9A)* · **MUST**
-- **Why:** `career/Outcomes.tsx` and `arrival/JobSeekerPermit.tsx` (G44) tell a student the 18-month window
-  exists and which fields are in demand, but give **no tool to actually apply for work**. The Europass CV
-  builder (Feature 07) is admissions-oriented, not job-market-oriented (German employers expect a different
-  CV + Anschreiben + often a photo). The biggest Phase-9 hole: the long-game depends on landing a qualified
-  job and the app stops at "here's the permit."
-- **Acceptance:** generates a German-market CV + Anschreiben draft from the profile via a **validated
-  schema** (reuse the SOP/LOR structured-output pattern; no free-form parse downstream); explains German
-  application norms (no fabricated employer claims); links official portals (Bundesagentur für Arbeit,
-  StepStone, XING/LinkedIn-DE); labels AI drafts as starting points; no fabricated salary/hiring statistics.
-- **Grounding:** any market figure grounded or omitted; AI output validated.
-
-#### N12 · Phase 9 · Regulated-profession recognition (Approbation/Anerkennung) tracker — *(scratch 9D)*
-- **Why:** `career/Outcomes.tsx` says some fields "require licensure" as prose only. The `approbation`
-  source already exists in `sources.ts` but **no page uses it** (verified). A medicine/nursing graduate has
-  no in-app guide to the single most important gate on their career — practising legally.
-- **Acceptance:** lists regulated professions, the recognition steps, Fachsprachprüfung concept; process
-  timing `needs_verification`; disclaimer.
-- **Grounding:** recognition steps cite `approbation`/`anabin`; no fabricated timelines/fees.
-
-#### N13 · Phase 9 · Permit-loss / exmatrikulation risk explainer — *(scratch 9E)*
-- **Why:** `arrival/Renewals.tsx` (G46/G47) tracks the renewal/Rückmeldung *dates* but never explains the
-  **consequences of missing them** (exmatrikuliert → permit at risk; verified the term appears only as a
-  mention). No page covers the failure modes for a student whose studies go sideways.
-- **Acceptance:** lists triggers (failing exams/exmatrikulation, dropping below progress thresholds, losing
-  health insurance, missing Rückmeldung) + consequences + first recovery steps; specifics are
-  university/ABH-dependent (`needs_verification`); disclaimer.
-- **Grounding:** consequences are institution/ABH-specific → `needs_verification`.
-
-#### N14 · Phase 9 · Pension/social-security + payslip (Lohnabrechnung) explainer — *(scratch 9F)*
-- **Why:** `arrival/TaxId.tsx` (G49) mentions tax class and Werkstudent rules as static cards but never
-  shows how to *read a payslip* or what social contributions are. Working students need this; it underpins
-  the pension-contribution requirement behind PR.
-- **Acceptance:** annotated example payslip; Werkstudent exemption explained; no fabricated rates (or rates
-  `needs_verification`); disclaimer.
-- **Grounding:** contribution rates `needs_verification` or omitted.
-
-#### N15 · Phase 9 · Tax-return (Steuererklärung) helper + deadline reminder — *(scratch 9G)*
-- **Why:** `arrival/TaxId.tsx` (G49) mentions refunds exist but offers no deadline, no reminder, no how-to.
-  Pairs naturally with the existing `DeadlineReminder` component.
-- **Acceptance:** explains who should file + a `needs_verification` deadline + a reminder; no fabricated
-  refund amounts; disclaimer.
-- **Grounding:** filing deadline `needs_verification`.
-
-#### N16 · Phase 9 · Networking-events / career-fairs finder — *(scratch 9H)*
-- **Why:** `campus/Networking.tsx` (Feature 28) exists but `arrival/JobSeekerPermit.tsx` links to no events
-  surface; there's no way to discover or track actual events. Completes the career-execution band started by N11.
-- **Acceptance:** lets a user add/track events with reminders; no fabricated event listings.
-- **Grounding:** no fabricated event data.
+### G9-02 · Active German job-search toolkit (CV/Anschreiben/portals/networking) · NEW (`/career/job-search`)
+- **Why.** The app helps you *qualify* for a job (Blue Card check, outcomes) and *network academically*
+  (`campus/Networking.tsx`), but has **no surface for actually finding and applying for a German job** —
+  the core need of the career-switcher and the graduating student.
+- **Data.** Seed of portals (Bundesagentur für Arbeit, StepStone, LinkedIn, university career service)
+  + German-CV-vs-Europass and **Anschreiben** templates (editable, like the networking-templates
+  pattern) + Arbeitszeugnis literacy + Werkstudent→permanent conversion + visa-sponsorship signalling.
+- **Acceptance.** A graduating persona finds where to search, a German-CV/Anschreiben scaffold, and
+  conversion tactics.
+- **Grounding.** None official; practical framework. · **Priority** should · **Effort** M ·
+  **Deps** none.
 
 ---
 
-## Section B — Depth / refinement on shipped pages
+## Section B — Depth / integration / failure-path refinement on shipped pages
 
-> These improve pages that **already exist**. Each names the live route it `refines:`. Full specs preserved
-> from the scratch audits, lightly edited. The scratch ref is kept for traceability.
-
-### B — register
-
-| ID | Phase | Refinement | refines: (live route) | Why it matters | Pri | Eff | scratch ref |
-|---|---|---|---|---|---|---|---|
-| R01 | 0 | Programme-data freshness / curated-sample banner + DAAD deep links | `/profile/matching` | Curated 35-row set reads as exhaustive; zero hits ≠ "no such programme" | should | S | GAP-0-01 |
-| R02 | 0 | Persist & share the orientation verdict (eligibility/feasibility/timeline) | `/start/eligibility` (+ feasibility, timeline-planner) | All three are stateless; refresh loses the verdict; can't share with a funder | should | M | GAP-0-02 |
-| R03 | 0 | "Process risk / time" commitment briefing | `/start/feasibility` | Money + years are covered; process-risk (slot waits, refusal, gap-year) is not | could | S | GAP-0-03 |
-| R04 | 0 | Wire interest self-check → profile + emit first-5-actions | `/career/counseling` (→ `/next-actions`) | Outputs *fields*, not "your 5 next clicks"; doesn't seed the profile | should | S | GAP-0-04 |
-| R05 | 1 | Country-specific recognition deep-dive (India/Bangladesh HSC) | `/profile/recognition` | Logic exists in `pathway.ts` but only via routing flow, not a browsable per-country guide | should | M | GAP-1-01 |
-| R06 | 1 | Dataset-backed Studienkolleg directory (colleges/Kurs/where) | `/profile/studienkolleg` | Page explains the *concept* + Kurs but lists no real state Studienkollegs to act on | **must** | L | GAP-1-02 |
-| R07 | 1 | Interactive German exercises (graded), not just plan + phrases | `/language/german` (+ german-plan) | Static can-do + 12-card deck; no graded practice; app only *tracks* a plan | should | L | GAP-1-03 |
-| R08 | 1 | ECTS shortfall verdict wired to the 180-ECTS bridge | `/profile/ects` | Math exists; the "168 → your three documented bridges" verdict for direct entry doesn't | should | M | GAP-1-04 |
-| R09 | 2 | Auto-extract per-programme requirements → checklist | `/documents/requirements` | Manual paste box; a student with 8 targets won't transcribe 8 requirement blobs | should | M | GAP-2-01 |
-| R10 | 2 | Per-programme/city employability signal (groundable only) | `/profile/matching` (Compare) | Field-level demand exists; no programme/city outcome signal where groundable | could | M | GAP-2-02 |
-| R11 | 2 | Shortlist count → application-cost → budget loop | `/finance/application-costs` | Shortlist size doesn't feed the Phase-0 budget; estimator & budget diverge | should | S | GAP-2-03 → R31 |
-| R12 | 3 | Unified test dashboard (test · target · sit-by · readiness gate) | `/language/exam-progress` (+ `/language/exams`) | Three surfaces (`ExamsHub`, `ExamTracker`, `recommendedTests`) never converge into one cockpit | **must** | L | GAP-3-01 |
-| R13 | 3 | Test requirement resolver ("does MY shortlist need this test?") | `/profile/shortlist` | `recommendedTests` is heuristic; per-programme waive/require flags aren't aggregated | should | M | GAP-3-02 |
-| R14 | 3 | Live multi-turn AI speaking examiner (vs one-shot STT capture) | `/language/exams` (SpeakingTask) | Today is one-shot capture, not an interactive Part-3/TestDaF examiner | should | L | GAP-3-03 |
-| R15 | 3 | TestAS practice items + expand TestDaF/Goethe banks | `/language/testas` (+ `/language/exams`) | TestAS is guide-only; the mock centre has no TestAS runner at all | should | L | GAP-3-04 |
-| R16 | 3 | Test-center locator + exam-sitting reminders | `/language/exams` (+ `/reminders`) | No surface to find where/when to sit, or remind for the sitting itself | should | M | GAP-3-05 |
-| R17 | 3 | Aufnahmeprüfung / FSP readiness gate | `/language/aufnahmepruefung` (+ `/language/fsp`) | Guides/trackers exist; no go/no-go readiness verdict tying German level + subject prep | could | M | GAP-3-06 |
-| R18 | 4 | Per-program document studio (SOP/CV/LOR are single global drafts) | `/documents/sop` (+ `/cv`, `/lor`) | Tailoring SOP for program #2 overwrites #1; one draft per type | **must** | M | GAP-401 |
-| R19 | 4 | Structured requirement → auto-checklist feeding Vault/Tracker | `/documents/requirements` (+ vault-matrix) | Requirements stored as raw text; no structured, trackable checklist | **must** | M | GAP-402 |
-| R20 | 4 | Document vault versioning + submission provenance | `/vault` (+ `/documents/vault-matrix`) | `VaultItem` has no version/timestamp/submitted-to; matrix is sent/not-sent booleans | should | M | GAP-403 |
-| R21 | 4 | Academic-integrity / AI-content self-check on generated docs | `/documents/sop` | AI draft has only a badge; no integrity gate before export; unis are strict on plagiarism | should | S | GAP-404 |
-| R22 | 4 | Reconcile Tracker vs Offers into one program identity | `/tracker` (+ `/offers/*`) | Same program lives in `tracker:apps` and `offers:list` with no link — double entry | should | M | GAP-405 |
-| R23 | 4 | uni-assist/VPD/APS honest framing + processing windows | `/documents/vpd` (+ uni-assist, `/visa/aps`) | Self-reported status is fine but no expected-timeline or stuck/overdue guidance | could | S | GAP-407 |
-| R24 | 4 | Tracker deadline UI → calendar **(also a defect)** | `/tracker` (+ `/calendar`) | `deadline` field exists in schema but has no input and never reaches the calendar | **must** | S | GAP-406 |
-| R25 | 5 | Per-accepted-offer enrollment workflow (not one shared checklist) | `/arrival/enrolment` | Single shared checklist; can't track two enrollments per accepted offer | should | M | GAP-502 |
-| R26 | 5 | NC/Hochschulstart (DoSV) semantics in letter interpreter + seat deadlines | `/offers/interpret` (+ seat-deadlines, dosv) | Generic accept-by ignores DoSV coordination/clearing; offers carry no central-allocation flag | should | M | GAP-503 |
-| R27 | 5 | Offer comparison by total cost (CoL + Semesterbeitrag), not tuition alone | `/offers/compare` | "Cheapest by tuition" misleads when public tuition ≈ €0 | should | M | GAP-501 → R31 |
-| R28 | 6 | Profile-matched scholarships + family-reunion income/housing helper | `/finance/scholarships` (+ `/arrival/family-reunion`) | Static 9-item filter ignores country/level/field; family-reunion helper supports the qa grounding fix | should | M | GAP-601 (+ 9B helper) |
-| R29 | 6 | Health-insurance selector reads profile; ground the over-30 branch | `/finance/health-insurance` | Ignores known profile age/country; over-30 voluntary cost is prose-only without a figure | could | S | GAP-603 |
-| R30 | 6 | Funding-gap planner auto-pulls totals + Sperrkonto + 140/280 bound **(also a defect)** | `/finance/funding-plan` (+ sperrkonto-providers, work-days) | "Prefill totals" only navigates; manual re-entry; work-income has no 140/280 bound | should | M | GAP-602 (+ 604) |
-| R31 | 4–6 | Single cost source-of-truth + unified deadline surface | `/start/budget`, `/calendar`, `/reminders` | Cost computed in 3+ places (inconsistent totals); deadlines live in 3 disconnected systems | **must** | L | GAP-605 + GAP-411 |
-
-**Section B: 31 refinements · must 6 (R06, R12, R18, R19, R24, R31) · should 19 · could 6 (R03, R10, R17, R23, R29 — and R30 is should). The per-row Pri column is authoritative.**
-
-### B — full specs
-
-#### R01 · refines `/profile/matching` · *(GAP-0-01)*
-- **Why:** Discovery runs on a curated **35-row** program set (`Matching.tsx:241` "bundled curated set").
-  A student searching an unusual field gets few/zero hits and can't tell "no such programme in Germany"
-  from "our sample is small."
-- **Acceptance:** empty/low-result state explains the curated-sample limitation; one-click
-  DAAD/Hochschulkompass search pre-filled with field + level + language; never implies the 35 rows are
-  exhaustive; provenance preserved.
-- **Grounding:** DAAD & Hochschulkompass are the cited directories — link, don't assert counts.
-
-#### R02 · refines `/start/eligibility` (+ feasibility, timeline-planner) · *(GAP-0-02)*
-- **Why:** All three Phase-0 tools keep their result in component `useState`; refresh loses it and the
-  verdict can't be carried into the signed-in plan or shared with a funder.
-- **Acceptance:** verdict persists across refresh for a signed-in user; "use these answers in my plan"
-  pre-fills Settings; export/print/copyable summary; per-user isolation respected.
-- **Grounding:** none (echoes already-grounded pathway notes).
-
-#### R03 · refines `/start/feasibility` · *(GAP-0-03)*
-- **Why:** No tool sets honest expectations on **process risk** (appointment waits, Studienkolleg
-  competitiveness, APS lead time, refusal/gap-year). Applicants under-budget *time risk*.
-- **Acceptance:** shows earliest *viable* intake given today's date (reuse `reverseTimeline` overdue);
-  lists top 3 process risks for the route; framed as heuristics.
-- **Grounding:** appointment-wait/APS-lead-time figures `needs_verification` or omitted.
-
-#### R04 · refines `/career/counseling` (→ `/next-actions`) · *(GAP-0-04)*
-- **Why:** `Counseling.tsx:81-102` outputs ranked *fields*; `NextActions.tsx` outputs milestones only
-  after a profile exists. A new visitor gets fields, not "your 5 next clicks," and the two aren't wired.
-- **Acceptance:** "save these fields to my profile"; shows 5 concrete next actions immediately; Matching
-  default subject group reflects the chosen field; deterministic.
-- **Grounding:** none.
-
-#### R05 · refines `/profile/recognition` · *(GAP-1-01)*
-- **Why:** `Recognition.tsx` + `pathway.ts` explain HZB categories generically; a Class-12 India/Bangladesh
-  applicant needs the country-specific read. The engine has the logic (`pathway.ts:123,133,406-414`) but
-  only via the routing flow, and the India raised-70%-from-WS2026/27 note isn't prominent outside the
-  Studienkolleg branch.
-- **Acceptance:** per-country card (India, Bangladesh min.) with HSC→HZB verdict; anabin self-check steps;
-  WS2026/27 raised-minimum warning for India with `needs_verification`; every threshold carries provenance.
-- **Grounding:** anabin category, India ~70% WS2026/27, Bangladesh ~2-yr rule — all `needs_verification`/cited.
-
-#### R06 · refines `/profile/studienkolleg` · *(GAP-1-02)* · **MUST**
-- **Why:** The page explains the *concept* and picks the right Kurs, but a school-leaver cannot act without
-  a **list of real state Studienkollegs**, locations, Kurs offered, and the "apply through a
-  university/uni-assist not the college" fact. Without it the route is theory.
-- **Acceptance:** browsable list with city/Bundesland/Kurs; "apply via the university, not the college"
-  stated; each entry links to its official page; public-vs-private flagged; entries carry
-  `{source_name, source_url, retrieved_at}` or `needs_verification`.
-- **Grounding:** every college entry cites an official source; do not fabricate Kurs availability.
-
-#### R07 · refines `/language/german` (+ `/language/german-plan`) · *(GAP-1-03)*
-- **Why:** `German.tsx` is a static can-do + phrase reference with TTS; `Flashcards.tsx` has a 12-card seed
-  deck. There is **no graded practice** (fill-in, listening, grammar drills, progress-gated lessons).
-- **Acceptance:** ≥1 interactive exercise type per CEFR level; immediate feedback; progress persists per
-  user; AI-generated items validated + labelled; no certification-equivalence claim.
-- **Grounding:** none (practice); keep "B2/C1 is the bar" facts grounded as today.
-
-#### R08 · refines `/profile/ects` · *(GAP-1-04)*
-- **Why:** `Ects.tsx` totals/normalises credits and `pathway.ts:206-213` (`ECTS_BRIDGE_NOTE`) explains the
-  three <180-ECTS bridges — but the two aren't connected. A 3-year-degree Master's applicant isn't told
-  "your computed total is 168 → here are your three documented options."
-- **Acceptance:** when ECTS < 180, show the gap and the three bridges; per-programme acceptance framed as
-  verify-only; deterministic shortfall math; `needs_verification` on the 180 expectation.
-- **Grounding:** 180-ECTS expectation per-programme → `needs_verification`/cited.
-
-#### R09 · refines `/documents/requirements` · *(GAP-2-01)*
-- **Why:** `Requirements.tsx:64-66` is a manual paste box. A per-programme **auto-checklist** from known
-  fields (language, tests, degree, deadline) would save students transcribing 8 requirement blobs.
-- **Acceptance:** selecting a shortlisted programme pre-fills known requirements; generates a doc/test
-  checklist with status; manual notes still allowed; official page is source of truth; per-user persisted.
-- **Grounding:** indicative only — link the official programme page; no invented thresholds.
-
-#### R10 · refines `/profile/matching` (Compare) · *(GAP-2-02)*
-- **Why:** `Outcomes.tsx` gives field-level demand, but Compare (`Matching.tsx:386-401`) shows only
-  logistics — no programme/city outcome signal even where groundable.
-- **Acceptance:** any outcome claim qualitative + cited or omitted; no fabricated salaries/placement rates;
-  absence shown honestly.
-- **Grounding:** strict — only `make-it-in-germany`/official signals; otherwise show nothing.
-
-#### R11 · refines `/finance/application-costs` · *(GAP-2-03; rolls into R31)*
-- **Why:** `Shortlist.tsx:128` + `ApplicationCosts.tsx` exist, but shortlist size doesn't feed the Phase-0
-  budget; the orientation budget and real shortlist diverge.
-- **Acceptance:** budget reflects actual shortlist count for uni-assist/APS fees; deterministic; fee
-  constants grounded as today.
-- **Grounding:** uni-assist/APS fees already grounded — reuse. **Implement under the R31 cost umbrella.**
-
-#### R12 · refines `/language/exam-progress` (+ `/language/exams`) · *(GAP-3-01)* · **MUST**
-- **Why:** Three surfaces — `ExamsHub.tsx` (launches mocks), `ExamTracker.tsx` (post-hoc analytics), and
-  `recommendedTests()` (`derive.ts:68-94`, which tests, no date/target) — never converge. No single page
-  says "IELTS — target 6.5, sit by <date>, 60% ready; TestAS — by <date>, not started."
-- **Acceptance:** lists every required test with status; editable target + planned sit-by date from the
-  chosen intake; readiness signal per test from mock analytics; a "ready to book" gate when readiness ≥
-  target; deterministic; predictions carry the disclaimer; per-user persisted.
-- **Grounding:** target thresholds per-programme → `needs_verification`; no fabricated official pass marks.
-
-#### R13 · refines `/profile/shortlist` · *(GAP-3-02)*
-- **Why:** `recommendedTests()` is heuristic from level + medium-of-instruction; it can't tell an
-  English-medium Master's applicant whether their shortlist **waives** IELTS. Per-programme flags
-  (`eligibility.ts:65-69`) aren't aggregated.
-- **Acceptance:** per-test "required by N of M; waived by K"; medium-of-instruction waiver flagged
-  verify-per-programme; deterministic; official page is source of truth.
-- **Grounding:** waiver rules per-programme → `needs_verification`.
-
-#### R14 · refines `/language/exams` (SpeakingTask) · *(GAP-3-03)*
-- **Why:** `SpeakingTask.tsx` records a single answer + STT transcript feeding an AI rubric *later* — a
-  one-shot capture, not an interactive examiner that asks follow-ups (IELTS Part-3 / TestDaF).
-- **Acceptance:** multi-turn spoken exchange with follow-ups; per-criterion Zod-validated feedback;
-  graceful no-STT / no-AI fallbacks; no claim it predicts the official score; audio per existing autoplay rules.
-- **Grounding:** none (practice); band-descriptor facts as today.
-
-#### R15 · refines `/language/testas` (+ `/language/exams`) · *(GAP-3-04)*
-- **Why:** `TestAs.tsx` is a guide with no practice; for non-EU Bachelor/Medicine, TestAS is often
-  mandatory (`derive.ts:87-89`). The mock centre lacks TestAS entirely; TestDaF/Goethe banks may be thin.
-- **Acceptance:** a TestAS practice runner in the mock centre; core + ≥1 subject module; "study aid, not
-  real test" disclaimer; scoring mapped to the right scale.
-- **Grounding:** practice items original; format/scale facts cited as in other exams.
-
-#### R16 · refines `/language/exams` (+ `/reminders`) · *(GAP-3-05)*
-- **Why:** No surface helps a student find **where/when to sit** IELTS/TOEFL/TestDaF/TestAS or remind for
-  the sitting. `Reminders.tsx` tracks personal deadlines, not exam sittings.
-- **Acceptance:** official test-center finder links per test, scoped by country/city where possible; add a
-  "sit IELTS on <date>" reminder that flows into the calendar/.ics export; lead-time `needs_verification`;
-  no fabricated center lists.
-- **Grounding:** center locations/dates from the official test owner — link, don't assert.
-
-#### R17 · refines `/language/aufnahmepruefung` (+ `/language/fsp`) · *(GAP-3-06)*
-- **Why:** Guides/trackers exist, but no **readiness gate** ("you're at B1; Aufnahmeprüfung expects B1–B2 +
-  subject basics → not ready") tying German level + subject prep to a go/no-go.
-- **Acceptance:** readiness verdict from German level + subject-prep progress; honest "not ready / on
-  track"; deterministic; thresholds `needs_verification`.
-- **Grounding:** entrance-exam level expectations per college → `needs_verification`.
-
-#### R18 · refines `/documents/sop` (+ `/cv`, `/lor`) · *(GAP-401)* · **MUST**
-- **Why:** `Sop.tsx:119-120` persists one global draft (`doc:sop:draft`); `Cv.tsx`/`Lor.tsx` likewise.
-  Tailoring for program #2 overwrites #1; `Vault.tsx:88-93` shows one badge per type.
-- **Acceptance:** drafts stored per program id (`doc:sop:draft:{appId}`); program picker pre-filled from
-  Tracker/Offers; switching loads that program's draft without clobbering others; Vault lists each
-  program's drafts; migration preserves an existing global draft as "General," never silently dropped.
-- **Grounding:** none (user content); keep the "edit before sending / verify every detail" guidance per draft.
-
-#### R19 · refines `/documents/requirements` (+ `/documents/vault-matrix`) · *(GAP-402)* · **MUST**
-- **Why:** `Requirements.tsx` stores `{ programme, deadline, requirements }` with `requirements` a raw
-  textarea — no parsing, no checklist, no link to Vault/Tracker/Calendar.
-- **Acceptance:** pasted requirements → structured, editable checklist (language cert, transcript, # LORs,
-  GRE y/n, VPD y/n, translations) — AI-assisted extraction is user-confirmable, never authoritative;
-  checklist attaches to the program and surfaces in the Vault matrix; deadlines flow into the unified
-  surface (R31); nothing fabricated.
-- **Grounding:** none for pasted text; AI-inferred items marked "suggestion to verify."
-
-#### R20 · refines `/vault` (+ `/documents/vault-matrix`) · *(GAP-403)*
-- **Why:** `Vault.tsx:62-68` `VaultItem` has no version/timestamp/submitted-to; `VaultMatrix.tsx` records
-  sent/not-sent booleans only. Students must know which version went where, when.
-- **Acceptance:** a vault item holds multiple dated versions, active one marked; the matrix records *which
-  version* was sent and *when*; history per-user scoped, survives refresh + auth switch; metadata/links
-  only, no binary upload, no PII logged.
-- **Grounding:** none.
-
-#### R21 · refines `/documents/sop` · *(GAP-404)*
-- **Why:** `Sop.tsx` produces an AI draft with only `AiGeneratedBadge`; no integrity self-check before
-  export. German unis are strict on plagiarism (`campus/Culture.tsx`).
-- **Acceptance:** post-generation integrity notice + short self-check to acknowledge before export; a
-  lightweight originality nudge (flag long passages identical to AI output) — heuristic, "not a plagiarism
-  scanner"; links to `campus/culture`.
-- **Grounding:** none; must NOT claim to be a certified plagiarism detector.
-
-#### R22 · refines `/tracker` (+ `/offers/*`) · *(GAP-405)*
-- **Why:** `Tracker.tsx:34` uses `tracker:apps`; `offers/offers.ts:23` uses `offers:list`. Both are read
-  across Dashboard/NextActions/Matching, but nothing maps a Tracker app to its Offer — double entry, divergence.
-- **Acceptance:** one canonical program identity links Tracker card → Offer → Requirements checklist →
-  documents; promoting a Tracker card to "Admit" seeds an Offer without re-typing; no per-page UX
-  regression; non-destructive backfill.
-- **Grounding:** none. **Enables R18/R19/R31.**
-
-#### R23 · refines `/documents/vpd` (+ `/documents/uni-assist`, `/visa/aps`) · *(GAP-407)*
-- **Why:** `Vpd.tsx` cycles status manually; `UniAssist.tsx` is a static walkthrough; APS is country-logic
-  + checklist. None claim live sync (correct), but students get no expected-processing-time or stuck advice.
-- **Acceptance:** each tracker states "status is what you record — we don't read the portal"; adds grounded
-  typical-processing-window guidance with provenance + `needs_verification`; a "stuck/overdue" nudge past
-  the typical window.
-- **Grounding:** uni-assist VPD turnaround, APS times — grounded or `needs_verification`; never invent week counts.
-
-#### R24 · refines `/tracker` (+ `/calendar`) · *(GAP-406)* · **MUST** · **(also a defect)**
-- **Why:** `Tracker.tsx:14-21` declares `deadline?`/`url?` but the add form (`72-95`) and card render
-  (`117-162`) expose neither — the field is dead. `Calendar.tsx` merges only `SEED_EVENTS` +
-  `calendar:deadlines`; it never reads `offers:list` or `tracker:apps`.
-- **Acceptance:** Tracker cards expose persisting deadline + URL inputs; application deadlines and offer
-  accept-by dates appear on the month Calendar and in Reminders/.ics; urgency via `deadlines.ts` (no model math).
-- **Grounding:** none. **Depends on R31 (unified deadline surface).**
-
-#### R25 · refines `/arrival/enrolment` · *(GAP-502)*
-- **Why:** `Enrolment.tsx` shows a single shared `Checklist` + 5-step prose + the grounded `SEMESTERBEITRAG`
-  fact. It's not tied to a specific accepted offer and can't track two enrollments.
-- **Acceptance:** checklist + Semesterbeitrag-paid + insurance-confirmation status per accepted offer; the
-  enrollment deadline is the same date object on Calendar/Reminders (R31); Medicine/Studienkolleg variant
-  notes the Studienkolleg → FSP → degree chain where flagged.
-- **Grounding:** Semesterbeitrag already grounded; keep provenance. **Depends on R22.**
-
-#### R26 · refines `/offers/interpret` (+ `/offers/seat-deadlines`, `/documents/dosv`) · *(GAP-503)*
-- **Why:** `AdmissionLetter.tsx` is a generic letter-contents checklist; `SeatDeadlines.tsx` treats all
-  offers identically. The `/documents/dosv` walkthrough exists but isn't linked from offers/enrollment, and
-  offers carry no central-allocation flag — wrong advice for the Medicine/NC persona.
-- **Acceptance:** an offer can be flagged "centrally allocated (Hochschulstart/DoSV)," surfacing DoSV
-  accept/clearing guidance + the `/documents/dosv` link; seat-deadline copy distinguishes a direct accept-by
-  from a DoSV coordination-phase date; Medicine realism preserved (no implied guarantee).
-- **Grounding:** DoSV phase rules/dates — grounded (hochschulstart) or `needs_verification`.
-
-#### R27 · refines `/offers/compare` · *(GAP-501; rolls into R31)*
-- **Why:** `OfferComparison.tsx:24-28` computes `cheapest` from `tuitionPerSem` only; it captures `city`
-  but never pulls CoL or Semesterbeitrag. With public tuition ≈ €0 this misleads.
-- **Acceptance:** each offer optionally shows the city's monthly CoL (deterministic) and typical
-  Semesterbeitrag, labelled illustrative; "cheapest"/decision badges reflect total monthly cost, or the
-  badge is removed; advisory disclaimer.
-- **Grounding:** Semesterbeitrag + CoL already carry source/illustrative labels; preserve. **Under R31 umbrella.**
-
-#### R28 · refines `/finance/scholarships` (+ `/arrival/family-reunion`) · *(GAP-601 + 9B helper)*
-- **Why (scholarships):** `Scholarships.tsx` filters a static 9-item list by manual category and ignores
-  `profile.homeCountry`/level/field. Eligibility is country/field/level/recency-specific.
-- **Why (family-reunion helper):** the *feature* side of the family-reunion gap — a deterministic
-  household income/housing-size estimator on `/arrival/family-reunion`. (The grounding *defect* —
-  bare-prose thresholds at `FamilyReunion.tsx:14-17` — is logged in **qa-findings HON-FamilyReunion**, not here.)
-- **Acceptance:** schemes ranked/flagged by country, level, field, experience/recency with an explicit "may
-  be eligible / likely not / verify" state; eligibility logic transparent and grounded; uncertain rules
-  show `needs_verification`, never a hard yes/no. Family-reunion helper estimates household income/housing
-  need from family size, labelled an estimate, not the legal threshold; disclaimer.
-- **Grounding:** EPOS country list + 2-yr/6-yr rules, Deutschlandstipendium amount, Erasmus+; family-reunion
-  income/housing figures — grounded or `needs_verification`.
-
-#### R29 · refines `/finance/health-insurance` · *(GAP-603)*
-- **Why:** `HealthInsurance.tsx:28-51` `recommend()` branches under-30/over-30/agreement correctly, but
-  state is local `useState`, not read from profile/intake; the over-30 path (`45-50`) cites no figure and
-  `HEALTH_INSURANCE` (~€120–140) doesn't model the over-30 voluntary rate.
-- **Acceptance:** pre-fills under-30/agreement from the profile (overridable); the over-30 / >14-semester
-  case shows a grounded range (or `needs_verification`); CoL city baselines carry an "illustrative,
-  source/year" label.
-- **Grounding:** statutory student rate, over-30 voluntary rate, age/semester threshold — grounded
-  (TK/official) or `needs_verification`. **Depends on R30.**
-
-#### R30 · refines `/finance/funding-plan` (+ `/finance/sperrkonto-providers`, `/finance/work-days`) · *(GAP-602 + 604)* · **(also a defect)**
-- **Why:** `FundingPlan.tsx` has manual `oneTime`/`monthly` inputs; `journeyBudget.ts`
-  (`computeJourneyBudget`) and `SperrkontoProviders.tsx` tracked progress aren't imported; the "Prefill
-  from the journey budget" copy implies auto-fill that doesn't happen. The work-income field has no 140/280
-  sanity bound (`WorkDays.tsx` computes it but isn't linked).
-- **Acceptance:** funding plan pulls the computed one-time total (APS + uni-assist + translations + visa +
-  flights + deposit) and monthly CoL, with override; tracked Sperrkonto progress counts toward the funded
-  side automatically; an indicative max realistic work income derived from the 140/280 budget, with
-  override; all math deterministic (`fundingGap.ts`/`journeyBudget.ts`), unit-tested; no model-computed totals.
-- **Grounding:** underlying official figures already grounded; preserve. 140/280 grounded; any assumed wage
-  user-entered or flagged. **Implement under R31.**
-
-#### R31 · refines `/start/budget`, `/calendar`, `/reminders` · *(GAP-605 + GAP-411)* · **MUST** · **umbrella for R11, R27, R30; R24 depends on it**
-- **Why (single cost source):** `SPERRKONTO_YEAR_EUR` (€11,904) is one grounded constant, but
-  `ApplicationCosts.tsx`, `CostOfLiving.tsx`, `journeyBudget.ts`, and `FundingPlan.tsx` don't converge on
-  one persisted budget object → inconsistent totals.
-- **Why (unified deadlines):** dates live in (1) `Calendar.tsx` (`calendar:deadlines` + seed), (2)
-  `Reminders.tsx` (`reminder:*` + offers `acceptBy`), and (3) the Tracker's unused `deadline` field.
-  Application and requirement deadlines reach *none*; `.ics` export sees only reminders + offers.
-- **Acceptance (cost):** one persisted journey-budget object is the source for the budget page, funding
-  plan, offer comparison, and Sperrkonto target; an input change reflects everywhere (or shows as an
-  override); deterministic, tested; every official figure retains provenance (add per-fact `retrieved_at`).
-- **Acceptance (deadlines):** one aggregator feeds the Calendar grid, Reminders list, and `.ics` export;
-  application, offer accept-by, requirement, enrollment, visa, and renewal dates appear in all three views;
-  deterministic urgency via `deadlines.ts`; timezone-safe; survives refresh + auth switch. Exam-sitting
-  reminders (R16) and visa-slot reminders (N02) feed this aggregator.
-- **Grounding:** Sperrkonto €11,904 + per-fact retrieval metadata; user dates ungrounded; seed official
-  dates keep their verification flags.
+| ID | Refinement | refines | Phase | Priority | Effort |
+|---|---|---|---|---|---|
+| G0-1 | Route-aware reverse timeline (Studienkolleg / FSP arc) | `/start/timeline-planner` | 0 | **must** | M |
+| G0-2 | Route- & Studienkolleg-aware budget (months + FSP/Semesterbeitrag) | `/start/budget` | 0 | **must** | M |
+| G0-4 | Feasibility hard-gates impossible level/qual combos | `/start/feasibility` | 0 | should | S |
+| G0-5 | Country-aware Phase-0 defaults (Bangladesh APS=0, flight origin) | `/start/budget` | 0 | could | S |
+| G1-2 | Studienkolleg finder actually lists colleges | `/profile/studienkolleg` | 1 | **must** | L |
+| G1-3 | ECTS / credit gap analyzer for direct entry | `/profile/ects` | 1 | should | M |
+| G1-4 | German A1→C1 plan: milestones + persisted per-user progress | `/language/german-plan` | 1 | should | M |
+| G1-5 | Recognition pre-filter (country + cert → likely HZB category) | `/profile/recognition` | 1 | could | M |
+| G2-1 | Bachelor & Studienkolleg programme coverage (dataset) | `/profile/matching` | 2 | **must** | L |
+| G2-2 | Per-programme requirement extractor (auto-checklist) | `/documents/requirements` | 2 | should | M |
+| G2-3 | Profile-less learners get an eligibility nudge | `/profile/matching` | 2 | should | S |
+| G2-4 | City explorer job-market / English-friendliness depth | `/profile/cities` | 2 | could | M |
+| G2-5 | Universities explorer → add-to-shortlist (unify datasets) | `/universities` | 2 | could | M |
+| G3-1 | Unified, pathway-driven test dashboard | `/language/exams` (+`/language/exam-progress`) | 3 | **must** | M |
+| G3-2 | "Ready to book" readiness gate | `/language/exam-progress` | 3 | should | S |
+| G3-6 | Writing/Speaking offline / no-LLM fallback rubric | `/language/exams/*` | 3 | should | M |
+| G4-01 | SOP studio per-program (not one generic draft) | `/documents/sop` | 4 | should | M |
+| G4-02 | LOR tracker: due-date urgency + referee/reminder surface | `/documents/lor-tracker` | 4 | should | S–M |
+| G4-03 | Requirements ↔ applications/offers link (no double entry) | `/documents/requirements` | 4 | should | M |
+| G4-04 | Admission-letter interpreter actually interprets a letter | `/offers/interpret` | 4 | could | M |
+| G4-05 | Auto-derive translation/VPD/APS need per programme + country | `/documents/translation-tracker`, `/documents/vpd`, `/visa/aps` | 4 | should | M |
+| G4-06 | VaultMatrix can't mark a non-existent doc "sent" | `/documents/vault-matrix` | 4 | could | S |
+| G4-07 | Submission record for uni-assist / DoSV / VPD | `/documents/uni-assist`, `/documents/dosv` | 4 | could | S–M |
+| G5-01 | Offers store dual-writes + feeds central deadlines/.ics | `/offers/compare`, `/offers/seat-deadlines` | 5 | should | M |
+| G5-02 | Seat-deadline tracker stops hiding dateless offers | `/offers/seat-deadlines` | 5 | should | S |
+| G5-03 | Accept/decline/conditional workflow on an offer | `/offers/compare`, `/offers/interpret` | 5 | should | M |
+| G5-04 | Connect applications ↔ offers ↔ enrolment (one spine) | `/process`, `/tracker`, `/arrival/enrolment` | 5 | should | M–L |
+| G5-05 | Enrolment scoped to the accepted offer | `/arrival/enrolment` | 5 | could | M |
+| G5-06 | Set deadlines raise a notification / .ics, not just on-page | `/offers/seat-deadlines`, `/arrival/renewals` | 5 | could | M |
+| G6-01 | Health-insurance under-30 defaults from `profile.dateOfBirth` | `/finance/health-insurance` | 6 | **must** | S |
+| G6-02 | Scholarship finder filters by nationality/eligibility | `/finance/scholarships` | 6 | should | S–M |
+| G6-03 | Funding-gap planner imports constants (no `992` literal) | `/finance/funding-plan` | 6 | should | S–M |
+| G6-04 | Cost-of-living pre-selects the student's city | `/finance/cost-of-living` | 6 | could | S |
+| G6-05 | One reconciled total-need across the three money tools | `/finance/application-costs`, `/finance/funding-plan`, `/start/budget` | 6 | should | M |
+| G7-02 | No-appointment-available fallback at the mission | `/visa/appointment` | 7 | **must** | S |
+| G7-03 | Travel / incoming insurance for the entry gap | `/finance/health-insurance`, `/campus/pre-departure` | 7 | **must** | S |
+| G7-04 | Travel / forex / flights planning surface | `/campus/pre-departure` | 7 | should | S |
+| G7-05 | Accommodation: scam-victim recovery + no-address fallback | `/visa/accommodation` | 7 | should | S |
+| G7-06 | Visa simulator German-language mode | `/visa/simulator` | 7 | could | S |
+| G8-02 | Bank-account rejection / no-Anmeldung-yet fallback | `/arrival/bank-account` | 8 | should | S |
+| G8-03 | Rundfunkbeitrag exemption (Befreiung) & dispute how-to | `/arrival/rundfunkbeitrag` | 8 | should | S |
+| G8-04 | Enrolment deadline reminder + conditional-admission failure | `/arrival/enrolment` | 8 | should | S |
+| G8-06 | Anmeldung structural no-appointment deadlock | `/arrival/anmeldung-runbook` | 8 | could | S |
+| G9-01 | Job-seeker permit "no job within 18 months" failure path | `/arrival/job-seeker-permit` | 9 | **must** | S |
+| G9-03 | Permit-loss / out-of-status & exmatrikulation recovery | `/arrival/renewals` (or `/arrival/out-of-status`) | 9 | should | S |
+| G9-04 | Family reunion: income-sufficiency check + A1-exemption | `/arrival/family-reunion` | 9 | could | M |
+| G9-05 | BlueCardCheck persistence + Outcomes single-source euros | `/arrival/blue-card-check`, `/career/outcomes` | 9 | could | S |
 
 ---
 
-## Journey-critical must-fix (all 10 `must` items), ordered by how blocked a real student is
+### Phase 0 — Orientation
 
-1. **N04 · Anmeldung no-appointment fallback** (NEW, S) — Anmeldung gates bank/permit/tax-ID; a student
-   who can't get a slot is blocked on everything downstream. Highest leverage for the least effort.
-2. **N01 · Visa refusal / appeal pathway** (NEW, M) — every visa page stops at the decision; a refused
-   applicant has zero guidance. Remonstration deadline mission-specific → `needs_verification`.
-3. **N03 · Travel/entry health insurance for the coverage gap** (NEW, M) — a real money/health hole before
-   German cover activates; the visa often requires entry insurance.
-4. **R06 · Dataset-backed Studienkolleg directory** (refine `/profile/studienkolleg`, L) — the
-   school-leaver route stays *theory* without a real list of state Studienkollegs + "apply via the
-   university." Grounding: each entry cited or `needs_verification`.
-5. **R12 · Unified test dashboard** (refine `/language/exam-progress`, L) — three existing surfaces never
-   converge into a target+date+readiness cockpit; students juggling IELTS+TestDaF+TestAS miss a sitting.
-6. **R31 · Single cost source-of-truth + unified deadline surface** (refine budget/calendar/reminders, L)
-   — the worst failure mode is missing a date, and cost is computed in 3+ inconsistent places.
-7. **R24 · Tracker deadline UI → calendar** (refine `/tracker`, S) — *(also a defect)* the `deadline` field
-   is dead and never reaches the calendar; a quick high-value fix feeding R31.
-8. **R18 · Per-program document studio** (refine `/documents/sop`, M) — tailoring the SOP for program #2
-   silently overwrites #1.
-9. **R19 · Per-program requirement auto-checklist** (refine `/documents/requirements`, M) — requirements
-   are an unstructured paste box; no trackable per-program checklist.
-10. **N11 · German job-search execution kit** (NEW, L) — the long-game depends on applying for work; the
-    app explains the 18-month window but gives no market-CV / Anschreiben / portals. AI output validated.
-    (N12 Approbation and N16 events finder are `should` items that complete this career band.)
+**Maturity:** strong routing core, thin route-aware follow-through. Eligibility + Feasibility route all
+three personas correctly and are grounded. The downstream planners (Timeline, Budget) treat every route
+as a *direct-admission Master's* and silently understate the Studienkolleg school-leaver's reality.
+
+#### G0-1 · Route-aware reverse timeline (Studienkolleg / FSP arc) · `refines:/start/timeline-planner` — **MUST**
+- **Why.** `TIMELINE_MILESTONES` is a single hard-coded 14→0-month arc for direct admission
+  (`lib/calc/reverseTimeline.ts:30-40`); `reverseTimeline()` takes only `(season, year)` — no `route`
+  parameter (`reverseTimeline.ts:68`). A Class-12 student routed to Studienkolleg is handed the *same*
+  arc as a direct-Master's applicant — no Aufnahmeprüfung, no 1-year Studienkolleg, no FSP. Real lead is
+  ~12–14 months longer; the planner hides it.
+- **Data.** `profile` route from `evaluatePathway`; per-route milestone sets.
+- **Acceptance.** For a Studienkolleg route the planner inserts B1→entrance-exam, Studienkolleg year, and
+  FSP milestones ahead of "apply"; Medicine lengthens further; direct routes unchanged.
+- **Grounding.** Studienkolleg/FSP durations flagged `needs_verification` (vary by college). ·
+  **Effort** M · **Deps** pathway engine (exists).
+
+#### G0-2 · Route- & Studienkolleg-aware budget (months + FSP/Semesterbeitrag) · `refines:/start/budget` — **MUST**
+- **Why.** `computeJourneyBudget` has no Studienkolleg cost line and `months` is caller-supplied
+  (`lib/calc/journeyBudget.ts:38,94-102`); `Budget.tsx` sets `months` from `targetLevel` only, not route.
+  A Studienkolleg student under-budgets ~12 extra months of living + the Studienkolleg Semesterbeitrag and
+  any private-Kolleg fees. The one-time list (94-101) has no Studienkolleg/FSP/Aufnahmeprüfung line.
+- **Acceptance.** When route = studienkolleg, `months` includes the prep+Kolleg year and a
+  "Studienkolleg / FSP" one-time line appears (public ≈ Semesterbeitrag, private flagged).
+- **Grounding.** Fees `needs_verification`; public-vs-private distinction surfaced. · **Effort** M ·
+  **Deps** G0-1 route signal.
+
+#### G0-4 · Feasibility hard-gates impossible level/qual combos · `refines:/start/feasibility`
+- **Why.** `Feasibility.tsx` computes a score for whatever profile exists; it does not hard-stop a
+  Class-10 + Medicine selection beyond a low score. The pathway engine knows this is blocked
+  (`pathway.ts:363`) but Feasibility shows a number, not "not yet eligible — finish Class 12." A
+  Class-10 persona can read a "challenging" score as "possible."
+- **Acceptance.** When route = blocked, Feasibility shows the blocked state (already wired for
+  `band==="blocked"` at lines 85-92) for *every* blocking combo, driven by the pathway route, not only the
+  heuristic band. · **Priority** should · **Effort** S · **Deps** route already in the page.
+
+#### G0-5 · Country-aware Phase-0 defaults (Bangladesh APS=0, flight origin) · `refines:/start/budget`
+- **Why.** Budget defaults are India-shaped (APS fee default; flight estimate). A Bangladesh applicant
+  needs APS = 0 pre-filled (country logic already knows APS is not required for Bangladesh) and an
+  origin-appropriate flight hint, instead of editing India defaults.
+- **Acceptance.** APS line pre-zeros for non-APS countries; flight default keyed to home country. ·
+  **Priority** could · **Effort** S · **Deps** `lib/country` (exists).
 
 ---
 
-## What is GOOD (do not re-flag)
+### Phase 1 — Foundations
 
-- **All 51 v1 features are shipped** and route-registered in `nav.tsx` — this backlog builds on them.
-- **APS country logic** grounded and correct (Bangladesh = no APS office; India/China/Vietnam/Mongolia/
-  Pakistan handled — `country.ts`, `visa/Aps.tsx`).
-- **Class-10 honest block** verified: `pathway.ts:363-380` → `route:"blocked"`; `feasibility.ts:62-71` →
-  score 0 / "blocked." No false hope.
-- **Sperrkonto €11,904** is a single grounded constant with source + `needsVerification` (weakness:
-  per-fact `retrieved_at` is module-level — fixed under R31).
-- **Work-day 140/280**, **cost-of-living**, and **funding-gap** math are deterministic + unit-tested
-  (`workDays.ts`, `costOfLiving.ts`, `fundingGap.ts`, `journeyBudget.ts`).
-- **Loan comparison** refuses to invent interest rates (`Loans.tsx`). **Attestation/translation trackers**
-  are functional. **Offers `.ics` export** works (R31 just adds more sources).
-- **Phase-7–9 immigration facts** grounded with sources + `needsVerification` (Blue Card €50,700/€45,934.20,
-  PR 21/27 mo, citizenship 5 yr, Rundfunk €18.36, Deutschlandticket €63, Semesterbeitrag, permit validity).
-  The lone exception is `FamilyReunion.tsx:14-17` → logged in **qa-findings (HON-FamilyReunion)**.
+**Maturity:** honest but operationally thin / external-link-heavy. Every claim is grounded and correctly
+frames "anabin decides, we orient." The gap is *next action*: a school-leaver routed to Studienkolleg
+lands on a concept page + one external link with nothing to *do* in the app. Deterministic math (GPA,
+ECTS) is correct.
+
+#### G1-2 · Studienkolleg finder actually lists colleges · `refines:/profile/studienkolleg` — **MUST**
+- **Why.** `Studienkolleg.tsx` explains streams (`kurs.ts`) and the apply-through-a-university flow but
+  does not *list* any Studienkollegs — it links out. For the Class-12 persona this is the single most
+  important Phase-1 surface, and the app can't answer "which public Studienkolleg offers a T-Kurs and
+  where." The biggest school-leaver dead-end.
+- **Data.** Curated seed of public Studienkollegs (state, host university, Kurse offered, public/private).
+- **Acceptance.** A filterable list by Kurs/state with host university and an official link; each entry
+  `needs_verification`. · **Effort** L · **Deps** new seed dataset + grounding.
+
+#### G1-3 · ECTS / credit gap analyzer for direct entry · `refines:/profile/ects`
+- **Why.** `Ects.tsx` + `lib/calc/ects.ts` sum and normalize credits but never compute the *gap* to a
+  target (120 held vs 180 expected → "60 short; bridge options"). The pathway engine documents the
+  3-year-Bachelor <180 ECTS bridges (`pathway.ts:206-213`) but ECTS doesn't quantify the shortfall. The
+  Bangladesh persona (possibly 3-yr degree) needs this.
+- **Acceptance.** User enters/derives held ECTS + a target; tool shows the deficit and links the
+  documented bridges, flagged per-programme `needs_verification`. · **Priority** should · **Effort** M ·
+  **Deps** `ects.ts` (exists).
+
+#### G1-4 · German A1→C1 plan: milestones + persisted per-user progress · `refines:/language/german-plan`
+- **Why.** `GermanPlan.tsx` content is static level/hours text; progress is a local checklist with no
+  checkpoints, no study-hour log, no estimated completion date, and (per the per-user-storage rule)
+  progress should be per-user. A Class-12 student lives here ~12 months; static text isn't a plan they can
+  *track*.
+- **Acceptance.** Per-level checkpoints, an hours/target tracker, and a derived completion-date estimate;
+  progress persists per user. · **Priority** should · **Effort** M · **Deps** synced store (exists).
+
+#### G1-5 · Recognition pre-filter (country + cert → likely HZB category) · `refines:/profile/recognition`
+- **Why.** `Recognition.tsx` is a correct, honest "go look it up on anabin yourself" workflow with zero
+  pre-filtering. A lightweight country+cert→*likely* category hint (clearly non-binding) would cut
+  cognitive load for all personas before they leave for anabin.
+- **Acceptance.** Returns a *likely* HZB category with a prominent "anabin/ZAB is binding" caveat and
+  `needs_verification`. · **Priority** could · **Effort** M · **Deps** curated anabin-category seed.
+
+---
+
+### Phase 2 — Discovery & shortlisting
+
+**Maturity:** solid search/rank/eligibility engine for Master's-with-profile; thin for school-leavers and
+for requirement capture. Matching, facets, shortlist tiers, and the deterministic `eligibility()` rollup
+(`lib/programs/eligibility.ts`) are genuinely good. The gaps are dataset breadth (Bachelor) and the
+manual-only requirement workflow.
+
+#### G2-1 · Bachelor & Studienkolleg programme coverage (dataset) · `refines:/profile/matching` — **MUST**
+- **Why.** Verified **6 Bachelor of 35** seed programmes (`grep courseType programs.ts`), no
+  regional/field spread, and **no Studienkolleg entries** to match toward. The headline Class-12 persona
+  has almost nothing to discover. Matching is built for Master's (24) and Medicine (5).
+- **Acceptance.** A materially larger Bachelor set across fields/cities/tuition status; each programme
+  links to its official page and carries `needs_verification`. · **Effort** L · **Deps** dataset
+  expansion + grounding.
+
+#### G2-2 · Per-programme requirement extractor (auto-checklist) · `refines:/documents/requirements`
+- **Why.** `Requirements.tsx` is a manual paste form — the student transcribes the deadline and raw
+  requirement text for every programme by hand. No parse/extract into a structured per-programme
+  checklist. Across a shortlist this is heavy friction for all personas.
+- **Acceptance.** Paste a programme page → structured fields (deadline, language, tests, docs) + a
+  generated checklist; nothing fabricated (empty = `needs_verification`). · **Priority** should ·
+  **Effort** M · **Deps** LLM extract path (BYOK/owner-mode exists).
+
+#### G2-3 · Profile-less learners get an eligibility nudge · `refines:/profile/matching`
+- **Why.** `Matching.tsx` only renders eligibility when `hasProfile` is true; a profile-less Class-12
+  school-leaver sees plain cards with no "add your Class-12 % to compare" nudge — whereas the same
+  `eligibility()` already emits friendly `unknown` + `gapHref` criteria (`eligibility.ts:57-76`) that
+  would guide them.
+- **Acceptance.** Profile-less users still see the eligibility scaffold with "add X" prompts. ·
+  **Priority** should · **Effort** S · **Deps** `eligibility.ts` (exists).
+
+#### G2-4 · City explorer job-market / English-friendliness depth · `refines:/profile/cities`
+- **Why.** `Cities.tsx` draws from ~9 hard-coded city cost lines (`lib/calc/costOfLiving.ts`) —
+  rent/food/transport only. No Werkstudent availability by field, post-study prospects, or
+  English-friendliness data, which is what a Bangladesh applicant weighing cities needs.
+- **Acceptance.** Each city adds grounded job-market/language signals or an honest "research this"
+  pointer; no invented figures. · **Priority** could · **Effort** M · **Deps** city dataset (grounded).
+
+#### G2-5 · Universities explorer → add-to-shortlist (unify datasets) · `refines:/universities`
+- **Why.** `Universities.tsx` runs off its own `UNIVERSITY_PROGRAMS` seed with no path to add a found
+  programme into the matching shortlist — the student must re-find it in Matching. Two parallel datasets,
+  no sync.
+- **Acceptance.** "Add to shortlist" from the explorer feeds the same store Matching/Shortlist use. ·
+  **Priority** could · **Effort** M · **Deps** unify program data sources.
+
+---
+
+### Phase 3 — Tests
+
+**Maturity:** good single-exam mock runner for 6 English/German exams; missing the connective tissue — no
+pathway-driven "which tests *you* need," no readiness gate, and two school-leaver/medicine-critical exams
+(TestAS, TMS) have guide pages but no mock (see Section A: G3-3, G3-4). Reading/Listening auto-score;
+Writing/Speaking depend on a live LLM and degrade with no offline fallback.
+
+#### G3-1 · Unified, pathway-driven test dashboard · `refines:/language/exams` (+`/language/exam-progress`) — **MUST**
+- **Why.** No language page imports `evaluatePathway` (grep) — the test layer can't tell a student
+  *which* tests their route requires, target scores, or order. `Overview`/`ExamsHub` are link lists;
+  `ExamTracker` aggregates *taken* mocks but isn't pathway-aware. Class-12 (TestAS + German) and
+  Bangladesh (IELTS/TOEFL ± German) each need a personalized "your tests, targets, dates, readiness"
+  board.
+- **Acceptance.** The dashboard reads route + target programmes and lists required tests with target
+  bands and a per-test readiness state. · **Effort** M · **Deps** pathway engine + exam metadata (exist).
+
+#### G3-2 · "Ready to book" readiness gate · `refines:/language/exam-progress`
+- **Why.** `ExamTracker` predicts a band but has no go/no-go checkpoint ("6.0, target 7.0 — keep
+  practising" vs "consistently above target — book it"). Grep for ready/book/gate/threshold returns
+  nothing. Students risk booking the real, expensive exam too early.
+- **Acceptance.** Per-test gate compares rolling predicted band to target and renders a clear
+  ready/not-ready verdict with the gap. · **Priority** should · **Effort** S · **Deps** examProgress
+  predicted band (exists).
+
+#### G3-6 · Writing/Speaking offline / no-LLM fallback rubric · `refines:/language/exams/*`
+- **Why.** Reading/Listening auto-score, but Writing and Speaking are evaluated only when an LLM provider
+  is connected; with no key/offline the user gets "AI feedback wasn't available" and *no* feedback or
+  rubric. Speaking captures a transcript only — no pronunciation/pace signal. The Bangladesh persona's
+  hardest sections (IELTS Writing/Speaking) thus have the weakest support exactly where it matters.
+- **Acceptance.** With no LLM, Writing/Speaking still show a band-descriptor rubric and self-check
+  checklist instead of a dead end. · **Priority** should · **Effort** M · **Deps** static
+  rubric/exemplar bank.
+
+---
+
+### Phase 4 — Documents & application
+
+> **Persistence note.** Every phase-4/5/6 store except `applications`, `roadmap_items` and `deadlines`
+> lives only in the per-user JSONB blob (synced for signed-in users, on-device for signed-out) — not in a
+> typed, queryable table. Findings below reflect this; **none** claims false data-loss for signed-in
+> users.
+
+#### G4-01 · SOP studio per-program (not one generic draft) · `refines:/documents/sop`
+- **Why.** Nav promises a "tailored SOP, not generic"; `Sop.tsx` collects one free-text program/university
+  pair and one motivation blob (`useSyncedState("doc:sop:form")`, `Sop.tsx:119`). A Bangladesh applicant
+  or career-switcher applying to 6–10 programs retypes the target each time and keeps a single draft. No
+  per-program draft set; no read from applications/offers/requirements.
+- **Acceptance.** Pick a target from applications/offers → a per-program SOP draft keyed by application
+  id; switching target loads/saves its own draft; AI generation seeds from that program's captured
+  requirements. · **Grounding** N/A (user-authored). · **Priority** should · **Effort** M ·
+  **Deps** Tracker/Requirements stores.
+
+#### G4-02 · LOR tracker: due-date urgency + referee/reminder surface · `refines:/documents/lor-tracker`
+- **Why.** Nav: "who you asked, when, deadlines, and whether each letter is in." `LorTracker.tsx` is a
+  3-state checkbox list (Asked → Reminded → Received). No due-date urgency from the deadline it stores, no
+  `.ics`/reminder export, no referee-facing artefact. "Reminded" is a manual toggle, not a prompt — a
+  career-switcher chasing a busy manager gets no nudge.
+- **Acceptance.** Each request shows deterministic days-left + overdue/urgent styling; due requests feed
+  the central deadline list and the .ics export; an optional "draft a reminder email" action. ·
+  **Grounding** N/A. · **Priority** should · **Effort** S–M · **Deps** `lib/calc/deadlines.ts`,
+  reminders export.
+
+#### G4-03 · Requirements ↔ applications/offers link (no double entry) · `refines:/documents/requirements`
+- **Why.** `Requirements.tsx` stores `programme:requirements` with no cross-reference to `tracker:apps`
+  or `OFFERS_KEY`. The student maintains the same programme twice, and nothing turns a captured "needs
+  TestAS / APS / VPD" line into a checklist item, a tracker flag, or an SOP input. This is the connective
+  tissue the whole document phase is missing.
+- **Acceptance.** A captured requirement links to (or creates) an application; a parsed "requires
+  VPD/APS/translation" toggle pre-seeds the matching tracker; no double entry. · **Grounding** N/A. ·
+  **Priority** should · **Effort** M · **Deps** shared programme identity across stores.
+
+#### G4-04 · Admission-letter interpreter actually interprets a letter · `refines:/offers/interpret`
+- **Why.** Despite the name, `AdmissionLetter.tsx` is a static decoder (checklist + glossary + one shared
+  `DeadlineReminder`); it never accepts the letter text. A student with a German `Zulassungsbescheid`
+  still hand-finds the conditions and the Immatrikulationsfrist — the thing the page claims to do.
+- **Acceptance.** Paste letter text → surfaced enrolment deadline + flagged conditions, written into an
+  offer record; manual fallback preserved; nothing fabricated (model output schema-validated, low
+  confidence flagged). · **Grounding** extracted dates/conditions are user-data; if AI used,
+  schema-validate, never assert. · **Priority** could · **Effort** M · **Deps** extract step (AI
+  optional).
+
+#### G4-05 · Auto-derive translation/VPD/APS need per programme + country · `refines:/documents/translation-tracker`, `/documents/vpd`, `/visa/aps`
+- **Why.** Translation, VPD and APS trackers are standalone lists. For the Bangladesh (no-APS) persona the
+  app should *not* surface an APS tracker at all, yet nothing keys these off `profile.homeCountry` or the
+  captured per-programme requirement. The student decides manually which trackers even apply.
+- **Acceptance.** Trackers gated/seeded by country (`APS_REQUIRED_COUNTRIES`) + captured requirements; a
+  no-APS-country student isn't told to track APS. · **Grounding** APS country logic from
+  `APS_REQUIRED_COUNTRIES`, not hardcoded prose. · **Priority** should · **Effort** M ·
+  **Deps** G4-03, country logic.
+
+#### G4-06 · VaultMatrix can't mark a non-existent doc "sent" · `refines:/documents/vault-matrix`
+- **Why.** `VaultMatrix.tsx` reads `tracker:apps` for columns (good) but its 8 doc rows are hardcoded and
+  a checkbox can be ticked for "SOP → App X" even when the SOP draft (`doc:sop:draft`) is empty. A
+  checklist of *intent* presented as *fact*; a stressed applicant can believe a document went out that was
+  never written.
+- **Acceptance.** A doc row reflects whether the underlying draft/file exists; "sent" for an empty doc is
+  warned or disallowed. · **Grounding** N/A. · **Priority** could · **Effort** S · **Deps** read
+  generator/vault state.
+
+#### G4-07 · Submission record for uni-assist / DoSV / VPD · `refines:/documents/uni-assist`, `/documents/dosv`
+- **Why.** `UniAssist.tsx` and `Dosv.tsx` are purely educational (no state). A real applicant needs to
+  record their uni-assist applicant number, submitted date, fees paid, response date; the Medicine/NC
+  persona needs the hochschulstart BID/priorities for DoSV. None is captured, so these processes don't
+  appear on any status board.
+- **Acceptance.** Each walkthrough can persist a small structured record (account id, submitted-on,
+  response-on) that surfaces on the status/tracker views. · **Grounding** uni-assist fee/processing facts
+  already `needs_verification` — keep. · **Priority** could · **Effort** S–M · **Deps** application store.
+
+---
+
+### Phase 5 — Offers & enrolment
+
+#### G5-01 · Offers store dual-writes + feeds central deadlines/.ics · `refines:/offers/compare`, `/offers/seat-deadlines`
+- **Why.** `OFFERS_KEY` backs the comparison board and seat-deadline tracker but, unlike
+  applications/roadmap/deadlines, is **not** wired through `useTableSync`, and its accept-by dates never
+  flow into central `/deadlines` or the `.ics` export. The single most time-critical date in the journey
+  (seat acceptance) lives in an isolated widget the student must remember to revisit.
+- **Acceptance.** Offers dual-write to a typed table; each `acceptBy` appears in `/deadlines` and the .ics
+  export with correct deterministic urgency. · **Grounding** N/A. · **Priority** should · **Effort** M ·
+  **Deps** `useTableSync` mapper for offers; deadline merge.
+
+#### G5-02 · Seat-deadline tracker stops hiding dateless offers · `refines:/offers/seat-deadlines`
+- **Why.** `SeatDeadlines.tsx:25` filters to `offers.filter(o => o.acceptBy)`; an offer entered without an
+  accept-by date vanishes and the empty state reads "No accept-by dates yet." A student who logged an
+  admit but hasn't filled the date sees a calm screen on the very item that forfeits a place if missed.
+- **Acceptance.** Offers lacking an accept-by date are shown as a distinct "needs a date" group rather
+  than hidden; the empty state distinguishes "no offers" from "offers missing dates." · **Grounding**
+  N/A. · **Priority** should · **Effort** S · **Deps** none.
+
+#### G5-03 · Accept/decline/conditional workflow on an offer · `refines:/offers/compare`, `/offers/interpret`
+- **Why.** `Offer` has only a boolean `conditional` and a single `acceptBy`; no accepted/declined state,
+  no separate deposit/enrolment-fee deadline, no condition text. The student can't record "accepted TU
+  Munich, declined RWTH," track a deposit due before enrolment, or clear a condition. The offer→enrolment
+  hand-off is narrative.
+- **Acceptance.** An offer carries status (received→accepted/declined), an optional deposit deadline, and
+  a condition list with a clear/met action; accepting one offer can prompt declining others. ·
+  **Grounding** N/A. · **Priority** should · **Effort** M · **Deps** offer schema extension.
+
+#### G5-04 · Connect applications ↔ offers ↔ enrolment (one spine) · `refines:/process`, `/tracker`, `/arrival/enrolment`
+- **Why.** `/process` is a read-only seed board (`Process.tsx` renders static `APPLICATION_STAGES`) while
+  `/tracker` is the real Kanban (`tracker:apps`, dual-written). They share no state, and neither links an
+  "accepted" application to an offer record or the enrolment guide. The journey's spine has no continuous
+  thread; each step is re-entered.
+- **Acceptance.** Moving an application to "decision/accepted" can create/link an offer; the offer links
+  to the enrolment guide; `/process` reflects real state or is folded into the tracker. · **Grounding**
+  N/A. · **Priority** should · **Effort** M–L · **Deps** shared programme identity; possibly retire/merge
+  static `/process`.
+
+#### G5-05 · Enrolment scoped to the accepted offer · `refines:/arrival/enrolment`
+- **Why.** `Enrolment.tsx` shows the generic 5-step Immatrikulation flow + a local checklist, with the
+  Semesterbeitrag shown globally as "~€70–€430." It doesn't know which university the student accepted (no
+  offer read), so it can't show that university's contribution, deadline, or document list; no
+  Matrikelnummer/payment record. Correct as orientation; thin as a do-it tool.
+- **Acceptance.** Enrolment reads the accepted offer to scope its steps/deadline; captures the
+  Semesterbeitrag actually paid and the Matrikelnummer. · **Grounding** Semesterbeitrag stays
+  `needsVerification:true` and per-university (`facts.ts:76`) — do not assert one figure. · **Priority**
+  could · **Effort** M · **Deps** G5-03 offer status.
+
+#### G5-06 · Set deadlines raise a notification / .ics, not just on-page · `refines:/offers/seat-deadlines`, `/arrival/renewals`
+- **Why.** `DeadlineReminder` and the seat/renewal surfaces compute days-left deterministically but there
+  is no browser notification, email, or push when a date arrives; the Rückmeldung warning on
+  `UniversityOnboarding.tsx` has no persistent reminder at all. A student who doesn't reopen the page
+  isn't reminded.
+- **Acceptance.** Any user-set deadline (offer, Rückmeldung, renewal) can be exported to .ics / raised as
+  a notification, not just rendered. · **Grounding** N/A. · **Priority** could · **Effort** M ·
+  **Deps** reminders/notification mechanism.
+
+---
+
+### Phase 6 — Finance & funding
+
+#### G6-01 · Health-insurance under-30 defaults from `profile.dateOfBirth` · `refines:/finance/health-insurance` — **MUST** (defect-adjacent; see `qa-findings`)
+- **Why.** The statutory-vs-private decision hinges on the under-30 / ~14th-semester rule, and the choice
+  is **irreversible** (the page warns so, `HealthInsurance.tsx:132-140`). Yet `under30` is `useState(true)`
+  (`:55`), set only by a manual radio; `profile.dateOfBirth` exists in the schema and is documented as
+  driving this tier but is never read. The career-switcher (often 30+) is shown "statutory, the standard
+  route" by default — the wrong answer — until they correct a toggle they may not understand.
+- **Acceptance.** `under30` defaults from `profile.dateOfBirth` vs estimated enrolment; the manual toggle
+  remains an override; the irreversibility warning stays. · **Grounding** `HEALTH_INSURANCE` fact already
+  `needs_verification` — keep; label the age rule as guidance (already done). · **Effort** S ·
+  **Deps** profile read.
+
+#### G6-02 · Scholarship finder filters by nationality/eligibility · `refines:/finance/scholarships`
+- **Why.** `Scholarships.tsx` filters only by category buttons (`:49-62`); it reads the profile for
+  *experience* matching but never for `homeCountry`. A Bangladesh student sees nationality-restricted
+  schemes with only a generic "Eligibility restricted" badge and no personalised "you likely qualify /
+  likely don't." The finder lists; it doesn't match the one axis (nationality) that most often
+  disqualifies.
+- **Acceptance.** Schemes sorted/badged against the student's nationality; clearly out-of-scope ones
+  de-emphasised, never asserted ineligible without the scheme's own rule. · **Grounding** amounts already
+  grounded; eligibility text from seed sources — keep "confirm in the official call." · **Priority**
+  should · **Effort** S–M · **Deps** eligibility metadata per scheme.
+
+#### G6-03 · Funding-gap planner imports constants (no `992` literal) · `refines:/finance/funding-plan` — defect-adjacent; see `qa-findings`
+- **Why.** `FundingPlan.tsx:29-31` seeds `oneTime=15000`, `monthly=992`, `months=24` as bare literals.
+  `992` silently duplicates `SPERRKONTO_MONTH_EUR` (`facts.ts:29`) instead of importing it, so a yearly
+  Sperrkonto change drifts the default; `15000` has no source shown; the "prefill from the journey budget"
+  note (`:65`) is a plain link, not a data feed. The student re-enters cost-of-living and application-cost
+  figures the app already computed.
+- **Acceptance.** Living default imports the fact constant; one-time default is derived/sourced or
+  prefilled from the journey budget; values flow in from CoL/application-costs with editable overrides. ·
+  **Grounding** defaults must derive from `facts.ts` constants, not literals (golden-rule 4). ·
+  **Priority** should · **Effort** S–M · **Deps** import the constant; surface budget/CoL totals.
+
+#### G6-04 · Cost-of-living pre-selects the student's city · `refines:/finance/cost-of-living`
+- **Why.** `CostOfLiving.tsx` is a sound deterministic calculator with a clear disclaimer, but the city is
+  always manually picked even when the intake/shortlist already implies a study city. Minor re-entry the
+  app could avoid; a small honesty win (the baseline shown first matches the actual target).
+- **Acceptance.** City defaults from profile/shortlist when present; manual override preserved. ·
+  **Grounding** deterministic math + disclaimer already correct. · **Priority** could · **Effort** S ·
+  **Deps** intake city field.
+
+#### G6-05 · One reconciled total-need across the three money tools · `refines:/finance/application-costs`, `/finance/funding-plan`, `/start/budget`
+- **Why.** `ApplicationCosts.tsx` reads `programs:shortlist` length and `profile.homeCountry` for APS, and
+  `/start/budget` does the total-journey math, but the three money tools each hold their own numbers;
+  nothing reconciles "total need." A student can't see one coherent figure, so the funding-gap answer can
+  silently contradict the budget page.
+- **Acceptance.** One total-need figure computed once and consumed by funding-gap and the budget view;
+  changing the shortlist updates all three consistently. · **Grounding** all euro inputs sourced from
+  `facts.ts` constants (partly done in ApplicationCosts) — extend to the others. · **Priority** should ·
+  **Effort** M · **Deps** G6-03; a shared cost source.
+
+> **Also blob-only (not lost for signed-in users), not separately ID'd:** sperrkonto progress, scholarship
+> tracker, loans, work-days persist via `useSyncedState` but reach no typed table and feed neither the
+> single funding view nor `/deadlines`. Folded into the structural themes (shared identity / one money
+> total) above.
+
+---
+
+### Phase 7 — Visa & pre-departure
+
+> Phases 7–9 are broad and, on the happy path, deep — grounding is disciplined and several failure
+> boundaries are already handled (Fiktionsbescheinigung `ResidencePermit.tsx:36-42`, irreversible
+> insurance opt-out `HealthInsurance.tsx:132-140`, rental-scam alert `Accommodation.tsx:25-38`, Anmeldung
+> walk-in fallback `AnmeldungRunbook.tsx:17`). The gaps below are therefore mostly **unhandled failure
+> paths** plus the NEW surfaces in Section A.
+
+#### G7-02 · No-appointment-available fallback at the mission · `refines:/visa/appointment` — **MUST**
+- **Why.** `Appointment.tsx` correctly frames the appointment wait as *the* bottleneck and says "book
+  early / check often" — but offers **no path when there is nothing to book** (`:12-18,52-58` assume a
+  slot exists). This blocks the applicant persona hard and is a known reality at high-volume missions.
+- **Acceptance.** From the tracker, a stuck applicant finds ≥3 concrete fallback actions (waitlist/
+  auto-refresh, VFS vs direct mission, third-country, email escalation, proof-of-attempt) and a "what if I
+  can't get a slot before my intake" deferral branch. · **Grounding** tactics are practical guidance with
+  mission source links; invent no SLAs. · **Effort** S · **Deps** ideally G7-01 (deferral).
+
+#### G7-03 · Travel / incoming insurance for the entry gap · `refines:/finance/health-insurance`, `/campus/pre-departure` — **MUST**
+- **Why.** Incoming/travel health insurance covering the gap between landing on the D-visa and statutory
+  student insurance activating at enrolment (typically several weeks). `HealthInsurance.tsx` handles
+  under-30/over-30/agreement/opt-out but **never the entry gap** (`:28-51`); the pre-departure list says
+  only "Health-insurance documents" (`seed/checklists.ts:46`) and arrival only "Activate statutory health
+  insurance" (`:35`). A student can land **uninsured** for the gap and not know.
+- **Acceptance.** The health-insurance flow explicitly surfaces the entry gap and tells a new arrival they
+  need interim cover before statutory insurance starts. · **Grounding** qualitative; cite
+  make-it-in-germany / mission; any duration `needs_verification`. · **Effort** S · **Deps** none.
+
+#### G7-04 · Travel / forex / flights planning surface · `refines:/campus/pre-departure`
+- **Why.** Currently scattered as single checklist items ("Some euros in cash", "Get a German SIM",
+  `seed/checklists.ts:37,48`) with no guidance on sequencing flights against visa risk or moving money — a
+  real cost-risk for every persona.
+- **Acceptance.** A pre-departure persona sees explicit "don't book non-refundable flights before visa
+  approval" guidance and a money-transfer comparison scaffold (provider, fee, FX-margin, speed — no rates
+  shipped). · **Grounding** none official; pure framework. · **Priority** should · **Effort** S ·
+  **Deps** none.
+
+#### G7-05 · Accommodation: scam-victim recovery + no-address fallback · `refines:/visa/accommodation`
+- **Why.** `Accommodation.tsx` warns about scams (`:25-38`) but stops at prevention; it never handles the
+  victim (stop payment, police/Schufa report, evidence) nor the common "I have an admission but nowhere to
+  live yet, and I can't register without an address" deadlock (`Wohnungsgeberbestätigung` hard requirement
+  `seed/arrival.ts:46`).
+- **Acceptance.** The page covers both "I got scammed" and "I have no address yet but must register"
+  (temporary-address / hostel / sublet bridging; cross-link `AnmeldungRunbook`). · **Grounding**
+  practical; link Studierendenwerk / police-reporting. · **Priority** should · **Effort** S · **Deps**
+  none.
+
+#### G7-06 · Visa simulator German-language mode · `refines:/visa/simulator`
+- **Why.** Speech-to-text is hardcoded `lang: "en-US"` (`Simulator.tsx` ~line 66). Some missions
+  interview partly in German; the persona prepping for a German-medium programme gets no German rehearsal.
+- **Acceptance.** A language toggle switches dictation locale and question language. · **Grounding** N/A. ·
+  **Priority** could · **Effort** S · **Deps** none.
+
+---
+
+### Phase 8 — Arrival & settling
+
+#### G8-02 · Bank-account rejection / no-Anmeldung-yet fallback · `refines:/arrival/bank-account`
+- **Why.** `BankAccount.tsx` is happy-path only (4-step success + "confirm with the bank"). The
+  Anmeldung↔bank↔address circular dependency (bank refuses without Anmeldung, but you need a bank to pay
+  rent) is a real, frequently-hit wall for new arrivals.
+- **Acceptance.** The page covers "bank says no without Anmeldung" and offers ≥1 address-free neobank /
+  blocked-account-provider bridge + ordering guidance. · **Grounding** practical; no invented bank
+  policies. · **Priority** should · **Effort** S · **Deps** relates to G7-05.
+
+#### G8-03 · Rundfunkbeitrag exemption (Befreiung) & dispute how-to · `refines:/arrival/rundfunkbeitrag`
+- **Why.** `Rundfunkbeitrag.tsx` states the fee is per-household and that exemption exists "but most
+  international students don't qualify" — then stops (`:47-49`). The how-to-apply, **WG duplicate-billing**
+  (one fee per dwelling), and **back-dated demand / Festsetzungsbescheid** response paths are missing and
+  genuinely blindside arrivals.
+- **Acceptance.** Page explains how to apply for exemption and how to resolve a duplicate-billing/WG
+  demand. · **Grounding** cite rundfunkbeitrag.de; keep €18.36 as the existing `needs_verification` fact
+  (`seed/arrival.ts:84-90`). · **Priority** should · **Effort** S · **Deps** none.
+
+#### G8-04 · Enrolment deadline reminder + conditional-admission failure · `refines:/arrival/enrolment`
+- **Why.** `Enrolment.tsx` says "Miss it and the place can be withdrawn — diarise the enrolment deadline
+  immediately" but ships **no reminder component** (unlike Auslaenderbehoerde/Renewals which do), so the
+  very thing it warns about isn't trackable. No path for a conditional offer's unmet conditions.
+- **Acceptance.** Enrolment page has a working `DeadlineReminder` (storageKey `enrolment-deadline`) and
+  addresses unmet conditional-admission conditions. · **Grounding** Semesterbeitrag already grounded
+  (`facts.ts:76-82`). · **Priority** should · **Effort** S · **Deps** none. (Overlaps G5-05's offer-scoped
+  enrolment.)
+
+#### G8-06 · Anmeldung structural no-appointment deadlock · `refines:/arrival/anmeldung-runbook`
+- **Why.** `AnmeldungRunbook.tsx:17` offers a one-line walk-in fallback, but the structural "the city has
+  released no slots and my 14 days are running out" reality (Berlin/Munich) isn't addressed, and
+  `ANMELDUNG_DAYS=14` reads as a hard penalty.
+- **Acceptance.** The runbook addresses a genuine no-slots-before-deadline situation (proof you tried,
+  neighbouring-Bürgeramt strategy, reassurance grounded to Bundesmeldegesetz reality). · **Grounding**
+  keep the 14-day fact (`facts.ts:21-22,160-166`); add nuance, don't restate a penalty. · **Priority**
+  could · **Effort** S · **Deps** none.
+
+---
+
+### Phase 9 — Ongoing
+
+#### G9-01 · Job-seeker permit "no job within 18 months" failure path · `refines:/arrival/job-seeker-permit` — **MUST**
+- **Why.** `JobSeekerPermit.tsx` is happy-path only (apply → search → work → settle). The career-switcher
+  who doesn't land a role is exactly who needs the cliff-edge guidance, and there's none. The
+  highest-stakes phase-9 boundary.
+- **Acceptance.** The page covers the window expiring with no job and gives ≥3 honest options (further
+  study, lower-qualified work bridge, leave & re-enter, switch permit type), the no-extension reality, and
+  how to avoid falling out of status. · **Grounding** `needs_verification`; cite make-it-in-germany /
+  Ausländerbehörde; no invented extensions. · **Effort** S · **Deps** G8-01 (recognition can be the
+  blocker).
+
+#### G9-03 · Permit-loss / out-of-status & exmatrikulation recovery · `refines:/arrival/renewals` (or `/arrival/out-of-status`)
+- **Why.** `Renewals.tsx` (`:26-27`) and `UniversityOnboarding.tsx` (`:26-29`) say "miss this and you're
+  de-registered / out of status" but offer **no recovery** once it happens (permit lapsed, exmatrikuliert
+  for a missed Rückmeldung, renewal refused).
+- **Acceptance.** A user who already missed a renewal/Rückmeldung finds concrete recovery steps
+  (Fiktionsbescheinigung if mid-process, re-enrolment, leave/re-enter, legal-aid pointers), not just a
+  warning. · **Grounding** `needs_verification`; cite Ausländerbehörde / BAMF; no invented grace periods.
+  · **Priority** should · **Effort** S · **Deps** none.
+
+#### G9-04 · Family reunion: income-sufficiency check + A1-exemption · `refines:/arrival/family-reunion`
+- **Why.** `FamilyReunion.tsx` (`:15-16`) lists qualifying conditions and docs but has **no calculator**
+  for the income bar (the thing that decides eligibility) and leaves the A1 exemption vague.
+- **Acceptance.** The page offers a (deterministic, grounded) income/housing-sufficiency self-check for
+  the household size and names the common A1-exemption categories. · **Grounding** income thresholds real
+  but volatile → `needs_verification`, cite make-it-in-germany. · **Priority** could · **Effort** M ·
+  **Deps** cross-link `finance/funding-plan`.
+
+#### G9-05 · BlueCardCheck persistence + Outcomes single-source euros · `refines:/arrival/blue-card-check`, `/career/outcomes` — defect-adjacent; see `qa-findings`
+- **Why.** (1) `BlueCardCheck` inputs use plain `useState` (`:20-23`), so the salary check is lost on
+  navigation — should move to syncedState like `PrCitizenship`. (2) `Outcomes.tsx:63` hardcodes the
+  literals "€45,934.20 / €50,700" in JSX instead of importing `BLUE_CARD_SHORTAGE_EUR`/`_STANDARD_EUR`,
+  risking drift from the single source (`facts.ts:40-41`).
+- **Acceptance.** BlueCardCheck persists; Outcomes imports the euro constants. · **Grounding** strengthens
+  it (kills a drift risk). · **Priority** could · **Effort** S · **Deps** none.
+
+---
+
+## Out of scope — confirmed strong (not gaps)
+
+- **Pathway routing** for all three personas incl. Class-10 block, non-linear diploma/lateral, India vs
+  Bangladesh APS, the raised-70% WS-2026/27 note (`lib/pathway/pathway.ts`).
+- **Eligibility rollup** with honest `unknown`/`needs_verification` and **deterministic GPA/ECTS**
+  (`lib/programs/eligibility.ts`, `lib/calc/gpa.ts`, `lib/calc/ects.ts`).
+- **Search/rank/facets** and reach/match/safety tiering (`lib/programs/search.ts`,
+  `pages/profile/Shortlist.tsx`).
+- **Single-exam mock runner**, scoring, and progress analytics for the 6 supported exams.
+- **Grounding discipline** across phases 7–9: Blue Card €50,700 / €45,934.20, citizenship 5 years
+  (3-yr fast-track repealed 30 Oct 2025), Rundfunkbeitrag €18.36, Sperrkonto €11,904 — all `OfficialFact`s
+  with sources, `needsVerification`, and `FACTS_RETRIEVED_AT`. **No fabricated official fact found
+  anywhere in the journey.**
+- **Already-handled failure boundaries** (excluded deliberately): Fiktionsbescheinigung
+  (`ResidencePermit.tsx:36-42`), insurance opt-out irreversibility (`HealthInsurance.tsx:132-140`),
+  Rückmeldung/permit reminders (`Renewals.tsx`), rental-scam prevention (`Accommodation.tsx:25-38`),
+  Anmeldung walk-in fallback (`AnmeldungRunbook.tsx:17`).
+</content>
+</invoke>
