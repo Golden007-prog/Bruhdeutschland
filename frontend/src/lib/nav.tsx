@@ -70,6 +70,7 @@ import type { FeatureCategoryKey } from "@/lib/types";
 export type NavGroupKey =
   | "overview"
   | "start"
+  | "career"
   | "profile"
   | "documents"
   | "language"
@@ -82,6 +83,7 @@ export type NavGroupKey =
 export const NAV_GROUPS: Record<NavGroupKey, string> = {
   overview: "Overview",
   start: "Start Here",
+  career: "Career & Guidance",
   profile: "Profile & Assessment",
   documents: "Document Prep",
   language: "Language & Test Prep",
@@ -130,6 +132,10 @@ const StartEligibility = lazy(() => import("@/pages/start/Eligibility"));
 const StartFeasibility = lazy(() => import("@/pages/start/Feasibility"));
 const StartTimelinePlanner = lazy(() => import("@/pages/start/TimelinePlanner"));
 const StartBudget = lazy(() => import("@/pages/start/Budget"));
+const CareerOverview = lazy(() => import("@/pages/career/Overview"));
+const CareerCounseling = lazy(() => import("@/pages/career/Counseling"));
+const CareerOutcomes = lazy(() => import("@/pages/career/Outcomes"));
+const CareerEducationSystem = lazy(() => import("@/pages/career/EducationSystem"));
 const ProfileOverview = lazy(() => import("@/pages/profile/Overview"));
 const ProfileParse = lazy(() => import("@/pages/profile/Parse"));
 const ProfileEvaluate = lazy(() => import("@/pages/profile/Evaluate"));
@@ -214,6 +220,9 @@ const ArrivalFamilyReunion = lazy(() => import("@/pages/arrival/FamilyReunion"))
 const ArrivalRenewals = lazy(() => import("@/pages/arrival/Renewals"));
 const ArrivalArrivalDay = lazy(() => import("@/pages/arrival/ArrivalDay"));
 const ArrivalBlueCard = lazy(() => import("@/pages/arrival/BlueCard"));
+const ArrivalImmigrationPathway = lazy(() => import("@/pages/arrival/ImmigrationPathway"));
+const ArrivalBlueCardCheck = lazy(() => import("@/pages/arrival/BlueCardCheck"));
+const ArrivalPrCitizenship = lazy(() => import("@/pages/arrival/PrCitizenship"));
 const ArrivalTaxId = lazy(() => import("@/pages/arrival/TaxId"));
 const CampusOverview = lazy(() => import("@/pages/campus/Overview"));
 const CampusPreDeparture = lazy(() => import("@/pages/campus/PreDeparture"));
@@ -249,6 +258,10 @@ export const NAV: NavItem[] = [
   { path: "/start/feasibility", label: "Reality check", title: "Reality check — feasibility & years to finish", eyebrow: "Phase 0 · Orientation", description: "A blunt, honest read on how realistic your plan is and roughly how long it takes end-to-end, given your level, language, and target. A heuristic, not a guarantee.", group: "start", icon: Gauge, Component: StartFeasibility },
   { path: "/start/timeline-planner", label: "Reverse timeline planner", title: "Reverse timeline — work back from your intake", eyebrow: "Phase 0 · Orientation", description: "Pick a target intake and we back-date every milestone — language tests, APS, applications, visa, Sperrkonto — so you know what to start by when.", group: "start", icon: CalendarRange, Component: StartTimelinePlanner },
   { path: "/start/budget", label: "Total-journey budget", title: "Total-journey budget — one-time + recurring", eyebrow: "Phase 0 · Orientation", description: "Add up the real end-to-end cost: APS, uni-assist, translations, visa, Sperrkonto, flights, deposit, and monthly living — with every official figure grounded or flagged.", group: "start", icon: Calculator, disclaimer: true, Component: StartBudget },
+  { path: "/career", label: "Career & guidance", title: "Career & guidance", eyebrow: "Bereich · Career", description: "Before you pick a programme, figure out the right direction: counseling, course selection, the German education system, and where each field actually leads in the job market.", group: "career", icon: Compass, Component: CareerOverview },
+  { path: "/career/counseling", label: "Counseling & course choice", title: "Career counseling & course selection", eyebrow: "§ Counseling", description: "A short interest self-check plus optional AI consultation turns your background and interests into German programme fields to explore — then feeds straight into university matching.", group: "career", icon: MessageSquare, Component: CareerCounseling },
+  { path: "/career/outcomes", label: "Career outcomes & demand", title: "Career outcomes & job market", eyebrow: "§ Outcomes", description: "What each field leads to in Germany — typical roles, demand, shortage-occupation status, and which EU Blue Card threshold it maps to. Qualitative + grounded; no invented salaries.", group: "career", icon: TrendingUp, Component: CareerOutcomes },
+  { path: "/career/education-system", label: "German education system", title: "How the German education system works", eyebrow: "§ Orientation", description: "Universität vs Technische Universität vs Fachhochschule (FH), and the school structure behind the HZB — so recognition and your options make sense.", group: "career", icon: School, Component: CareerEducationSystem },
   { path: "/profile", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", description: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: UserCircle, Component: ProfileOverview },
   { path: "/profile/parse", label: "Resume / LinkedIn parsing", title: "Resume & LinkedIn parsing", eyebrow: "Feature 01 · Profile", description: "Extract structured facts from a resume, LinkedIn export, or intake form — handled as personal data.", group: "profile", category: "profile", icon: ScanLine, featureNo: 1, Component: ProfileParse },
   { path: "/profile/evaluate", label: "Profile evaluation (GPA)", title: "Profile evaluation — GPA → German grade", eyebrow: "Feature 02 · Profile", description: "Convert your grade to the German 1.0–4.0 scale with the deterministic Modified Bavarian Formula.", group: "profile", category: "profile", icon: Gauge, featureNo: 2, Component: ProfileEvaluate },
@@ -333,6 +346,9 @@ export const NAV: NavItem[] = [
   { path: "/arrival/renewals", label: "Renewals & re-registration", title: "Permit renewals & semester re-registration", eyebrow: "G46 · G47 · Ongoing", description: "Two recurring deadlines that get people exmatrikuliert or out of status: residence-permit renewal and the semester Rückmeldung. Set them and never miss them.", group: "arrival", icon: BellRing, Component: ArrivalRenewals },
   { path: "/arrival/arrival-day", label: "Arrival-day planner", title: "Arrival-day & first-72-hours planner", eyebrow: "G37 · Arrival", description: "A practical sequence for landing day and the first few days: SIM, transport, temporary stay, cash, and the appointments to book immediately.", group: "arrival", icon: Backpack, Component: ArrivalArrivalDay },
   { path: "/arrival/blue-card", label: "Blue Card & settlement", title: "EU Blue Card & permanent settlement", eyebrow: "G48 · Ongoing", description: "The work-to-settlement endgame: how a qualified job becomes an EU Blue Card and, in time, permanent residence (Niederlassungserlaubnis).", group: "arrival", icon: Award, disclaimer: true, Component: ArrivalBlueCard },
+  { path: "/arrival/immigration-pathway", label: "Your immigration long-game", title: "Study → Blue Card → PR → Citizenship", eyebrow: "Long game · Ongoing", description: "The full ladder from student to citizen, personalised to your field and German level — with the current 2026 thresholds, timelines, and the official sources to verify each.", group: "arrival", icon: Route, disclaimer: true, Component: ArrivalImmigrationPathway },
+  { path: "/arrival/blue-card-check", label: "Blue Card salary check", title: "EU Blue Card eligibility check", eyebrow: "Long game · Tool", description: "Enter an expected salary and field to see whether it clears the 2026 Blue Card threshold — the lower one for shortage occupations, STEM, and recent graduates.", group: "arrival", icon: Gauge, disclaimer: true, Component: ArrivalBlueCardCheck },
+  { path: "/arrival/pr-citizenship", label: "PR & citizenship timeline", title: "PR & citizenship timeline tracker", eyebrow: "Long game · Tool", description: "Track your qualified-residence start and German level to see indicative dates for permanent residence and citizenship under the current 2026 rules.", group: "arrival", icon: Stamp, disclaimer: true, Component: ArrivalPrCitizenship },
   { path: "/arrival/tax-id", label: "Tax-ID & first job", title: "Tax-ID & first-job onboarding", eyebrow: "G49 · Ongoing", description: "Starting work means a tax ID, a tax class, social contributions, and the Werkstudent rules. Here's what to set up and what to expect on your payslip.", group: "arrival", icon: FileBadge, disclaimer: true, Component: ArrivalTaxId },
   { path: "/campus", label: "Overview", title: "Campus Life", eyebrow: "Bereich F · Campus Life", description: "Land well: pre-departure packing, academic networking, transit, and how German academic culture works.", group: "campus", category: "campus", icon: Sparkles, Component: CampusOverview },
   { path: "/campus/pre-departure", label: "Pre-departure checklist", title: "Pre-departure checklist", eyebrow: "Feature 27 · Campus", description: "Everything to arrange and pack before you fly — documents, money, tech, and first-week essentials.", group: "campus", category: "campus", icon: Backpack, featureNo: 27, Component: CampusPreDeparture },

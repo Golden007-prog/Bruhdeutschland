@@ -32,6 +32,18 @@ export const UNIASSIST_FIRST_EUR = 75 as const;
 export const UNIASSIST_ADDITIONAL_EUR = 30 as const;
 export const APS_INDIA_FEE_EUR = 225 as const; // illustrative — confirm with the APS office
 
+/**
+ * Post-graduation "long game" — EU Blue Card / PR / citizenship (long-game addendum §1). CURRENT 2026
+ * figures (NOT the stale competitor-infographic numbers). All needs_verification: thresholds change
+ * yearly and citizenship law is politically volatile (the 3-yr fast-track was repealed 30 Oct 2025).
+ */
+export const BLUE_CARD_STANDARD_EUR = 50700 as const; // gross/yr, effective 1 Jan 2026
+export const BLUE_CARD_SHORTAGE_EUR = 45934.2 as const; // shortage occupation / STEM / recent graduate
+export const BLUE_CARD_PR_MONTHS_B1 = 21 as const; // Blue Card → Niederlassungserlaubnis WITH B1 German
+export const BLUE_CARD_PR_MONTHS_NO_B1 = 27 as const; // WITHOUT B1
+export const CITIZENSHIP_YEARS = 5 as const; // since 27 Jun 2024 (was 8); 3-yr fast-track repealed 30 Oct 2025
+export const JOB_SEEKER_MONTHS = 18 as const;
+
 /** Countries whose applicants need an APS certificate — single source of truth in lib/country. */
 export { APS_REQUIRED_COUNTRIES } from "@/lib/country/country";
 
@@ -152,6 +164,34 @@ export const ANMELDUNG_WINDOW: OfficialFact = {
   needsVerification: false,
   note: "Register at the local Bürgeramt. Bring your passport and the landlord's Wohnungsgeberbestätigung.",
 };
+
+/* ── Post-graduation immigration ladder (long-game addendum) — current 2026, all needs_verification ── */
+
+export const BLUE_CARD_THRESHOLD: OfficialFact = {
+  label: "EU Blue Card — minimum gross salary (2026)",
+  value: "€50,700 / yr · €45,934.20 for shortage occupations, STEM & recent graduates",
+  source: source("blueCard"),
+  needsVerification: true,
+  note: "Effective 1 Jan 2026. The lower threshold covers shortage occupations (IT, engineering, natural sciences, maths, medicine, …) and applicants who graduated within the last 3 years. Confirm the current figures with make-it-in-germany / the Ausländerbehörde.",
+};
+
+export const BLUE_CARD_PR: OfficialFact = {
+  label: "EU Blue Card → permanent residence (Niederlassungserlaubnis)",
+  value: "21 months with B1 German · 27 months without",
+  source: source("settlement"),
+  needsVerification: true,
+  note: "The fastest route to PR. Requires continued qualified employment + pension contributions. Verify with the Ausländerbehörde.",
+};
+
+export const CITIZENSHIP_RULE: OfficialFact = {
+  label: "German citizenship — residence requirement (current law)",
+  value: "5 years' legal residence · dual citizenship allowed · B1 German + civics test",
+  source: source("citizenship"),
+  needsVerification: true,
+  note: "Reduced from 8 years on 27 Jun 2024. The 3-year fast-track was REPEALED effective 30 Oct 2025 — there is no general 3-year route. Citizenship law is politically volatile; verify the current rules before relying on them.",
+};
+
+export const IMMIGRATION_FACTS: OfficialFact[] = [BLUE_CARD_THRESHOLD, BLUE_CARD_PR, CITIZENSHIP_RULE];
 
 /* ── Academic structure ───────────────────────────────────────────────────── */
 

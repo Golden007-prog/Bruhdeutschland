@@ -61,6 +61,11 @@ export const SOURCES = {
   blueCard: { name: "Make it in Germany — EU Blue Card", url: "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card" },
   ausbildung: { name: "Make it in Germany — Vocational training (Ausbildung)", url: "https://www.make-it-in-germany.com/en/study-training/training" },
   uniAssistEval: { name: "uni-assist — Individual document assessment", url: "https://www.uni-assist.de/en/how-to-apply/assemble-your-documents/" },
+  citizenship: { name: "Make it in Germany — Citizenship & naturalisation", url: "https://www.make-it-in-germany.com/en/living-in-germany/settling-in/german-citizenship" },
+  settlement: { name: "BAMF — Permanent settlement (Niederlassungserlaubnis)", url: "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Aufenthaltsrecht/aufenthaltsrecht-node.html" },
+  shortageOccupations: { name: "Make it in Germany — In-demand professions & shortage occupations", url: "https://www.make-it-in-germany.com/en/working-in-germany/find-a-job/professions-in-demand" },
+  germanEducationSystem: { name: "Study in Germany — Types of higher-education institutions", url: "https://www.study-in-germany.de/en/plan-your-studies/types-of-universities/" },
+  jobMarket: { name: "Make it in Germany — Working in Germany (job market & salaries)", url: "https://www.make-it-in-germany.com/en/working-in-germany" },
 } as const satisfies Record<string, Source>;
 
 export type SourceKey = keyof typeof SOURCES;

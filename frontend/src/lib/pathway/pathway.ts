@@ -202,6 +202,16 @@ const medicine = (country: string, qualification: HighestQualification): Pathway
   };
 };
 
+/** 3-year Bachelor (<180 ECTS) bridge options (long-game addendum §8). */
+const ECTS_BRIDGE_NOTE: PathwayNote = {
+  label: "3-year Bachelor (<180 ECTS)? Three documented bridges",
+  detail:
+    "Many German Master's expect 180 ECTS. If your 3-year Bachelor is under 180 (even at an H+ university), the documented options are: (a) earn the extra credits / complete a higher semester — including in Germany; (b) apply to a private university that accepts a 3-year degree; or (c) do a 1-year Master in the relevant field to qualify. Acceptance is per-programme — verify before relying on any of them.",
+  tone: "info",
+  source: source("uniAssistVpd"),
+  needsVerification: true,
+};
+
 const master = (): PathwayResult => ({
   route: "master",
   title: "Route: Master's (existing flow)",
@@ -211,7 +221,7 @@ const master = (): PathwayResult => ({
     "Meet the programme's language requirement (English-taught: IELTS/TOEFL; German-taught: C1).",
     "Apply via uni-assist / the university (India: APS first).",
   ],
-  notes: [HZB_NOTE],
+  notes: [HZB_NOTE, ECTS_BRIDGE_NOTE],
   sources: [source("daad"), source("uniAssist")],
   needsVerification: true,
 });

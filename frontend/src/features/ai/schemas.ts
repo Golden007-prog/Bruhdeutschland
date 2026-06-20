@@ -116,6 +116,21 @@ export const skillGapAnalysisSchema = z.object({
 });
 export type SkillGapAnalysisResult = z.infer<typeof skillGapAnalysisSchema>;
 
+/* ── Career consultation (career/Counseling.tsx) ────────────────────────────────── */
+export const careerAdviceSchema = z.object({
+  fields: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        why: z.string().min(1),
+        tradeoffs: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(5),
+});
+export type CareerAdviceResult = z.infer<typeof careerAdviceSchema>;
+
 /* ── Visa interview feedback (Simulator.tsx) ────────────────────────────────────── */
 export const interviewFeedbackSchema = z.object({
   strengths: z.array(z.string().min(1)).max(6),
