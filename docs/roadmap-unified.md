@@ -14,6 +14,56 @@ effort (S<½d · M~1–3d · L~1wk+).
 > `reverseTimeline`, `feasibility`, `workDays`, `fundingGap`. Remaining open items below are the **P2/P3
 > a11y/perf/locale polish** (Wave 6 of the original plan) and the i18n infra bet — not yet done.
 
+---
+
+## Addendum — Second audit pass (2026-06-20): Section 9 persistence + refinement backlog
+
+A second deep audit (gap + defect + red-team + Section-9 coverage) ran on 2026-06-20. Key reconciliation:
+
+- **The 51 journey features above are confirmed shipped** (`frontend/src/lib/nav.tsx`: every G-id is a
+  route-registered page). The new gap pass's "missing feature" framing was over-stated; its genuine value
+  is a **depth/refinement + failure-path backlog** on already-shipped pages, captured in `gap-analysis.md`.
+- **The new confirmed build target is the Section-9 persistence layer** (`section9-coverage.md`), which was
+  out of scope of the first build and is genuinely missing: ~22 typed tables, generated-doc Storage,
+  cross-user ranking, 8 Edge Functions, GDPR export/delete, Drive backup, encrypted BYOK, versioned consent.
+- **Two real P0s** (`qa-findings.md` SEC-1, SEC-3) — broken GDPR delete + localStorage-as-source-of-truth —
+  are **fixed by the Section-9 build**, not as a separate workstream.
+
+### Section-9 build waves (this is the Phase-3 plan being executed)
+- **S9-A — Schema + isolation P0s (foundation).** Extend `profiles` (identity + `consent_version/at`),
+  enrich `handle_new_user`; create the missing typed per-user tables (account/background/pathway/roadmap/
+  practice/finance/visa-docs/outcomes/comms) with `user_id` FKs, indexes, RLS **enabled + forced**, and the
+  house `own rows` policy; promote personal data from `settings.data` JSONB into those tables (closes
+  **SEC-3**). Migrations in `/supabase/migrations`, reproducible from clean.
+- **S9-B — Generated-doc storage (§9.3).** Private `generated-docs` bucket (owner-folder RLS, mirror
+  `exam-audio`) + `generated_docs` table (type/version/storage_path/model_provenance/source_inputs_hash/
+  drive_file_id) + `persist_generated_doc` Edge Function; never overwrite (versioned).
+- **S9-C — Cross-user ranking (§9.4).** `leaderboard_stats` + `my_rank()` `SECURITY DEFINER` RPC returning
+  only caller rank/percentile + anonymized cohort aggregates (internal `auth.uid()` guard); opt-in
+  pseudonymous handle, default off; deterministic percentile math in **tested TS**; refresh via
+  `compute_leaderboard` (pg_cron). Red-team re-tests row-leakage post-build.
+- **S9-D — Edge Functions (§9.5).** `compute_leaderboard`, `recompute_progress`, `deadline_scan`,
+  `keep_alive` (scheduled) + `persist_generated_doc`; idempotent; **service-role key only inside Edge
+  Functions**, never bundled.
+- **S9-E — GDPR (§9.6).** `gdpr_export` (all rows + Storage files → ZIP/JSON) and `gdpr_delete` (hard-delete
+  all rows + Storage objects + revoke Drive link) Edge Functions; rewire `DataControls.tsx` to call them
+  (closes **SEC-1/SEC-2**). Encrypted `api_keys` table for BYOK (closes **SEC-7**); versioned `consents`
+  (closes **SEC-9**).
+- **S9-F — Optional Drive backup (§9.3).** Client "Connect Drive" via Google Identity Services using the
+  **`drive.file` scope only** (token client-side, never bundled); store `drive_file_id` in `generated_docs`.
+- **S9-G — Frontend wiring + tests.** Repoint each feature's persistence from JSONB-only to its typed table;
+  Vitest for the new write paths + percentile math; `security-review`. All green before deploy.
+
+### Refinement / failure-path backlog (from the 2nd gap pass — NOT this build's scope unless asked)
+Depth on shipped pages (per-program SOP/CV scoping, requirement→auto-checklist, offer-comparison cost model,
+profile-matched scholarships, single cost source-of-truth, unified deadline surface) + genuinely-missing
+**failure paths**: visa refusal/appeal, embassy/VFS slot acquisition + no-slot fallback, travel-health
+entry-insurance gap, Anmeldung no-appointment fallback, Haftpflicht guide, SCHUFA explainer, Approbation
+(regulated-profession) tracker, German job-search kit (market CV + Anschreiben + portals), permit-loss
+explainer. See `gap-analysis.md` (corrected) for the full prioritized list.
+
+---
+
 ## Wave 0 — Honesty & data-integrity P0s (do first; ~½ day total)
 - **QA P0-1** SkillGap: gate/relabel so a fresh user never sees the Jane-Doe mock as their own gaps. (S)
 - **QA P0-2** APS-India: make `apsStatusFor` carry `needsVerification:true` (render unstamped) and
