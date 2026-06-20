@@ -10,6 +10,36 @@ Legend: ✅ built & correct · 🟡 partial · ❌ missing.
 
 ---
 
+## Build status (post-implementation, 2026-06-21)
+
+The audit below was written **pre-build**; the gaps have since been implemented and deployed live
+(migrations `0008`–`0013`, edge function `gdpr_delete`, frontend wiring). Net state:
+
+| Area | Was | Now |
+|---|---|---|
+| §9.1 identity + versioned consent on `profiles` / enriched signup trigger | ❌/🟡 | ✅ `0008` + `consents`/`sessions`; `ConsentBanner` records version+time (SEC-9) |
+| §9.2 ~22 missing typed tables (RLS forced + owner) | ❌ | ✅ `0008`–`0011` (23 tables, all forced RLS, `TO authenticated`) |
+| §9.2 personal data in typed tables, not just JSONB (SEC-3 P0) | ❌ P0 | ✅ dual-write `applications`/`roadmap_items`/`deadlines` (`useTableSync`) |
+| §9.3 generated-doc Storage + `generated_docs` | ❌ | ✅ `0011` private bucket + versioned metadata |
+| §9.4 leak-proof opt-in ranking + tested percentile | ❌ | ✅ `0012` `my_rank`/`leaderboard_top` + `lib/rank/percentile` + `/leaderboard` UI |
+| §9.5 scheduled jobs + `gdpr_delete` | ❌ | ✅ `0013` pg_cron (4 jobs) + deployed `gdpr_delete` edge fn |
+| §9.6 GDPR export/delete everything (SEC-1 P0 / SEC-2) | ❌ P0 | ✅ `lib/gdpr/userData` + edge fn; `DataControls` rewired |
+| SEC-7 BYOK key per-user scoping | ❌ P2 | ✅ `keys.ts` scoped via `scopedKey` |
+| §9.3 Google Drive backup (`drive.file`) | ❌ | ⏸️ deferred (user opted out for now) |
+| §9.2 server-side **encrypted** `api_keys` table | ❌ | ⏸️ deferred — per-user local scoping shipped instead (server-side custody needs KMS/Vault) |
+
+**Accepted advisor warnings (not defects):** `my_rank` and `leaderboard_top` trip the
+`authenticated_security_definer_function_executable` lint by design — they are *meant* to be called by
+signed-in users. Leak-safety comes from the internal `auth.uid()` guard + aggregate-only / pseudonymous
+returns (red-team confirmed), not from RLS; `SECURITY INVOKER` would break cross-user aggregation. Do not
+"fix" by revoking. The pre-existing `extension_in_public` (vector/pg_trgm) + leaked-password warnings are
+unchanged.
+
+**Still to verify (not code):** that Google OAuth + email magic-link providers are enabled in the Supabase
+dashboard (§9.1).
+
+---
+
 ## 9.1 Auth & profile capture
 | Item | State | Evidence / Gap |
 |---|---|---|
