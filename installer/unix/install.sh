@@ -213,9 +213,25 @@ get_source() {
 #  STEP 5 -- npm install
 # ============================================================================
 install_deps() {
-  step "Installing app dependencies (npm install)..."
-  ( cd "$REPO_PATH" && npm install )
-  ok "Dependencies installed."
+  # Not an npm-workspaces monorepo: install EACH package in its own dir (root + frontend), or tsc/vite
+  # never land in frontend and `npm run owner` fails with "tsc not recognized". Prefer npm ci w/ a lockfile.
+  for pkg in "" "frontend"; do
+    dir="$REPO_PATH"
+    [ -n "$pkg" ] && dir="$REPO_PATH/$pkg"
+    [ -f "$dir/package.json" ] || continue
+    label="${pkg:-root}"
+    if [ -f "$dir/package-lock.json" ]; then verb="ci"; else verb="install"; fi
+    step "Installing $label dependencies (npm $verb)..."
+    if ! ( cd "$dir" && npm "$verb" ); then
+      if [ "$verb" = "ci" ]; then
+        warn "npm ci failed in $label (lockfile drift?); retrying with npm install."
+        ( cd "$dir" && npm install )
+      else
+        err "npm install failed in $label."; exit 1
+      fi
+    fi
+    ok "$label dependencies installed."
+  done
 }
 
 # ============================================================================

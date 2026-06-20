@@ -101,8 +101,10 @@ function Update-SessionPath {
 # live PATH first, then a few well-known install locations as a fallback so we
 # can call the binary by absolute path when the session PATH hasn't caught up.
 function Resolve-Tool($name, [string[]]$extraDirs = @()) {
-    $cmd = Get-Command $name -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
+    # Select-Object -First 1: Get-Command can return MULTIPLE matches (e.g. claude.cmd + claude.ps1);
+    # taking .Source off an array yields System.Object[]. Coerce to a single [string] path.
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cmd) { return [string]$cmd.Source }
     $candidates = @()
     foreach ($d in $extraDirs) {
         foreach ($ext in @("", ".exe", ".cmd")) {
@@ -110,7 +112,7 @@ function Resolve-Tool($name, [string[]]$extraDirs = @()) {
         }
     }
     foreach ($p in $candidates) {
-        if (Test-Path $p) { return (Resolve-Path $p).Path }
+        if (Test-Path $p) { return [string](Resolve-Path $p).Path }
     }
     return $null
 }
@@ -391,16 +393,31 @@ function Get-Source($parentFolder, $gitPath) {
 #  STEP 5 -- npm install
 # ==============================================================================
 function Install-Deps($repoPath, $npmPath) {
-    Write-Step "Installing app dependencies (npm install)... this can take a minute."
-    try {
-        Push-Location $repoPath
-        & $npmPath install
-        if ($LASTEXITCODE -ne 0) { throw "npm install exited with code $LASTEXITCODE" }
-        Write-Ok "Dependencies installed."
-    } catch {
-        throw "npm install failed: $($_.Exception.Message)"
-    } finally {
-        Pop-Location
+    # This is NOT an npm-workspaces monorepo: a root `npm install` does NOT install frontend's deps, so
+    # tsc/vite never land and `npm run owner` fails with "'tsc' is not recognized". Install EACH package
+    # in its own directory (root + frontend; tools/claude-bridge declares no deps). Prefer `npm ci` when a
+    # lockfile exists, falling back to `npm install`.
+    foreach ($pkg in @("", "frontend")) {
+        $dir = if ($pkg) { Join-Path $repoPath $pkg } else { $repoPath }
+        if (-not (Test-Path (Join-Path $dir "package.json"))) { continue }
+        $label = if ($pkg) { $pkg } else { "root" }
+        $useCi = Test-Path (Join-Path $dir "package-lock.json")
+        $verb  = if ($useCi) { "ci" } else { "install" }
+        Write-Step "Installing $label dependencies (npm $verb)... this can take a minute."
+        try {
+            Push-Location $dir
+            & $npmPath $verb
+            if ($LASTEXITCODE -ne 0 -and $useCi) {
+                Write-Warn2 "npm ci failed in $label (lockfile drift?); retrying with npm install."
+                & $npmPath install
+            }
+            if ($LASTEXITCODE -ne 0) { throw "npm exited with code $LASTEXITCODE" }
+            Write-Ok "$label dependencies installed."
+        } catch {
+            throw "npm install failed in ${label}: $($_.Exception.Message)"
+        } finally {
+            Pop-Location
+        }
     }
 }
 
@@ -482,16 +499,18 @@ function Invoke-ClaudeLogin($claudePath) {
 #  STEP 9 -- Optional Cloudflare tunnel (opt-in only)
 # ==============================================================================
 function Resolve-Cloudflared {
-    $cf = Get-Command cloudflared -ErrorAction SilentlyContinue
-    if ($cf) { return $cf.Source }
+    # Single-string path (Select-Object -First 1 + [string]) — never an array, or Start-Process -FilePath
+    # throws "Cannot convert System.Object[] to System.String".
+    $cf = Get-Command cloudflared -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cf) { return [string]$cf.Source }
     # Try winget.
     if (Test-WingetAvailable) {
         try {
             Write-Step "Installing cloudflared via winget..."
             winget install -e --id Cloudflare.cloudflared --silent --accept-package-agreements --accept-source-agreements
-            Update-SessionPath
-            $cf = Get-Command cloudflared -ErrorAction SilentlyContinue
-            if ($cf) { return $cf.Source }
+            Update-SessionPath   # refresh PATH so the freshly-installed cloudflared resolves in-process
+            $cf = Get-Command cloudflared -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cf) { return [string]$cf.Source }
         } catch {
             Write-Warn2 "winget cloudflared install failed ($($_.Exception.Message)); downloading the exe directly."
         }
@@ -502,7 +521,7 @@ function Resolve-Cloudflared {
         New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
         Write-Step "Downloading cloudflared-windows-amd64.exe..."
         Invoke-WebRequest -Uri $CLOUDFLARED_URL -OutFile $dest -UseBasicParsing
-        return $dest
+        return [string]$dest
     } catch {
         Write-Warn2 "Could not obtain cloudflared: $($_.Exception.Message)"
         return $null
@@ -538,7 +557,7 @@ function Start-OptionalTunnel {
     # Launch cloudflared and tee its output to a temp log so we can grab the URL.
     $logPath = Join-Path $env:TEMP ("cloudflared-" + [guid]::NewGuid().ToString("N") + ".log")
     try {
-        $proc = Start-Process -FilePath $cf `
+        $proc = Start-Process -FilePath ([string]$cf) `
             -ArgumentList @("tunnel", "--url", $BRIDGE_URL) `
             -RedirectStandardOutput $logPath `
             -RedirectStandardError  ($logPath + ".err") `
@@ -687,7 +706,8 @@ try {
     # ---------------------------------------------------------------- summary
     Write-Section "Done -- Summary"
     foreach ($k in $summary.Keys) {
-        Write-Host ("  {0,-22}: {1}" -f $k, $summary[$k]) -ForegroundColor White
+        # [string] coercion: defensive against any resolver that slipped an array/object into a value.
+        Write-Host ("  {0,-22}: {1}" -f $k, [string]$summary[$k]) -ForegroundColor White
     }
     Write-Host ""
     Write-Ok "Owner Mode should be reachable at $BRIDGE_URL shortly."
