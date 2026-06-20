@@ -162,6 +162,5 @@ export function useRoadmapSync<S extends string>(
       status: st,
     }));
     void upsertRows(supabase, "roadmap_items", rows, "user_id,step_id");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, uid]);
 }

@@ -59,6 +59,7 @@ import {
   Target,
   TramFront,
   TrendingUp,
+  Trophy,
   UserCircle,
   Users,
   Wallet,
@@ -127,6 +128,7 @@ const SeatDeadlinesPage = lazy(() => import("@/pages/overview/SeatDeadlines"));
 const CalendarPage = lazy(() => import("@/pages/overview/Calendar"));
 const NextActionsPage = lazy(() => import("@/pages/overview/NextActions"));
 const RemindersPage = lazy(() => import("@/pages/overview/Reminders"));
+const LeaderboardPage = lazy(() => import("@/pages/overview/Leaderboard"));
 const StartOverview = lazy(() => import("@/pages/start/Overview"));
 const StartEligibility = lazy(() => import("@/pages/start/Eligibility"));
 const StartFeasibility = lazy(() => import("@/pages/start/Feasibility"));
@@ -253,6 +255,7 @@ export const NAV: NavItem[] = [
   { path: "/calendar", label: "Deadline calendar", title: "Deadline calendar", eyebrow: "Kalender · Calendar", description: "Every application, VPD, visa, and Sperrkonto date on a month grid — plus deadlines you add yourself.", group: "overview", icon: CalendarDays, Component: CalendarPage },
   { path: "/next-actions", label: "Your next 3 actions", title: "You are here — your next 3 actions", eyebrow: "G50 · Overview", description: "One screen that reads your pathway and profile and tells you the single most useful thing to do next — and the two after it.", group: "overview", icon: Target, Component: NextActionsPage },
   { path: "/reminders", label: "Reminders & calendar export", title: "Reminders & calendar export", eyebrow: "G51 · Overview", description: "All your personal deadlines in one place, with a one-click calendar (.ics) export so your reminders live in the app you already check.", group: "overview", icon: BellRing, Component: RemindersPage },
+  { path: "/leaderboard", label: "Leaderboard", title: "Your standing", eyebrow: "Rangliste · Leaderboard", description: "See how your readiness, roadmap progress, mock bands, and streak compare — anonymously — against everyone else preparing. Opt in to a pseudonymous board.", group: "overview", icon: Trophy, Component: LeaderboardPage },
   { path: "/start", label: "Start here", title: "Start here — orient yourself in 5 minutes", eyebrow: "Phase 0 · Orientation", description: "New to studying in Germany? Four quick tools to learn whether you're eligible, by which route, by when, and at what total cost — before you invest in the full plan.", group: "start", icon: Compass, Component: StartOverview },
   { path: "/start/eligibility", label: "Eligibility quick-check", title: "Am I eligible? — 30-second check", eyebrow: "Phase 0 · Orientation", description: "Answer four questions and see whether — and by which route (direct Bachelor, Studienkolleg, Master, Medicine) — you can study in Germany. No signup, deterministic, grounded rules to verify.", group: "start", icon: ClipboardCheck, Component: StartEligibility },
   { path: "/start/feasibility", label: "Reality check", title: "Reality check — feasibility & years to finish", eyebrow: "Phase 0 · Orientation", description: "A blunt, honest read on how realistic your plan is and roughly how long it takes end-to-end, given your level, language, and target. A heuristic, not a guarantee.", group: "start", icon: Gauge, Component: StartFeasibility },

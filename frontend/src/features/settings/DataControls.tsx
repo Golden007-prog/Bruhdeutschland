@@ -62,8 +62,11 @@ export function DataControls() {
         const { data } = await supabase.auth.getUser();
         const id = data.user?.id;
         if (id) {
-          // §9.6: erase EVERY per-user table + Storage object, not just settings + profiles (SEC-1 fix).
-          await deleteAllUserData(supabase, id);
+          // §9.6: prefer the server-side gdpr_delete Edge Function — it erases every per-user row +
+          // Storage object AND the auth login itself. Fall back to the client-side erase (SEC-1 fix,
+          // all data + files but not the login) if the function is unavailable.
+          const { error } = await supabase.functions.invoke("gdpr_delete");
+          if (error) await deleteAllUserData(supabase, id);
           await supabase.auth.signOut();
         }
       }
