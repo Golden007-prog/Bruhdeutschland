@@ -56,3 +56,33 @@ describe("computeJourneyBudget", () => {
     expect(() => computeJourneyBudget({ ...BASE, flights: -1 })).toThrow();
   });
 });
+
+describe("computeJourneyBudget — G0-2 Studienkolleg / FSP line", () => {
+  it("adds no Studienkolleg line for a direct route", () => {
+    const r = computeJourneyBudget(BASE);
+    expect(r.studienkollegTotal).toBe(0);
+    expect(r.oneTime.find((l) => l.key === "studienkolleg")).toBeUndefined();
+  });
+
+  it("bills two semesters and folds them into the one-time total", () => {
+    const r = computeJourneyBudget({ ...BASE, studienkolleg: true, studienkollegPerSemester: 150 });
+    const line = r.oneTime.find((l) => l.key === "studienkolleg");
+    expect(r.studienkollegTotal).toBe(300); // 150 × 2 semesters
+    expect(line?.amount).toBe(300);
+    expect(line?.needsVerification).toBe(true); // never asserted as grounded — varies by college
+    // The line flows into the one-time total: base 2795 + 300.
+    expect(r.oneTimeTotal).toBe(2795 + 300);
+  });
+
+  it("treats a missing per-semester cost as zero (still flagged)", () => {
+    const r = computeJourneyBudget({ ...BASE, studienkolleg: true });
+    expect(r.studienkollegTotal).toBe(0);
+    expect(r.oneTime.find((l) => l.key === "studienkolleg")?.amount).toBe(0);
+  });
+
+  it("rejects a negative per-semester cost", () => {
+    expect(() =>
+      computeJourneyBudget({ ...BASE, studienkolleg: true, studienkollegPerSemester: -1 }),
+    ).toThrow();
+  });
+});

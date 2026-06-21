@@ -52,3 +52,41 @@ export function creditsToEcts(totalCredits: number, homeCreditsPerYear: number):
   if (homeCreditsPerYear <= 0) throw new Error("homeCreditsPerYear must be positive");
   return Math.round(((totalCredits / homeCreditsPerYear) * ECTS_PER_YEAR) * 100) / 100;
 }
+
+/** The ECTS most German Master's expect from a completed Bachelor (3 full-time years). */
+export const TARGET_BACHELOR_ECTS = 180;
+
+export interface EctsGapResult {
+  held: number;
+  target: number;
+  /** Credits short of the target — 0 when held ≥ target. */
+  deficit: number;
+  /** Credits over the target — 0 when held < target. */
+  surplus: number;
+  /** True when the held total already meets/exceeds the target. */
+  meetsTarget: boolean;
+  /** The deficit expressed in equivalent full-time semesters (30 ECTS each), to one decimal. */
+  deficitSemesters: number;
+}
+
+/**
+ * Deterministic ECTS gap to a target (gap analysis G1-3). German Master's commonly expect 180 ECTS; a
+ * 3-year Bachelor under that is "short" and the pathway engine documents bridge options. This computes
+ * ONLY the arithmetic shortfall — whether a given programme actually accepts a sub-180 degree is decided
+ * per-programme by uni-assist / the university and is never asserted here (CLAUDE.md golden rule #2/#4).
+ */
+export function ectsGap(held: number, target: number = TARGET_BACHELOR_ECTS): EctsGapResult {
+  if (!Number.isFinite(held) || held < 0) throw new Error("held ECTS must be a non-negative number");
+  if (!Number.isFinite(target) || target <= 0) throw new Error("target ECTS must be positive");
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const deficit = held >= target ? 0 : round2(target - held);
+  const surplus = held > target ? round2(held - target) : 0;
+  return {
+    held: round2(held),
+    target: round2(target),
+    deficit,
+    surplus,
+    meetsTarget: held >= target,
+    deficitSemesters: Math.round((deficit / 30) * 10) / 10,
+  };
+}

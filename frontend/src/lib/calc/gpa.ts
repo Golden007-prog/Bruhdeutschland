@@ -85,6 +85,39 @@ export function formatGermanGrade(value: number): string {
   return value.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
+/**
+ * Indicative competitiveness tier from a German grade (gap analysis G1-1). This is an ORIENTATION band,
+ * NOT an admission threshold — German programmes set their own (often per-year) cut-offs, decided by the
+ * university/anabin, never by us (CLAUDE.md golden rule #2). The bands are deliberately coarse and the
+ * UI must label every output "indicative, non-binding". Lower German grade = better (1,0 is best).
+ */
+export type GradeTier = "top" | "competitive" | "moderate" | "limited" | "below_pass";
+
+export interface GradeTierInfo {
+  tier: GradeTier;
+  label: string;
+  /** A plain-language, explicitly non-binding read on what this grade tends to open. */
+  detail: string;
+}
+
+const TIER_INFO: Record<GradeTier, GradeTierInfo> = {
+  top: { tier: "top", label: "Top band (≤ 1,5)", detail: "Around 1,0–1,5 — generally opens the widest set of programmes, including selective ones. Still no guarantee: NC programmes set their own yearly cut-offs." },
+  competitive: { tier: "competitive", label: "Competitive (1,6–2,5)", detail: "Around 1,6–2,5 — a solid, competitive range for many programmes; very selective ones may sit out of reach in a strong year." },
+  moderate: { tier: "moderate", label: "Moderate (2,6–3,0)", detail: "Around 2,6–3,0 — workable for less selective programmes; widen your shortlist and lean on a strong overall profile." },
+  limited: { tier: "limited", label: "Limited (3,1–4,0)", detail: "Around 3,1–4,0 — still a pass, but options narrow; target programmes with open or low-NC admission and strengthen other parts of your file." },
+  below_pass: { tier: "below_pass", label: "Below passing", detail: "Below the German passing bar (worse than 4,0) — this would not meet a degree's minimum; re-check the grade and scale entered." },
+};
+
+/** Map a German grade (1,0 best … 4,0 pass) to an indicative, NON-BINDING competitiveness tier. */
+export function gradeTier(germanGrade: number): GradeTierInfo {
+  if (!Number.isFinite(germanGrade)) throw new Error("germanGrade must be finite");
+  if (germanGrade > PASS_GERMAN_GRADE + TOL) return TIER_INFO.below_pass;
+  if (germanGrade <= 1.5) return TIER_INFO.top;
+  if (germanGrade <= 2.5) return TIER_INFO.competitive;
+  if (germanGrade <= 3.0) return TIER_INFO.moderate;
+  return TIER_INFO.limited;
+}
+
 /** Common source scales offered in the Profile Evaluation UI. */
 export const COMMON_SCALES: Record<string, GradeScale> = {
   // India / many systems: percentage, 100 best, 40 typical pass.

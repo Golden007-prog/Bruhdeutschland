@@ -53,6 +53,11 @@ export default function StartOverview() {
         <Link to="/profile/parse" className="font-medium text-primary hover:underline">Résumé parsing</Link>{" "}
         and your personalised plan appears across the dashboard, roadmap, and every tool.
       </p>
+
+      <p className="text-sm text-muted-foreground">
+        Still finishing <span className="font-medium text-foreground">Class 10</span>? You're early, not stuck —{" "}
+        <Link to="/start/class-10" className="font-medium text-primary hover:underline">here's your runway</Link>.
+      </p>
     </div>
   );
 }

@@ -4,6 +4,9 @@ import {
   intakeStartMonth,
   monthDiff,
   reverseTimeline,
+  routeNeedsStudienkolleg,
+  STUDIENKOLLEG_LEAD_MONTHS,
+  STUDIENKOLLEG_MILESTONES,
   TIMELINE_MILESTONES,
 } from "./reverseTimeline";
 
@@ -48,6 +51,57 @@ describe("reverseTimeline", () => {
     // But planning the same intake from Sept 2026, most milestones are overdue.
     const late = reverseTimeline("WS", 2026, new Date(2026, 8, 1));
     expect(late.find((m) => m.key === "research")?.overdue).toBe(true);
+  });
+});
+
+describe("routeNeedsStudienkolleg", () => {
+  it("is true for studienkolleg and medicine (school-leaver arc)", () => {
+    expect(routeNeedsStudienkolleg("studienkolleg")).toBe(true);
+    expect(routeNeedsStudienkolleg("medicine")).toBe(true);
+  });
+  it("is false for direct routes and when omitted", () => {
+    expect(routeNeedsStudienkolleg("master")).toBe(false);
+    expect(routeNeedsStudienkolleg("direct_bachelor")).toBe(false);
+    expect(routeNeedsStudienkolleg(undefined)).toBe(false);
+  });
+});
+
+describe("reverseTimeline — G0-1 route-aware Studienkolleg arc", () => {
+  const now = new Date(2025, 5, 1); // June 2025
+
+  it("leaves the direct arc unchanged for a master route", () => {
+    const direct = reverseTimeline("WS", 2026, now);
+    const master = reverseTimeline("WS", 2026, now, "master");
+    expect(master).toHaveLength(direct.length);
+    expect(master).toHaveLength(TIMELINE_MILESTONES.length);
+    expect(master.find((m) => m.key === "apply")?.month).toBe("2026-06");
+  });
+
+  it("prepends the Studienkolleg pre-arc for a studienkolleg route", () => {
+    const sk = reverseTimeline("WS", 2026, now, "studienkolleg");
+    expect(sk).toHaveLength(TIMELINE_MILESTONES.length + STUDIENKOLLEG_MILESTONES.length);
+    // The pre-arc milestones come first and the standard "research" still anchors to the degree intake.
+    expect(sk[0].key).toBe("sk-german-b1");
+    expect(sk.find((m) => m.key === "research")?.month).toBe("2025-08");
+  });
+
+  it("back-dates the pre-arc a further STUDIENKOLLEG_LEAD_MONTHS ahead of the degree intake", () => {
+    const sk = reverseTimeline("WS", 2026, now, "studienkolleg");
+    // sk-start has monthsBefore 0; it sits LEAD_MONTHS (14) before the WS2026 (Oct) intake start.
+    const skStart = sk.find((m) => m.key === "sk-start");
+    // Oct 2026 − 14 months = Aug 2025.
+    expect(skStart?.month).toBe("2025-08");
+    // The whole pre-arc lands on/before the first standard milestone ("research", Aug 2025).
+    const research = sk.find((m) => m.key === "research")!;
+    const skB1 = sk.find((m) => m.key === "sk-german-b1")!;
+    expect(skB1.monthsFromNow).toBeLessThanOrEqual(research.monthsFromNow);
+    expect(STUDIENKOLLEG_LEAD_MONTHS).toBe(14);
+  });
+
+  it("treats school-leaver medicine like the Studienkolleg arc", () => {
+    const med = reverseTimeline("WS", 2026, now, "medicine");
+    expect(med).toHaveLength(TIMELINE_MILESTONES.length + STUDIENKOLLEG_MILESTONES.length);
+    expect(med[0].key).toBe("sk-german-b1");
   });
 });
 

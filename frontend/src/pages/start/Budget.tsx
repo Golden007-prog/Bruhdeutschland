@@ -9,12 +9,34 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SourceList } from "@/components/common/SourceLink";
 import { computeJourneyBudget } from "@/lib/calc/journeyBudget";
+import { STUDIENKOLLEG_LEAD_MONTHS, routeNeedsStudienkolleg } from "@/lib/calc/reverseTimeline";
 import { CITY_PROFILES, formatEur } from "@/lib/calc/costOfLiving";
 import { APS_INDIA_FEE_EUR, SPERRKONTO_MONTH_EUR, SPERRKONTO_YEAR_EUR, UNIASSIST_ADDITIONAL_EUR, UNIASSIST_FIRST_EUR, VISA_FEE_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
+import { evaluatePathway } from "@/lib/pathway/pathway";
+import { summarizeEducation } from "@/lib/profile/education";
 import { useProfile } from "@/lib/profile/useProfile";
 import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
+
+/**
+ * Indicative one-way flight estimate (€) keyed by home country (G0-5). Origin-appropriate, not grounded —
+ * fares swing widely by season/booking window, so the UI lets the user override and never asserts a price.
+ */
+const FLIGHT_ESTIMATE_EUR: Record<string, number> = {
+  india: 500,
+  bangladesh: 550,
+  pakistan: 550,
+  china: 600,
+  vietnam: 600,
+  mongolia: 650,
+};
+function flightEstimateFor(country: string): number {
+  return FLIGHT_ESTIMATE_EUR[country.trim().toLowerCase()] ?? 500;
+}
+
+/** Indicative public-Studienkolleg cost per semester (Semesterbeitrag only) — varies by college, flagged. */
+const STUDIENKOLLEG_PUBLIC_PER_SEMESTER_EUR = 250;
 
 const selectClass = cn(
   "flex h-10 w-full rounded-md border bg-card px-3 py-1 text-sm shadow-sm",
@@ -67,16 +89,35 @@ function NumberField({
 export default function StartBudget() {
   const { profile } = useProfile();
   const apsRequired = apsStatusFor(profile.homeCountry).status === "required";
-  const defaultMonths = profile.targetLevel === "bachelor" ? 36 : profile.targetLevel === "medicine" ? 72 : 24;
+
+  // G0-2: route from the grounded pathway engine. A Studienkolleg school-leaver budgets the extra
+  // prep+Kolleg year of living + a Studienkolleg/FSP one-time line the direct arc omits.
+  const route = useMemo(
+    () =>
+      evaluatePathway({
+        country: profile.homeCountry,
+        highestQualification: profile.highestQualification,
+        targetLevel: profile.targetLevel,
+        targetSubject: profile.targetField || profile.currentDegree,
+        education: summarizeEducation(profile),
+      }).route,
+    [profile],
+  );
+  const isStudienkolleg = routeNeedsStudienkolleg(route);
+
+  // Base degree months by level; the Studienkolleg route adds the ~14-month prep+Kolleg arc of living.
+  const baseMonths = profile.targetLevel === "bachelor" ? 36 : profile.targetLevel === "medicine" ? 72 : 24;
+  const defaultMonths = baseMonths + (isStudienkolleg ? STUDIENKOLLEG_LEAD_MONTHS : 0);
 
   const [city, setCity] = useState(CITY_PROFILES[CITY_PROFILES.length - 1].city);
   const [applications, setApplications] = useState(3);
   const [translationDocs, setTranslationDocs] = useState(4);
   const [months, setMonths] = useState(defaultMonths);
   const [apsFee, setApsFee] = useState(apsRequired ? DEFAULTS.apsFee : 0);
-  const [flights, setFlights] = useState(500);
+  const [flights, setFlights] = useState(() => flightEstimateFor(profile.homeCountry));
   const [deposit, setDeposit] = useState(1500);
   const [misc, setMisc] = useState(200);
+  const [studienkollegPerSemester, setStudienkollegPerSemester] = useState(STUDIENKOLLEG_PUBLIC_PER_SEMESTER_EUR);
 
   const cityProfile = CITY_PROFILES.find((c) => c.city === city) ?? CITY_PROFILES[CITY_PROFILES.length - 1];
   const monthlyCost = cityProfile.rent + cityProfile.food + cityProfile.transport + cityProfile.insurance + cityProfile.other;
@@ -97,8 +138,10 @@ export default function StartBudget() {
         blockedAccount: DEFAULTS.blockedAccount,
         monthlyCost,
         months,
+        studienkolleg: isStudienkolleg,
+        studienkollegPerSemester,
       }),
-    [apsFee, applications, translationDocs, flights, deposit, misc, monthlyCost, months],
+    [apsFee, applications, translationDocs, flights, deposit, misc, monthlyCost, months, isStudienkolleg, studienkollegPerSemester],
   );
 
   return (
@@ -126,9 +169,18 @@ export default function StartBudget() {
           </div>
           <NumberField id="bud-apps" label="Programmes via uni-assist" value={applications} onChange={setApplications} hint={`€${DEFAULTS.uniAssistFirst} first + €${DEFAULTS.uniAssistAdditional} each extra`} />
           <NumberField id="bud-trans" label="Documents to translate" value={translationDocs} onChange={setTranslationDocs} hint={`≈ €${DEFAULTS.translationPerDoc} per certified document`} />
-          <NumberField id="bud-months" label="Months in Germany" value={months} onChange={setMonths} hint="e.g. 24 for a Master's" />
+          <NumberField id="bud-months" label="Months in Germany" value={months} onChange={setMonths} hint={isStudienkolleg ? `Includes ~${STUDIENKOLLEG_LEAD_MONTHS} months for the Studienkolleg + FSP year before the degree` : "e.g. 24 for a Master's"} />
+          {isStudienkolleg && (
+            <NumberField
+              id="bud-stk"
+              label="Studienkolleg / semester (€)"
+              value={studienkollegPerSemester}
+              onChange={setStudienkollegPerSemester}
+              hint="Public ≈ Semesterbeitrag only; private charges tuition (much higher). Billed ×2 semesters — verify with the college."
+            />
+          )}
           <NumberField id="bud-aps" label="APS certificate fee (€)" value={apsFee} onChange={setApsFee} hint={apsRequired ? "Required for your country — verify the fee" : "Not required for your country"} />
-          <NumberField id="bud-flights" label="Flights to Germany (€)" value={flights} onChange={setFlights} />
+          <NumberField id="bud-flights" label="Flights to Germany (€)" value={flights} onChange={setFlights} hint={`Estimate from ${profile.homeCountry || "your country"} — fares vary by season; override freely`} />
           <NumberField id="bud-deposit" label="Rental deposit / Kaution (€)" value={deposit} onChange={setDeposit} hint="Often 1–3 months' cold rent" />
           <NumberField id="bud-misc" label="Other one-time costs (€)" value={misc} onChange={setMisc} hint="Apostille, courier, SIM, medical…" />
         </section>

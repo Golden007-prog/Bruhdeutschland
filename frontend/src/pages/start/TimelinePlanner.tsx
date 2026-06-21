@@ -7,7 +7,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { SourceLink } from "@/components/common/SourceLink";
 import { useProfile } from "@/lib/profile/useProfile";
-import { reverseTimeline, type DatedMilestone, type IntakeSeason } from "@/lib/calc/reverseTimeline";
+import { summarizeEducation } from "@/lib/profile/education";
+import { evaluatePathway } from "@/lib/pathway/pathway";
+import {
+  reverseTimeline,
+  routeNeedsStudienkolleg,
+  STUDIENKOLLEG_LEAD_MONTHS,
+  type DatedMilestone,
+  type IntakeSeason,
+} from "@/lib/calc/reverseTimeline";
 import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +47,8 @@ const MONTH_LABEL = (ym: string): string => {
   return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 };
 
-/** Gap G03 — Reverse timeline planner. Back-dates the journey's milestones from a chosen intake. */
+/** Gap G03 / G0-1 — Reverse timeline planner. Back-dates the journey's milestones from a chosen intake,
+ *  and (G0-1) prepends the Studienkolleg → FSP arc for a school-leaver route. */
 export default function StartTimelinePlanner() {
   const { profile } = useProfile();
   const thisYear = new Date().getFullYear();
@@ -49,7 +58,21 @@ export default function StartTimelinePlanner() {
     return Number.isFinite(parsed) && parsed >= thisYear ? parsed : thisYear + 1;
   });
 
-  const milestones = useMemo(() => reverseTimeline(season, year), [season, year]);
+  // G0-1: read the grounded pathway route so a Studienkolleg/Medicine school-leaver gets the longer arc.
+  const route = useMemo(
+    () =>
+      evaluatePathway({
+        country: profile.homeCountry,
+        highestQualification: profile.highestQualification,
+        targetLevel: profile.targetLevel,
+        targetSubject: profile.targetField || profile.currentDegree,
+        education: summarizeEducation(profile),
+      }).route,
+    [profile],
+  );
+  const isStudienkolleg = routeNeedsStudienkolleg(route);
+
+  const milestones = useMemo(() => reverseTimeline(season, year, new Date(), route), [season, year, route]);
   const overdueCount = milestones.filter((m) => m.overdue).length;
   const years = [thisYear, thisYear + 1, thisYear + 2, thisYear + 3];
 
@@ -78,9 +101,22 @@ export default function StartTimelinePlanner() {
           </select>
         </div>
         <p className="text-sm text-muted-foreground">
-          Planning for <span className="font-medium text-foreground">{season === "WS" ? "Winter" : "Summer"} {year}</span> — intake starts {MONTH_LABEL(milestones[milestones.length - 1].month)}.
+          Planning for <span className="font-medium text-foreground">{season === "WS" ? "Winter" : "Summer"} {year}</span> — intake starts {MONTH_LABEL(milestones.find((m) => m.key === "arrival")?.month ?? milestones[milestones.length - 1].month)}.
         </p>
       </section>
+
+      {isStudienkolleg && (
+        <Alert variant="info" className="text-sm">
+          <Info aria-hidden />
+          <AlertDescription>
+            Your pathway routes through a <strong>Studienkolleg</strong>{route === "medicine" ? " (Medicine M-Kurs)" : ""}, so this
+            timeline adds an entrance-exam → one-year Studienkolleg → <strong>FSP</strong> arc <em>before</em> the
+            degree application — roughly <strong>{STUDIENKOLLEG_LEAD_MONTHS} extra months</strong> of lead. Exact
+            durations and term dates vary by college; treat these as planning anchors and confirm with the college.
+            <span className="mt-1 block"><SourceLink source={source("studienkolleg")} /></span>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {overdueCount > 0 && (
         <Alert variant="warning" className="text-sm">

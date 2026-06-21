@@ -1,11 +1,41 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, ExternalLink, FileBadge, Info, OctagonAlert, TriangleAlert } from "lucide-react";
+import { ArrowRight, CheckCircle2, ExternalLink, FileBadge, Info, OctagonAlert, Sparkles, TriangleAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
-import { SourceList } from "@/components/common/SourceLink";
+import { SourceLink, SourceList } from "@/components/common/SourceLink";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { useProfile } from "@/lib/profile/useProfile";
+import { KNOWN_COUNTRIES } from "@/lib/country/country";
+import { CERT_OPTIONS, hzbPreFilter, type CertType, type HzbCategory } from "@/lib/seed/hzbPreFilter";
 import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
+
+const selectClass = cn(
+  "h-10 w-full rounded-md border bg-card px-3 text-sm shadow-sm",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+);
+
+const HINT_TONE: Record<HzbCategory, string> = {
+  general: "border-emerald-200 bg-emerald-50/60",
+  restricted: "border-amber-200 bg-amber-50/60",
+  after_university: "border-amber-200 bg-amber-50/60",
+  vocational: "border-red-200 bg-red-50/60",
+  unknown: "border-sky-200 bg-sky-50/60",
+};
+
+/** Default the cert dropdown from the profile's highest qualification, when set. */
+function certFromQualification(q: string): CertType {
+  switch (q) {
+    case "class10": return "class10";
+    case "class12": return "class12";
+    case "some_bachelor": return "some_university";
+    case "bachelor": return "bachelor";
+    case "master": return "master";
+    default: return "class12";
+  }
+}
 
 const CATEGORIES: { tag: string; label: string; detail: string; tone: "ok" | "warn" | "block" }[] = [
   { tag: "H+", label: "Direct general access", detail: "Your certificate gives direct access to study any subject — closest to a German Abitur.", tone: "ok" },
@@ -29,8 +59,18 @@ const TONE_CLS = {
 
 const TONE_ICON = { ok: CheckCircle2, warn: TriangleAlert, block: OctagonAlert } as const;
 
-/** G05 — Recognition (anabin / HZB) guided lookup. We orient; anabin/the university decides. */
+/** G05 / G1-5 — Recognition (anabin / HZB) guided lookup + a non-binding country+cert pre-filter.
+ *  We orient; anabin / the university decides. */
 export default function ProfileRecognition() {
+  const { profile } = useProfile();
+  const countryOptions = useMemo(
+    () => Array.from(new Set([...KNOWN_COUNTRIES, profile.homeCountry].filter(Boolean))),
+    [profile.homeCountry],
+  );
+  const [country, setCountry] = useState(profile.homeCountry || KNOWN_COUNTRIES[0] || "India");
+  const [cert, setCert] = useState<CertType>(() => certFromQualification(profile.highestQualification));
+  const hint = useMemo(() => hzbPreFilter(country, cert), [country, cert]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -47,6 +87,43 @@ export default function ProfileRecognition() {
           (the KMK database) and your university's — this page tells you exactly how to find it.
         </AlertDescription>
       </Alert>
+
+      {/* G1-5 — non-binding pre-filter to orient before the anabin lookup. */}
+      <section className="rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-category-profile" aria-hidden /> Quick orientation (non-binding)
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pick your country and certificate for a <em>likely</em> category — just to narrow what to look for on
+          anabin. This is a hint, not a decision.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label htmlFor="rec-country" className="text-xs font-medium text-muted-foreground">Country of study</label>
+            <select id="rec-country" className={selectClass} value={country} onChange={(e) => setCountry(e.target.value)}>
+              {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="rec-cert" className="text-xs font-medium text-muted-foreground">Your highest certificate</label>
+            <select id="rec-cert" className={selectClass} value={cert} onChange={(e) => setCert(e.target.value as CertType)}>
+              {CERT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className={cn("mt-3 rounded-md border p-3", HINT_TONE[hint.category])}>
+          <p className="flex items-center justify-between gap-2 text-sm font-semibold">
+            {hint.label}
+            <Badge variant="outline" className="text-[0.6rem]">indicative · verify on anabin</Badge>
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{hint.detail}</p>
+          <p className="mt-2"><SourceLink source={hint.source} /></p>
+        </div>
+        <p className="mt-2 text-[0.7rem] text-muted-foreground">
+          anabin and your university make the binding call. Use this only to know which note to look for, then
+          confirm it yourself below.
+        </p>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">The HZB categories</h2>
