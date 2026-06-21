@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Gauge, Info, TriangleAlert } from "lucide-react";
 
@@ -11,16 +11,24 @@ import { checkBlueCard } from "@/lib/immigration/blueCard";
 import { isShortageOccupation } from "@/lib/career/fields";
 import { BLUE_CARD_THRESHOLD } from "@/lib/facts";
 import { formatEur } from "@/lib/calc/costOfLiving";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useProfile } from "@/lib/profile/useProfile";
 import { cn } from "@/lib/utils";
 
-/** Long-game §3 — EU Blue Card salary-threshold checker (deterministic, grounded 2026). */
+/** Long-game §3 — EU Blue Card salary-threshold checker (deterministic, grounded 2026; persisted). */
 export default function ArrivalBlueCardCheck() {
   const { profile } = useProfile();
-  const [salary, setSalary] = useState(50000);
-  const [field, setField] = useState(profile.targetField || profile.currentDegree || "");
-  const [recentGraduate, setRecentGraduate] = useState(true);
-  const [shortageOverride, setShortageOverride] = useState<boolean | null>(null);
+  // Persisted (G9-05) so the salary check survives navigation, like the PR/citizenship tracker.
+  const [salary, setSalary] = useSyncedState<number>("bluecard:salary", 50000);
+  const [field, setField] = useSyncedState<string>(
+    "bluecard:field",
+    profile.targetField || profile.currentDegree || "",
+  );
+  const [recentGraduate, setRecentGraduate] = useSyncedState<boolean>("bluecard:recentGraduate", true);
+  const [shortageOverride, setShortageOverride] = useSyncedState<boolean | null>(
+    "bluecard:shortageOverride",
+    null,
+  );
 
   const detectedShortage = isShortageOccupation(field);
   const shortage = shortageOverride ?? detectedShortage;
