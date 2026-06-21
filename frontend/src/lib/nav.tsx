@@ -7,6 +7,7 @@ import {
   Activity,
   Award,
   Backpack,
+  BadgeCheck,
   BarChart3,
   BellRing,
   BookOpen,
@@ -41,6 +42,7 @@ import {
   Layers,
   LayoutDashboard,
   Library,
+  LifeBuoy,
   ListChecks,
   Map,
   MapPin,
@@ -52,6 +54,7 @@ import {
   ScanLine,
   School,
   ScrollText,
+  Search,
   Settings,
   ShieldCheck,
   Sigma,
@@ -140,6 +143,7 @@ const CareerOverview = lazy(() => import("@/pages/career/Overview"));
 const CareerCounseling = lazy(() => import("@/pages/career/Counseling"));
 const CareerOutcomes = lazy(() => import("@/pages/career/Outcomes"));
 const CareerEducationSystem = lazy(() => import("@/pages/career/EducationSystem"));
+const CareerJobSearch = lazy(() => import("@/pages/career/JobSearch"));
 const ProfileOverview = lazy(() => import("@/pages/profile/Overview"));
 const ProfileParse = lazy(() => import("@/pages/profile/Parse"));
 const ProfileEvaluate = lazy(() => import("@/pages/profile/Evaluate"));
@@ -222,6 +226,8 @@ const ArrivalUniversityOnboarding = lazy(() => import("@/pages/arrival/Universit
 const ArrivalAnmeldungRunbook = lazy(() => import("@/pages/arrival/AnmeldungRunbook"));
 const ArrivalRundfunkbeitrag = lazy(() => import("@/pages/arrival/Rundfunkbeitrag"));
 const ArrivalJobSeekerPermit = lazy(() => import("@/pages/arrival/JobSeekerPermit"));
+const ArrivalRecognition = lazy(() => import("@/pages/arrival/Recognition"));
+const ArrivalSupport = lazy(() => import("@/pages/arrival/Support"));
 const ArrivalFamilyReunion = lazy(() => import("@/pages/arrival/FamilyReunion"));
 const ArrivalRenewals = lazy(() => import("@/pages/arrival/Renewals"));
 const ArrivalArrivalDay = lazy(() => import("@/pages/arrival/ArrivalDay"));
@@ -270,6 +276,7 @@ export const NAV: NavItem[] = [
   { path: "/career/counseling", label: "Counseling & course choice", title: "Career counseling & course selection", eyebrow: "§ Counseling", description: "A short interest self-check plus optional AI consultation turns your background and interests into German programme fields to explore — then feeds straight into university matching.", group: "career", icon: MessageSquare, Component: CareerCounseling },
   { path: "/career/outcomes", label: "Career outcomes & demand", title: "Career outcomes & job market", eyebrow: "§ Outcomes", description: "What each field leads to in Germany — typical roles, demand, shortage-occupation status, and which EU Blue Card threshold it maps to. Qualitative + grounded; no invented salaries.", group: "career", icon: TrendingUp, Component: CareerOutcomes },
   { path: "/career/education-system", label: "German education system", title: "How the German education system works", eyebrow: "§ Orientation", description: "Universität vs Technische Universität vs Fachhochschule (FH), and the school structure behind the HZB — so recognition and your options make sense.", group: "career", icon: School, Component: CareerEducationSystem },
+  { path: "/career/job-search", label: "German job-search toolkit", title: "Finding & applying for a German job", eyebrow: "§ Job search", description: "Where to search, a German CV vs Europass and Anschreiben scaffold, Arbeitszeugnis literacy, and how a Werkstudent role converts to a permanent, visa-sponsoring job.", group: "career", icon: Search, Component: CareerJobSearch },
   { path: "/profile", label: "Overview", title: "Profile & Assessment", eyebrow: "Bereich A · Profile & Assessment", description: "Turn your resume into a German-readable academic profile: parsed facts, a converted grade, matched programs, and skill gaps.", group: "profile", category: "profile", icon: UserCircle, Component: ProfileOverview },
   { path: "/profile/parse", label: "Resume / LinkedIn parsing", title: "Resume & LinkedIn parsing", eyebrow: "Feature 01 · Profile", description: "Extract structured facts from a resume, LinkedIn export, or intake form — handled as personal data.", group: "profile", category: "profile", icon: ScanLine, featureNo: 1, Component: ProfileParse },
   { path: "/profile/evaluate", label: "Profile evaluation (GPA)", title: "Profile evaluation — GPA → German grade", eyebrow: "Feature 02 · Profile", description: "Convert your grade to the German 1.0–4.0 scale with the deterministic Modified Bavarian Formula.", group: "profile", category: "profile", icon: Gauge, featureNo: 2, Component: ProfileEvaluate },
@@ -352,6 +359,8 @@ export const NAV: NavItem[] = [
   { path: "/arrival/anmeldung-runbook", label: "Anmeldung runbook", title: "Anmeldung — booking & document runbook", eyebrow: "G42 · Arrival", description: "A practical, city-agnostic runbook for booking the Bürgeramt appointment and bringing exactly the right documents the first time.", group: "arrival", icon: ClipboardList, Component: ArrivalAnmeldungRunbook },
   { path: "/arrival/rundfunkbeitrag", label: "Rundfunkbeitrag & utilities", title: "Rundfunkbeitrag & utilities setup", eyebrow: "G43 · Arrival", description: "The mandatory broadcasting fee per household, plus electricity, internet, and liability insurance — the bills that blindside new arrivals.", group: "arrival", icon: Coins, Component: ArrivalRundfunkbeitrag },
   { path: "/arrival/job-seeker-permit", label: "Post-study job-seeker permit", title: "18-month post-study job-seeker permit", eyebrow: "G44 · Ongoing", description: "After graduation you can stay up to 18 months to find qualified work — what it allows, when to apply, and the path to a work permit or Blue Card.", group: "arrival", icon: Briefcase, disclaimer: true, Component: ArrivalJobSeekerPermit },
+  { path: "/arrival/recognition", label: "Professional recognition", title: "Professional recognition (Approbation & regulated professions)", eyebrow: "G8-01 · Arrival", description: "Medicine, nursing, law, teaching and chamber professions need their qualification recognised before you can legally work — the authority class, the language bar, and the deficit-exam path.", group: "arrival", icon: BadgeCheck, disclaimer: true, Component: ArrivalRecognition },
+  { path: "/arrival/support", label: "Help, health & community", title: "Help, health & community — who to call", eyebrow: "G8-05 · Arrival", description: "The non-bureaucratic safety net: emergency numbers, how to see a doctor, after-hours care, university psychological counselling, and buddy/community programmes.", group: "arrival", icon: LifeBuoy, disclaimer: true, Component: ArrivalSupport },
   { path: "/arrival/family-reunion", label: "Family reunion", title: "Bringing your family (Familiennachzug)", eyebrow: "G45 · Ongoing", description: "If a spouse or children join you, plan the family-reunion visa: who qualifies, the income and housing expectations, and the documents.", group: "arrival", icon: Users, disclaimer: true, Component: ArrivalFamilyReunion },
   { path: "/arrival/renewals", label: "Renewals & re-registration", title: "Permit renewals & semester re-registration", eyebrow: "G46 · G47 · Ongoing", description: "Two recurring deadlines that get people exmatrikuliert or out of status: residence-permit renewal and the semester Rückmeldung. Set them and never miss them.", group: "arrival", icon: BellRing, Component: ArrivalRenewals },
   { path: "/arrival/arrival-day", label: "Arrival-day planner", title: "Arrival-day & first-72-hours planner", eyebrow: "G37 · Arrival", description: "A practical sequence for landing day and the first few days: SIM, transport, temporary stay, cash, and the appointments to book immediately.", group: "arrival", icon: Backpack, Component: ArrivalArrivalDay },
