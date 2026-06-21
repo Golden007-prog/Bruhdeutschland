@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { computeCost, CITY_PROFILES, formatEur } from "./costOfLiving";
 import { alertable, daysUntil, formatDate, relativeLabel, severityFor, sortByDate } from "./deadlines";
-import { creditsToEcts, summarizeEcts } from "./ects";
-import { convertToGermanGpa, formatGermanGrade, roundHalfUp } from "./gpa";
+import { creditsToEcts, ectsGap, summarizeEcts, TARGET_BACHELOR_ECTS } from "./ects";
+import { convertToGermanGpa, formatGermanGrade, gradeTier, roundHalfUp } from "./gpa";
 
 describe("gpa / Modified Bavarian Formula", () => {
   const percent = { best: 100, minPass: 40 };
@@ -41,6 +41,53 @@ describe("gpa / Modified Bavarian Formula", () => {
   it("rounds half-up and formats with a comma decimal", () => {
     expect(roundHalfUp(2.25, 1)).toBe(2.3);
     expect(formatGermanGrade(1.7)).toBe("1,7");
+  });
+});
+
+describe("gradeTier (G1-1 indicative, non-binding)", () => {
+  it("bands the German grade into coarse, ordered tiers", () => {
+    expect(gradeTier(1.0).tier).toBe("top");
+    expect(gradeTier(1.5).tier).toBe("top");
+    expect(gradeTier(1.6).tier).toBe("competitive");
+    expect(gradeTier(2.5).tier).toBe("competitive");
+    expect(gradeTier(2.6).tier).toBe("moderate");
+    expect(gradeTier(3.0).tier).toBe("moderate");
+    expect(gradeTier(3.1).tier).toBe("limited");
+    expect(gradeTier(4.0).tier).toBe("limited");
+  });
+  it("flags grades worse than the passing bar", () => {
+    expect(gradeTier(4.1).tier).toBe("below_pass");
+  });
+  it("rejects non-finite input", () => {
+    expect(() => gradeTier(Number.NaN)).toThrow();
+  });
+});
+
+describe("ectsGap (G1-3 credit-gap analyzer)", () => {
+  it("defaults the target to 180 (typical Master's expectation)", () => {
+    expect(TARGET_BACHELOR_ECTS).toBe(180);
+    const r = ectsGap(120);
+    expect(r.target).toBe(180);
+    expect(r.deficit).toBe(60);
+    expect(r.surplus).toBe(0);
+    expect(r.meetsTarget).toBe(false);
+    expect(r.deficitSemesters).toBe(2); // 60 / 30
+  });
+  it("reports a surplus and no deficit when held meets the target", () => {
+    const r = ectsGap(210);
+    expect(r.deficit).toBe(0);
+    expect(r.surplus).toBe(30);
+    expect(r.meetsTarget).toBe(true);
+  });
+  it("treats exactly meeting the target as met with no deficit", () => {
+    const r = ectsGap(180);
+    expect(r.deficit).toBe(0);
+    expect(r.surplus).toBe(0);
+    expect(r.meetsTarget).toBe(true);
+  });
+  it("rejects negative held or non-positive target", () => {
+    expect(() => ectsGap(-1)).toThrow();
+    expect(() => ectsGap(120, 0)).toThrow();
   });
 });
 

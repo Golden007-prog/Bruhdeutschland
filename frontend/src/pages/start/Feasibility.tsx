@@ -50,6 +50,9 @@ export default function StartFeasibility() {
 
   const needsSetup = !profile.targetLevel || !profile.highestQualification;
   const meta = BAND_META[result.band];
+  // G0-4: hard-gate every blocking combo (e.g. Class 10 + Medicine) on the grounded pathway ROUTE, not
+  // only the heuristic band — a blocked route is "not yet eligible", never a "challenging" number.
+  const isBlocked = route === "blocked";
 
   return (
     <div className="space-y-6">
@@ -70,8 +73,30 @@ export default function StartFeasibility() {
         </Alert>
       )}
 
+      {/* G0-4 — hard gate: a blocked pathway route is not a low score, it's "not yet eligible". */}
+      {isBlocked && (
+        <section className="rounded-lg border border-red-200 bg-red-50/50 p-5">
+          <p className="flex items-center gap-2 text-base font-semibold text-red-800">
+            <OctagonAlert className="h-5 w-5 shrink-0" aria-hidden /> Not yet eligible — finish Class 12 first
+          </p>
+          <p className="mt-2 text-sm text-red-900">
+            On your current qualification there is <strong>no route into a German university — or even a
+            Studienkolleg</strong>{profile.targetLevel === "medicine" ? " (Medicine is no exception)" : ""}. This isn't a
+            low score to push through; it's a prerequisite to complete. The good news: it's a clear, finite next step.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link to="/start/class-10" className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100">
+              What now? Class-10 plan <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+            <Link to="/profile/pathway" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
+              See the full pathway <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          </div>
+        </section>
+      )}
+
       {/* Score + years */}
-      <section className="grid gap-3 sm:grid-cols-2">
+      <section className={cn("grid gap-3 sm:grid-cols-2", isBlocked && "opacity-60")}>
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Gauge className="h-4 w-4" aria-hidden /> Feasibility (heuristic)

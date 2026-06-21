@@ -36,6 +36,18 @@ export interface JourneyBudgetInput {
   monthlyCost: number;
   /** Months you expect to be in Germany over the programme (e.g. 24 for a Master's). */
   months: number;
+  /**
+   * G0-2: route runs through a Studienkolleg (school-leaver). When true a one-time "Studienkolleg / FSP"
+   * line is added. The caller is responsible for already having folded the extra prep+Kolleg year into
+   * `months` (the planner does this), so living over that year is captured by the recurring total.
+   */
+  studienkolleg?: boolean;
+  /**
+   * Per-semester Studienkolleg cost. For a PUBLIC Studienkolleg this is just the Semesterbeitrag
+   * (≈ €100–350, varies); for a PRIVATE one it is tuition + fees (much higher). Grounded? No — varies by
+   * college, so it's surfaced `needsVerification`. Two semesters are billed (the one-year course).
+   */
+  studienkollegPerSemester?: number;
 }
 
 export interface BudgetLine {
@@ -52,6 +64,8 @@ export interface JourneyBudgetResult {
   oneTimeTotal: number;
   uniAssistTotal: number;
   translationTotal: number;
+  /** Total Studienkolleg / FSP cost (2 semesters), 0 when not on a Studienkolleg route. */
+  studienkollegTotal: number;
   recurringMonthly: number;
   recurringTotal: number;
   blockedAccount: number;
@@ -91,6 +105,12 @@ export function computeJourneyBudget(input: JourneyBudgetInput): JourneyBudgetRe
   const monthlyCost = nonNeg("monthlyCost", input.monthlyCost);
   const months = Math.max(0, Math.floor(input.months));
 
+  // G0-2: Studienkolleg / FSP line — two semesters of the foundation year. Always needsVerification
+  // (public = Semesterbeitrag only; private = tuition); varies by college so it is never "grounded".
+  const studienkolleg = input.studienkolleg === true;
+  const studienkollegPerSemester = nonNeg("studienkollegPerSemester", input.studienkollegPerSemester ?? 0);
+  const studienkollegTotal = studienkolleg ? studienkollegPerSemester * 2 : 0;
+
   const oneTime: BudgetLine[] = [
     { key: "aps", label: "APS certificate", amount: apsFee, grounded: true, needsVerification: true },
     { key: "uniAssist", label: "uni-assist application fees", amount: uniAssistTotal, grounded: true, needsVerification: true },
@@ -99,6 +119,9 @@ export function computeJourneyBudget(input: JourneyBudgetInput): JourneyBudgetRe
     { key: "flights", label: "Flights to Germany", amount: flights, grounded: false },
     { key: "deposit", label: "Rental deposit (Kaution)", amount: deposit, grounded: false },
     { key: "misc", label: "Other one-time costs", amount: misc, grounded: false },
+    ...(studienkolleg
+      ? [{ key: "studienkolleg", label: "Studienkolleg / FSP (2 semesters)", amount: studienkollegTotal, grounded: false, needsVerification: true } as BudgetLine]
+      : []),
   ];
   const oneTimeTotal = oneTime.reduce((sum, l) => sum + l.amount, 0);
   const recurringTotal = monthlyCost * months;
@@ -108,6 +131,7 @@ export function computeJourneyBudget(input: JourneyBudgetInput): JourneyBudgetRe
     oneTimeTotal,
     uniAssistTotal,
     translationTotal,
+    studienkollegTotal,
     recurringMonthly: monthlyCost,
     recurringTotal,
     blockedAccount,

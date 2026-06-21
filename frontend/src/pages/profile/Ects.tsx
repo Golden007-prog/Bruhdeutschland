@@ -1,18 +1,24 @@
 import { useId, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { OfficialFactRow } from "@/components/common/OfficialFact";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ECTS_YEAR } from "@/lib/facts";
 import {
   ECTS_PER_YEAR,
+  TARGET_BACHELOR_ECTS,
   creditsToEcts,
+  ectsGap,
   summarizeEcts,
   type CourseEntry,
 } from "@/lib/calc/ects";
+import { cn } from "@/lib/utils";
 
 let rowSeq = 0;
 const nextId = () => `course-${rowSeq++}`;
@@ -42,7 +48,23 @@ export default function ProfileEcts() {
   const [totalCredits, setTotalCredits] = useState("160");
   const [homeCreditsPerYear, setHomeCreditsPerYear] = useState("40");
 
+  // G1-3 gap-tab state — held ECTS vs a target (defaults to 180, the typical Master's expectation).
+  const [heldEcts, setHeldEcts] = useState("120");
+  const [targetEcts, setTargetEcts] = useState(String(TARGET_BACHELOR_ECTS));
+
   const summary = useMemo(() => summarizeEcts(courses), [courses]);
+
+  const gap = useMemo<{ value: ReturnType<typeof ectsGap> | null; error: string | null }>(() => {
+    if (heldEcts.trim() === "" || targetEcts.trim() === "") return { value: null, error: null };
+    const held = Number(heldEcts);
+    const target = Number(targetEcts);
+    if (!Number.isFinite(held) || !Number.isFinite(target)) return { value: null, error: "Enter numeric values." };
+    try {
+      return { value: ectsGap(held, target), error: null };
+    } catch (e) {
+      return { value: null, error: e instanceof Error ? e.message : "Could not compute the gap." };
+    }
+  }, [heldEcts, targetEcts]);
 
   const addCourse = () => setCourses((prev) => [...prev, { id: nextId(), name: "", ects: 0 }]);
   const removeCourse = (id: string) =>
@@ -85,6 +107,7 @@ export default function ProfileEcts() {
         <TabsList>
           <TabsTrigger value="sum">Sum ECTS courses</TabsTrigger>
           <TabsTrigger value="convert">Convert non-ECTS credits</TabsTrigger>
+          <TabsTrigger value="gap">Gap to a target</TabsTrigger>
         </TabsList>
 
         {/* ── Panel 1: course-by-course ECTS summation ───────────── */}
@@ -265,6 +288,82 @@ export default function ProfileEcts() {
                   Linear scaling against {ECTS_PER_YEAR} ECTS/year. Confirm the exact recognition
                   with uni-assist or your university.
                 </p>
+              </section>
+            </aside>
+          </div>
+        </TabsContent>
+
+        {/* ── Panel 3: gap to a target (G1-3) ────────────────────── */}
+        <TabsContent value="gap">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+            <section className="rounded-lg border bg-card p-5 shadow-sm" aria-labelledby="gap-heading">
+              <h2 id="gap-heading" className="mb-1 text-sm font-medium">
+                Credit gap to a target
+              </h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Many German Master's expect <span className="official-figure">{TARGET_BACHELOR_ECTS}</span> ECTS
+                (a 3-year, 180-ECTS Bachelor). A degree under that is "short". Enter your held ECTS (sum or convert
+                in the other tabs) and a target to see the shortfall — and the documented bridges.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="held-ects" className="eyebrow block">Held ECTS</label>
+                  <Input id="held-ects" type="number" min={0} inputMode="decimal" value={heldEcts} onChange={(e) => setHeldEcts(e.target.value)} className="official-figure" />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="target-ects" className="eyebrow block">Target ECTS</label>
+                  <Input id="target-ects" type="number" min={1} inputMode="decimal" value={targetEcts} onChange={(e) => setTargetEcts(e.target.value)} className="official-figure" />
+                </div>
+              </div>
+              {gap.error && <p role="alert" className="mt-3 text-sm text-red-700">{gap.error}</p>}
+
+              {gap.value && gap.value.deficit > 0 && (
+                <div className="mt-5 space-y-2">
+                  <h3 className="text-sm font-semibold">Documented bridges for a sub-180 Bachelor</h3>
+                  <ul className="space-y-1.5 text-sm text-muted-foreground">
+                    <li className="flex gap-2"><span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-category-profile" /><span>Earn the extra credits / complete a higher semester — including at a German university.</span></li>
+                    <li className="flex gap-2"><span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-category-profile" /><span>Apply to a (often private) university that accepts a 3-year degree directly.</span></li>
+                    <li className="flex gap-2"><span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-category-profile" /><span>Do a 1-year Master in the relevant field at home to qualify, then re-apply.</span></li>
+                  </ul>
+                  <Alert variant="warning" className="text-xs">
+                    <AlertDescription>
+                      Whether a specific programme accepts your credit total is decided per-programme by uni-assist /
+                      the university — confirm before relying on any bridge.
+                    </AlertDescription>
+                  </Alert>
+                  <Link to="/profile/pathway" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                    See the bridges in your pathway <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            <aside>
+              <section className="rounded-lg border bg-card p-5 shadow-sm" aria-labelledby="gap-result-heading">
+                <h2 id="gap-result-heading" className="eyebrow mb-3">Shortfall</h2>
+                {gap.value ? (
+                  <>
+                    <p className="text-xs text-muted-foreground">{gap.value.meetsTarget ? "Surplus over target" : "ECTS short of target"}</p>
+                    <p className={cn("official-figure text-3xl font-bold leading-none", gap.value.meetsTarget ? "text-emerald-700" : "text-category-profile")}>
+                      {gap.value.meetsTarget ? `+${gap.value.surplus}` : gap.value.deficit}
+                    </p>
+                    {!gap.value.meetsTarget && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        ≈ <span className="official-figure">{gap.value.deficitSemesters}</span> full-time semester(s) at 30 ECTS each.
+                      </p>
+                    )}
+                    <div className="mt-3">
+                      <Badge variant={gap.value.meetsTarget ? "success" : "warning"}>
+                        {gap.value.meetsTarget ? "Meets the target" : "Below the target"}
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-[0.7rem] text-muted-foreground">
+                      Held {gap.value.held} of {gap.value.target} ECTS. Arithmetic only — recognition is per-programme.
+                    </p>
+                  </>
+                ) : (
+                  <p className="official-figure text-3xl font-bold leading-none text-category-profile">—</p>
+                )}
               </section>
             </aside>
           </div>
