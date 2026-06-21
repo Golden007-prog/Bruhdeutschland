@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, PlaneLanding, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
@@ -145,6 +145,49 @@ export default function FinanceHealthInsurance() {
           before exempting yourself — especially if your circumstances might change.
         </AlertDescription>
       </Alert>
+
+      {/* ── G7-03 — the entry-gap most students miss ─────────────────────────── */}
+      <section aria-labelledby="hi-entry-gap" className="rounded-lg border border-amber-300 bg-amber-50/40 p-5 shadow-sm">
+        <h2 id="hi-entry-gap" className="flex items-center gap-2 text-base font-semibold">
+          <PlaneLanding className="h-4 w-4 text-category-finance" aria-hidden />
+          The entry gap: cover before statutory insurance starts
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Statutory student health insurance generally begins only when you <strong>enrol
+          (Immatrikulation)</strong> — not when you land. Your insurance obligation, though, starts from
+          your first day of residence in Germany, so there is usually a window between arrival and
+          enrolment where you must arrange your own <strong>incoming / travel health insurance</strong>.
+          Land without it and any treatment in that window is at your own cost — German cover is not
+          retroactive.
+        </p>
+        <ul className="mt-3 space-y-2 text-sm">
+          <li className="flex items-start gap-3">
+            <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+            <span>
+              Many missions also require travel health insurance for the initial entry period as part of
+              the visa — check your mission's requirement.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+            <span>
+              Incoming/travel insurance is <strong>not</strong> the statutory plan and usually isn't
+              accepted as your enrolment proof — line up your statutory (or exempting private) cover to
+              start at enrolment, and use incoming cover only to bridge the gap.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+            <span>
+              The gap is typically a few weeks but varies — confirm the dates with your insurer and
+              university rather than assuming a fixed length.
+            </span>
+          </li>
+        </ul>
+        <p className="mt-3">
+          <SourceLink source={source("krankenkassenZentrale")} />
+        </p>
+      </section>
 
       <section aria-labelledby="hi-options" className="space-y-3">
         <h2 id="hi-options" className="text-lg font-semibold tracking-tight">

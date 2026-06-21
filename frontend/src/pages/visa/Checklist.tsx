@@ -1,4 +1,5 @@
-import { Info } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Info } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
@@ -45,6 +46,15 @@ export default function VisaChecklist() {
           </p>
         </AlertDescription>
       </Alert>
+
+      <section className="flex flex-wrap gap-2">
+        <Link
+          to="/visa/refusal"
+          className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted"
+        >
+          Refused? Your next steps <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      </section>
     </div>
   );
 }
