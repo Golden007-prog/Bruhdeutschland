@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, FlaskConical } from "lucide-react";
+import { ArrowRight, CalendarClock, FlaskConical, Target } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SourceLink } from "@/components/common/SourceLink";
@@ -7,6 +8,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { source } from "@/lib/sources";
 import type { SourceKey } from "@/lib/sources";
+import { useProfile } from "@/lib/profile/useProfile";
+import { isProfileStarted } from "@/lib/profile/profile";
+import { recommendedTests, type TestRec } from "@/lib/intake/derive";
 
 interface ExamCard {
   id: string;
@@ -17,6 +21,25 @@ interface ExamCard {
   sourceKey: SourceKey;
   runnerHref: string;
 }
+
+/** Map a recommendation (from the pathway/profile engine) to the mock routes that practise it. */
+const REC_ROUTES: { match: RegExp; examIds: string[] }[] = [
+  { match: /ielts|toefl|english/i, examIds: ["ielts", "toefl"] },
+  { match: /testdaf|dsh|german to c1|german/i, examIds: ["testdaf", "goethe"] },
+  { match: /testas/i, examIds: ["testas"] },
+  { match: /tms/i, examIds: ["tms"] },
+  { match: /gre|gmat/i, examIds: ["gre", "gmat"] },
+];
+
+function examIdsForRec(rec: TestRec): string[] {
+  return REC_ROUTES.filter((r) => r.match.test(rec.test) || r.match.test(rec.reason)).flatMap((r) => r.examIds);
+}
+
+const REC_TONE: Record<TestRec["tone"], string> = {
+  ok: "border-emerald-200 bg-emerald-50/50",
+  info: "border-sky-200 bg-sky-50/50",
+  warn: "border-amber-300 bg-amber-50/60",
+};
 
 const EXAMS: ExamCard[] = [
   {
@@ -67,17 +90,97 @@ const EXAMS: ExamCard[] = [
     sourceKey: "gmat",
     runnerHref: "/language/exams/gmat",
   },
+  {
+    id: "testas",
+    title: "TestAS — Core module",
+    blurb: "Study-aptitude reasoning many Bachelor/foundation programmes expect from international applicants — timed, auto-scored.",
+    tag: "Aptitude",
+    sourceKey: "testas",
+    runnerHref: "/language/exams/testas",
+  },
+  {
+    id: "tms",
+    title: "TMS — Medizin",
+    blurb: "Reasoning & concentration subtests (in German) that many medical faculties weight heavily.",
+    tag: "Medicine",
+    sourceKey: "tms",
+    runnerHref: "/language/exams/tms",
+  },
 ];
 
+const EXAM_BY_ID = new Map(EXAMS.map((e) => [e.id, e]));
+
 export default function LanguageExamsHub() {
+  const { profile } = useProfile();
+  const hasProfile = isProfileStarted(profile);
+  // Pathway-driven "which tests YOU need" (gap G3-1): the deterministic recommender keys off target
+  // level + medium of instruction + which certificates you already hold.
+  const recs = useMemo(() => recommendedTests(profile), [profile]);
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Übungstests · Mock exams"
         title="Mock exam centre"
-        description="Timed practice exams for every test you might need: IELTS, TOEFL, TestDaF, Goethe, GRE, and GMAT."
+        description="Timed practice exams for every test you might need: IELTS, TOEFL, TestDaF, Goethe, GRE, GMAT, TestAS, and TMS."
         category="language"
       />
+
+      {/* Your tests — personalised from the pathway/profile engine (G3-1) */}
+      <section aria-labelledby="your-tests-heading" className="rounded-lg border border-category-language/40 bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="your-tests-heading" className="flex items-center gap-2 font-semibold">
+            <Target className="h-4 w-4 text-category-language" aria-hidden /> Which tests do you need?
+          </h2>
+          <Link to="/profile/pathway" className="text-xs text-primary hover:underline">Your pathway ↗</Link>
+        </div>
+        {hasProfile && recs.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {recs.map((rec, i) => {
+              const ids = examIdsForRec(rec);
+              return (
+                <li key={i} className={`rounded-md border p-3 text-sm ${REC_TONE[rec.tone]}`}>
+                  <p className="font-medium">{rec.test}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{rec.reason}</p>
+                  {ids.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {ids.map((id) => {
+                        const card = EXAM_BY_ID.get(id);
+                        if (!card) return null;
+                        return (
+                          <Link key={id} to={card.runnerHref} className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs font-medium hover:bg-muted">
+                            Practise {card.title.split(" — ")[0]} <ArrowRight className="h-3 w-3" aria-hidden />
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {hasProfile
+              ? "No specific admission tests were derived from your profile — confirm each programme's exact requirement on its page."
+              : (
+                <>
+                  Add your target level and language in your{" "}
+                  <Link to="/settings" className="font-medium underline">profile</Link> and we&apos;ll list the exact
+                  tests your route needs (e.g. TestAS for a Bachelor route, IELTS/TOEFL for an English Master&apos;s).
+                </>
+              )}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link to="/language/exam-progress" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">
+            Progress & readiness gate <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link to="/language/test-centers" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">
+            <CalendarClock className="h-3.5 w-3.5" aria-hidden /> Test centres & booking dates
+          </Link>
+        </div>
+      </section>
 
       <Alert variant="warning">
         <FlaskConical aria-hidden />
