@@ -27,6 +27,7 @@ import {
   FileCheck,
   FileSearch,
   FileText,
+  FileX2,
   FolderCheck,
   FolderLock,
   Gauge,
@@ -134,6 +135,7 @@ const StartEligibility = lazy(() => import("@/pages/start/Eligibility"));
 const StartFeasibility = lazy(() => import("@/pages/start/Feasibility"));
 const StartTimelinePlanner = lazy(() => import("@/pages/start/TimelinePlanner"));
 const StartBudget = lazy(() => import("@/pages/start/Budget"));
+const StartClassTenOrientation = lazy(() => import("@/pages/start/ClassTenOrientation"));
 const CareerOverview = lazy(() => import("@/pages/career/Overview"));
 const CareerCounseling = lazy(() => import("@/pages/career/Counseling"));
 const CareerOutcomes = lazy(() => import("@/pages/career/Outcomes"));
@@ -151,6 +153,7 @@ const ProfileCities = lazy(() => import("@/pages/profile/Cities"));
 const UniversitiesExplorer = lazy(() => import("@/pages/profile/Universities"));
 const ProfileRecognition = lazy(() => import("@/pages/profile/Recognition"));
 const ProfileStudienkolleg = lazy(() => import("@/pages/profile/Studienkolleg"));
+const ProfileGradeSimulator = lazy(() => import("@/pages/profile/GradeSimulator"));
 const DocumentsOverview = lazy(() => import("@/pages/documents/Overview"));
 const DocumentsSop = lazy(() => import("@/pages/documents/Sop"));
 const DocumentsCv = lazy(() => import("@/pages/documents/Cv"));
@@ -204,6 +207,7 @@ const VisaOverview = lazy(() => import("@/pages/visa/Overview"));
 const VisaSimulator = lazy(() => import("@/pages/visa/Simulator"));
 const VisaChecklist = lazy(() => import("@/pages/visa/Checklist"));
 const VisaAppointment = lazy(() => import("@/pages/visa/Appointment"));
+const VisaRefusal = lazy(() => import("@/pages/visa/Refusal"));
 const VisaType = lazy(() => import("@/pages/visa/VisaType"));
 const VisaVidex = lazy(() => import("@/pages/visa/Videx"));
 const VisaAps = lazy(() => import("@/pages/visa/Aps"));
@@ -261,6 +265,7 @@ export const NAV: NavItem[] = [
   { path: "/start/feasibility", label: "Reality check", title: "Reality check — feasibility & years to finish", eyebrow: "Phase 0 · Orientation", description: "A blunt, honest read on how realistic your plan is and roughly how long it takes end-to-end, given your level, language, and target. A heuristic, not a guarantee.", group: "start", icon: Gauge, Component: StartFeasibility },
   { path: "/start/timeline-planner", label: "Reverse timeline planner", title: "Reverse timeline — work back from your intake", eyebrow: "Phase 0 · Orientation", description: "Pick a target intake and we back-date every milestone — language tests, APS, applications, visa, Sperrkonto — so you know what to start by when.", group: "start", icon: CalendarRange, Component: StartTimelinePlanner },
   { path: "/start/budget", label: "Total-journey budget", title: "Total-journey budget — one-time + recurring", eyebrow: "Phase 0 · Orientation", description: "Add up the real end-to-end cost: APS, uni-assist, translations, visa, Sperrkonto, flights, deposit, and monthly living — with every official figure grounded or flagged.", group: "start", icon: Calculator, disclaimer: true, Component: StartBudget },
+  { path: "/start/class-10", label: "Class-10 plan", title: "Finishing Class 10? Here's your runway", eyebrow: "Phase 0 · Orientation", description: "The blocked persona's runway: finish Class 12, build German A1→B1, then re-run eligibility for the right route into Germany.", group: "start", icon: GraduationCap, Component: StartClassTenOrientation },
   { path: "/career", label: "Career & guidance", title: "Career & guidance", eyebrow: "Bereich · Career", description: "Before you pick a programme, figure out the right direction: counseling, course selection, the German education system, and where each field actually leads in the job market.", group: "career", icon: Compass, Component: CareerOverview },
   { path: "/career/counseling", label: "Counseling & course choice", title: "Career counseling & course selection", eyebrow: "§ Counseling", description: "A short interest self-check plus optional AI consultation turns your background and interests into German programme fields to explore — then feeds straight into university matching.", group: "career", icon: MessageSquare, Component: CareerCounseling },
   { path: "/career/outcomes", label: "Career outcomes & demand", title: "Career outcomes & job market", eyebrow: "§ Outcomes", description: "What each field leads to in Germany — typical roles, demand, shortage-occupation status, and which EU Blue Card threshold it maps to. Qualitative + grounded; no invented salaries.", group: "career", icon: TrendingUp, Component: CareerOutcomes },
@@ -278,6 +283,7 @@ export const NAV: NavItem[] = [
   { path: "/universities", label: "Universities explorer", title: "Universities & programs explorer", eyebrow: "Hochschulen · Universities", description: "Browse and compare Master's programmes at German public universities, with grounded requirements you can re-verify.", group: "profile", category: "profile", icon: School, Component: UniversitiesExplorer },
   { path: "/profile/recognition", label: "Recognition (anabin / HZB)", title: "Qualification recognition — anabin & HZB", eyebrow: "G05 · Foundations", description: "Understand how your certificates are recognised in Germany (the HZB categories), and look up the binding status on anabin — we orient you, anabin decides.", group: "profile", category: "profile", icon: FileBadge, Component: ProfileRecognition },
   { path: "/profile/studienkolleg", label: "Studienkolleg finder", title: "Studienkolleg finder & course (Kurs) guide", eyebrow: "G06 · Foundations", description: "If your school-leaving certificate isn't Abitur-equivalent, the Studienkolleg is your route. Find the right course stream and how to apply through a university.", group: "profile", category: "profile", icon: Library, Component: ProfileStudienkolleg },
+  { path: "/profile/grade-simulator", label: "Grade simulator", title: "Grade simulator — what if I score X?", eyebrow: "G1-1 · Foundations", description: "Sweep a percentage or CGPA and see your German grade and an indicative (non-binding) programme tier before results are even out.", group: "profile", category: "profile", icon: TrendingUp, Component: ProfileGradeSimulator },
   { path: "/documents", label: "Overview", title: "Document Prep", eyebrow: "Bereich B · Document Prep", description: "Draft and track every document an application needs: SOP, CV, recommendation letters, and the uni-assist workflow.", group: "documents", category: "documents", icon: FileText, Component: DocumentsOverview },
   { path: "/documents/sop", label: "Statement of Purpose", title: "Statement of Purpose generator", eyebrow: "Feature 06 · Documents", description: "Build a tailored SOP from your profile and a target program — structured, specific, and yours to edit.", group: "documents", category: "documents", icon: PenLine, featureNo: 6, Component: DocumentsSop },
   { path: "/documents/cv", label: "Europass CV", title: "Europass CV builder", eyebrow: "Feature 07 · Documents", description: "Produce a Europass-format CV, the European standard German universities recognize.", group: "documents", category: "documents", icon: FileBadge, featureNo: 7, Component: DocumentsCv },
@@ -331,6 +337,7 @@ export const NAV: NavItem[] = [
   { path: "/visa/simulator", label: "Visa interview simulator", title: "Visa interview simulator", eyebrow: "Feature 22 · Visa", description: "Rehearse the student-visa interview with realistic questions and spoken practice.", group: "visa", category: "visa", icon: Mic, featureNo: 22, disclaimer: true, Component: VisaSimulator },
   { path: "/visa/checklist", label: "Visa checklist", title: "Visa checklist & deadlines", eyebrow: "Feature 23 · Visa", description: "The documents a German student-visa application needs, plus appointment lead times to plan around.", group: "visa", category: "visa", icon: ListChecks, featureNo: 23, disclaimer: true, Component: VisaChecklist },
   { path: "/visa/appointment", label: "Visa appointment tracker", title: "Visa appointment tracker", eyebrow: "G34 · Visa", description: "Mission appointment waits can run months. Track your booked slot and the document deadlines around it so the visa never becomes your bottleneck.", group: "visa", category: "visa", icon: CalendarDays, disclaimer: true, Component: VisaAppointment },
+  { path: "/visa/refusal", label: "Visa refusal & next steps", title: "If your visa is refused — what now", eyebrow: "G7-01 · Visa", description: "A refusal isn't the end. Read the ground(s) the mission gave, fix them, and choose: re-apply with stronger evidence, take legal action, or defer to the next intake.", group: "visa", category: "visa", icon: FileX2, disclaimer: true, Component: VisaRefusal },
   { path: "/visa/visa-type", label: "Which visa do I need?", title: "Visa-type selector", eyebrow: "G36 · Visa", description: "Study visa, applicant visa, or language-course visa? Answer a couple of questions to find the right category for your situation.", group: "visa", category: "visa", icon: Plane, disclaimer: true, Component: VisaType },
   { path: "/visa/videx", label: "VIDEX form walkthrough", title: "VIDEX visa-form walkthrough", eyebrow: "G35 · Visa", description: "The online national-visa form (VIDEX) trips people up. Walk through what each section asks and the documents to have open while you fill it.", group: "visa", category: "visa", icon: FileText, disclaimer: true, Component: VisaVidex },
   { path: "/visa/aps", label: "APS guide", title: "APS certificate guide", eyebrow: "Feature 24 · Visa", description: "Understand the Akademische Prüfstelle check required for students from some countries, and how to get it.", group: "visa", category: "visa", icon: Stamp, featureNo: 24, disclaimer: true, Component: VisaAps },
