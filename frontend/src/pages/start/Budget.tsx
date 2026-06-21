@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Info, Landmark, Wallet } from "lucide-react";
 
@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import { SourceList } from "@/components/common/SourceLink";
 import { computeJourneyBudget } from "@/lib/calc/journeyBudget";
 import { STUDIENKOLLEG_LEAD_MONTHS, routeNeedsStudienkolleg } from "@/lib/calc/reverseTimeline";
+import { computeTotalNeed, type TotalNeed } from "@/lib/calc/totalNeed";
 import { CITY_PROFILES, formatEur } from "@/lib/calc/costOfLiving";
 import { APS_INDIA_FEE_EUR, SPERRKONTO_MONTH_EUR, SPERRKONTO_YEAR_EUR, UNIASSIST_ADDITIONAL_EUR, UNIASSIST_FIRST_EUR, VISA_FEE_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import { evaluatePathway } from "@/lib/pathway/pathway";
 import { summarizeEducation } from "@/lib/profile/education";
 import { useProfile } from "@/lib/profile/useProfile";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { source } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 
@@ -144,6 +146,18 @@ export default function StartBudget() {
     [apsFee, applications, translationDocs, flights, deposit, misc, monthlyCost, months, isStudienkolleg, studienkollegPerSemester],
   );
 
+  // One reconciled "total need" (G6-05): one-time costs + living over the stay (the blocked account is
+  // excluded — it's returned to you). Published once here so the funding-gap planner consumes the same
+  // figure instead of holding its own. Deterministic; matches `result.trueCost`.
+  const totalNeed = useMemo<TotalNeed>(
+    () => computeTotalNeed({ oneTime: result.oneTimeTotal, monthly: monthlyCost, months }),
+    [result.oneTimeTotal, monthlyCost, months],
+  );
+  const [, setSharedNeed] = useSyncedState<TotalNeed | null>("finance:totalNeed", null);
+  useEffect(() => {
+    setSharedNeed(totalNeed);
+  }, [totalNeed, setSharedNeed]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -246,6 +260,18 @@ export default function StartBudget() {
               Plan to <em>mobilise</em> it, not spend it.
             </AlertDescription>
           </Alert>
+
+          {/* One reconciled total need, consumed by the funding-gap planner so the two can't disagree (G6-05). */}
+          <div className="rounded-lg border bg-card p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Total need (one-time + living)</p>
+              <p className="official-figure text-xl font-semibold">{formatEur(totalNeed.total)}</p>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The single figure your <Link to="/finance/funding-plan" className="underline">funding-gap planner</Link> reconciles
+              against — change your numbers here and it stays in step.
+            </p>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <Link to="/finance/cost-of-living" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">

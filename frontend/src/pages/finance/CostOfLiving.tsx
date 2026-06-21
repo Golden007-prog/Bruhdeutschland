@@ -15,6 +15,30 @@ import {
   formatEur,
   type CityCostProfile,
 } from "@/lib/calc/costOfLiving";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
+import { normalizeOffer, OFFERS_KEY, type Offer } from "@/lib/offers/offers";
+import { acceptedOffer } from "@/lib/offers/offerDeadlines";
+
+/** Match a free-text offer city to a known cost profile (case-insensitive). "" when no match. */
+function matchCity(city: string): string {
+  const c = city.trim().toLowerCase();
+  if (!c) return "";
+  return CITY_PROFILES.find((p) => p.city.toLowerCase() === c)?.city ?? "";
+}
+
+/** The study city implied by the student's offers — accepted offer first, else the first matching offer. */
+function impliedCity(offers: Offer[]): string {
+  const accepted = acceptedOffer(offers);
+  if (accepted) {
+    const m = matchCity(accepted.city);
+    if (m) return m;
+  }
+  for (const o of offers) {
+    const m = matchCity(o.city);
+    if (m) return m;
+  }
+  return "";
+}
 
 type LineKey = keyof Omit<CityCostProfile, "city">;
 
@@ -28,7 +52,10 @@ const LINES: { key: LineKey; label: string; hint: string }[] = [
 
 /** Feature 18 — Cost-of-living calculator. Deterministic math via src/lib/calc/costOfLiving. */
 export default function FinanceCostOfLiving() {
-  const [city, setCity] = useState<string>(CITY_PROFILES[0].city);
+  const [rawOffers] = useSyncedState<Offer[]>(OFFERS_KEY, []);
+  const prefillCity = useMemo(() => impliedCity(rawOffers.map(normalizeOffer)), [rawOffers]);
+  // Default to the city the student's offers imply (G6-04); fall back to the first profile. Manual override preserved.
+  const [city, setCity] = useState<string>(prefillCity || CITY_PROFILES[0].city);
   const [overrides, setOverrides] = useState<Partial<Record<LineKey, number>>>({});
 
   const base = useMemo(
@@ -110,7 +137,10 @@ export default function FinanceCostOfLiving() {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                Picking a city loads typical baselines. Edit any line to match your plans.
+                {prefillCity && city === prefillCity
+                  ? `Pre-selected ${prefillCity} from your offers. `
+                  : "Picking a city loads typical baselines. "}
+                Edit any line to match your plans.
               </p>
             </div>
 

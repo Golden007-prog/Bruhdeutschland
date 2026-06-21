@@ -76,9 +76,25 @@ export default function CareerOutcomes() {
         </AlertDescription>
       </Alert>
 
+      <Alert variant="info" className="text-sm">
+        <Info aria-hidden />
+        <AlertDescription>
+          Heading into a <strong>regulated profession</strong> (medicine, nursing, pharmacy, law,
+          teaching)? Demand and salary don't matter until your qualification is recognised — clearing
+          the Blue Card check doesn't grant the licence to practise.{" "}
+          <Link to="/arrival/recognition" className="font-medium underline">
+            Check professional recognition
+          </Link>
+          .
+        </AlertDescription>
+      </Alert>
+
       <section className="flex flex-wrap gap-2">
         <Link to="/career/counseling" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
           <TrendingUp className="h-3.5 w-3.5" aria-hidden /> Which field fits me?
+        </Link>
+        <Link to="/career/job-search" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
+          Find & apply for a job <ArrowRight className="h-3.5 w-3.5" aria-hidden />
         </Link>
         <Link to="/arrival/blue-card-check" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
           Check a salary vs the threshold <ArrowRight className="h-3.5 w-3.5" aria-hidden />

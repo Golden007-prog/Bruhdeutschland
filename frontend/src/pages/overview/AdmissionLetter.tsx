@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, FileBadge, FileScan, Info, Loader2, Save, Sparkles, TriangleAlert } from "lucide-react";
 import { z } from "zod";
@@ -16,7 +16,8 @@ import { anyProviderConfigured } from "@/lib/llm/registry";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { uid } from "@/lib/doc/export";
 import { formatDate, relativeLabel, severityFor } from "@/lib/calc/deadlines";
-import { OFFERS_KEY, emptyOffer, type Offer } from "@/lib/offers/offers";
+import { OFFERS_KEY, emptyOffer, normalizeOffer, type Offer } from "@/lib/offers/offers";
+import { offerLabel, openConditions } from "@/lib/offers/offerDeadlines";
 import { readLetter, type LetterReading } from "@/lib/documents/admissionLetter";
 import type { ChecklistItemDef, DeadlineSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,10 @@ export default function AdmissionLetterPage() {
   };
 
   const sev = reading?.enrolmentDeadline ? severityFor(reading.enrolmentDeadline) : null;
+  const conditional = useMemo(
+    () => offers.map(normalizeOffer).filter((o) => o.conditional && o.status !== "declined"),
+    [offers],
+  );
 
   return (
     <div className="space-y-6">
@@ -241,6 +246,35 @@ export default function AdmissionLetterPage() {
       </Card>
 
       <DeadlineReminder storageKey="enrolment-deadline" label="My enrolment / acceptance deadline" hint="Copy it from your admission letter, or save it from the reader above." />
+
+      {conditional.length > 0 && (
+        <section className="rounded-lg border border-amber-300 bg-amber-50/40 p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+            <TriangleAlert className="h-4 w-4" aria-hidden /> Conditions still open on your offers
+          </h2>
+          <p className="mt-0.5 text-xs text-amber-800">
+            A conditional admission isn't a clean place — and may not satisfy your visa. Track and clear each condition
+            on the <Link to="/offers/compare" className="font-medium underline">offer board</Link>.
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {conditional.map((o) => {
+              const unmet = openConditions(o);
+              return (
+                <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card p-2.5 text-sm">
+                  <span className="min-w-0">
+                    <span className="font-medium">{offerLabel(o)}</span>
+                    <span className="text-muted-foreground">
+                      {" · "}{unmet > 0 ? `${unmet} condition${unmet === 1 ? "" : "s"} to clear` : "all conditions met"}
+                      {o.acceptBy ? ` · accept by ${formatDate(o.acceptBy)}` : ""}
+                    </span>
+                  </span>
+                  <Link to="/offers/compare" className="text-xs font-medium text-primary underline">Manage</Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <Checklist items={FIND} title="What to find in your letter" storageKey="admission-letter-checklist" />
 

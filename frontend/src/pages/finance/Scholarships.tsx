@@ -23,6 +23,21 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "experience", label: "Requires work experience" },
 ];
 
+/**
+ * Honest nationality match (G6-02). We can only say a scheme is open to ALL nationalities (so the student
+ * very likely qualifies on that axis) or that it has nationality/affiliation restrictions we can't
+ * resolve from seed data — never assert a student is INELIGIBLE without the scheme's own rule. Returns
+ * null when the student hasn't told us their country yet.
+ */
+function nationalityMatch(s: Scholarship, homeCountry: string): { tone: "ok" | "muted"; text: string } | null {
+  const country = homeCountry.trim();
+  if (!country) return null;
+  if (s.openToAllNationalities) {
+    return { tone: "ok", text: `Open to all nationalities — no nationality bar for ${country} (confirm other criteria).` };
+  }
+  return { tone: "muted", text: `Has nationality / affiliation restrictions — check the official call whether ${country} qualifies.` };
+}
+
 /** Honest match of the user's experience against an experience-required scheme (never asserts eligibility). */
 function experienceMatch(
   s: Scholarship,
@@ -67,7 +82,13 @@ export default function FinanceScholarships() {
   const { profile } = useProfile();
   const exp = useMemo(() => summarizeExperience(profile, currentYM()), [profile]);
 
-  const results = useMemo(() => SCHOLARSHIPS.filter((s) => matches(s, filter)), [filter]);
+  // Filter, then sort schemes the student likely qualifies for on nationality first (G6-02) — only when
+  // we know their country; otherwise keep the seed order. Stable: open-to-all before restricted.
+  const results = useMemo(() => {
+    const filtered = SCHOLARSHIPS.filter((s) => matches(s, filter));
+    if (!profile.homeCountry.trim()) return filtered;
+    return [...filtered].sort((a, b) => Number(b.openToAllNationalities) - Number(a.openToAllNationalities));
+  }, [filter, profile.homeCountry]);
 
   return (
     <div className="space-y-6">
@@ -141,6 +162,15 @@ export default function FinanceScholarships() {
                   )}
                   {s.requiresExperienceYears != null && <Badge variant="warning">Needs ~{s.requiresExperienceYears} yrs experience</Badge>}
                 </div>
+
+                {(() => {
+                  const m = nationalityMatch(s, profile.homeCountry);
+                  if (!m) return null;
+                  const cls = m.tone === "ok"
+                    ? "border-emerald-200 bg-emerald-50/50 text-emerald-800"
+                    : "border-dashed bg-muted/30 text-muted-foreground";
+                  return <p className={`rounded-md border p-2 text-xs ${cls}`}>{m.text}</p>;
+                })()}
 
                 {(() => {
                   const m = experienceMatch(s, exp.totalMonths, exp.monthsSinceGraduation);

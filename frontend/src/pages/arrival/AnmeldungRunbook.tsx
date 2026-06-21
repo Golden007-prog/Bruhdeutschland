@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ClipboardList, Info, TriangleAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, ClipboardList, Info, TriangleAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Checklist } from "@/components/common/Checklist";
@@ -17,6 +17,14 @@ const BOOKING = [
   "If no slots appear, check neighbouring districts (you can usually register at any Bürgeramt in the city) or look for walk-in hours.",
   "Bring the printed/PDF appointment confirmation, your passport, and the Wohnungsgeberbestätigung.",
   "At the counter you receive the Meldebescheinigung — keep several copies; the bank, university, and Ausländerbehörde all want it.",
+];
+
+/** G8-06 — escalation when no slot exists before the 14-day window closes. Process guidance. */
+const NO_SLOT = [
+  "Keep proof you tried: screenshot the empty booking calendar with its date, and any “no appointments available” message. This is your evidence of good faith.",
+  "Widen the net: refresh at off-peak times (early morning), and try Bürgerämter in neighbouring districts or towns — many cities let you register at any office, and a nearby smaller town may have slots.",
+  "Use any walk-in (Spontantermine) hours, and check if your university's international office or a Studierendenwerk service runs Anmeldung help days.",
+  "If the deadline passes purely because the city released no slots, register at the first available appointment and bring your proof — a documented, genuine attempt is treated very differently from simply not bothering.",
 ];
 
 /** G42 — Anmeldung booking & document runbook (complements the conceptual /visa/anmeldung page). */
@@ -69,6 +77,28 @@ export default function ArrivalAnmeldungRunbook() {
           Do it first.
         </AlertDescription>
       </Alert>
+
+      {/* ── G8-06: no slots before the 14-day window closes ───────────────────── */}
+      <section aria-labelledby="noslot-heading" className="space-y-3 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 id="noslot-heading" className="flex items-center gap-2 text-sm font-semibold">
+          <CalendarClock className="h-4 w-4 text-category-visa" aria-hidden /> No slots before your 14 days
+          are up?
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          In Berlin and Munich the city sometimes releases <strong>no appointments for weeks</strong> —
+          a structural problem, not your fault. The 14-day window in the Bundesmeldegesetz is real, but
+          it's measured against your honest effort: authorities very rarely penalise a newcomer who is
+          demonstrably trying and registers as soon as a slot exists.
+        </p>
+        <ol className="space-y-2">
+          {NO_SLOT.map((s, i) => (
+            <li key={i} className="flex items-start gap-3 text-sm">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
+              <span className="text-muted-foreground">{s}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="flex flex-wrap gap-2">
         <Link to="/visa/anmeldung" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">

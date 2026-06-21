@@ -12,6 +12,7 @@ import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useProfile } from "@/lib/profile/useProfile";
 import { uniAssistCost } from "@/lib/calc/journeyBudget";
 import { formatEur } from "@/lib/calc/costOfLiving";
+import type { TotalNeed } from "@/lib/calc/totalNeed";
 import { APS_INDIA_FEE_EUR, UNIASSIST_ADDITIONAL_EUR, UNIASSIST_FIRST_EUR } from "@/lib/facts";
 import { apsStatusFor } from "@/lib/country/country";
 import { source } from "@/lib/sources";
@@ -36,6 +37,9 @@ export default function FinanceApplicationCosts() {
 
   const [applications, setApplications] = useState(Math.max(1, shortlist.length || 3));
   const [apsFee, setApsFee] = useState(apsRequired ? DEFAULTS.apsFee : 0);
+  // The reconciled journey total (G6-05), if the budget page has computed it — shown read-only so this
+  // application-phase bill is seen as part of one coherent total, not a contradicting island.
+  const [journeyNeed] = useSyncedState<TotalNeed | null>("finance:totalNeed", null);
 
   const uniAssist = useMemo(() => uniAssistCost(applications, DEFAULTS.uniAssistFirst, DEFAULTS.uniAssistAdditional), [applications]);
   const total = uniAssist + apsFee;
@@ -86,6 +90,19 @@ export default function FinanceApplicationCosts() {
           uni-assist — that can lower this. uni-assist's exact fees are set per cycle; verify before paying.
         </AlertDescription>
       </Alert>
+
+      {journeyNeed && (
+        <div className="rounded-lg border bg-card p-4 text-sm shadow-sm">
+          <p className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-muted-foreground">This sits inside your reconciled <Link to="/start/budget" className="underline">journey total need</Link></span>
+            <span className="official-figure font-semibold">{formatEur(journeyNeed.total)}</span>
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            One figure across the budget and the <Link to="/finance/funding-plan" className="underline">funding-gap planner</Link>,
+            so they can't silently disagree.
+          </p>
+        </div>
+      )}
 
       <section className="flex flex-wrap gap-2">
         <Link to="/start/budget" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
