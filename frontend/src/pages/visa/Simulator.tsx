@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -20,6 +21,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,12 +36,22 @@ const SPEECH_AVAILABLE = typeof window !== "undefined" && "speechSynthesis" in w
 /** Whether spoken-answer dictation (SpeechRecognition) is available. */
 const STT_AVAILABLE = isSttAvailable();
 
+/**
+ * Rehearsal language (gap G7-06). Some missions interview partly in German, so a student prepping a
+ * German-medium programme can switch the SPOKEN side to German — the dictation locale and the
+ * read-aloud voice. The on-screen prompts stay in English (the practice-question set is English);
+ * the toggle is about practising spoken German answers, which is honestly noted in the UI.
+ */
+type SimLang = "en" | "de";
+const STT_LOCALE: Record<SimLang, string> = { en: "en-US", de: "de-DE" };
+
 /** Visa interview simulator — a stepper through common questions with on-demand tips and TTS. */
 export default function VisaSimulator() {
   const [index, setIndex] = useState(0);
   const [showTips, setShowTips] = useState(false);
   const [answer, setAnswer] = useState("");
   const [recording, setRecording] = useState(false);
+  const [lang, setLang] = useState<SimLang>("en");
   const ai = useGenerate<InterviewFeedbackResult>();
   // Dictation: capture the text present when recording starts, then append the live transcript to it
   // so typing-then-dictating (or a second take) never overwrites earlier text.
@@ -63,7 +75,7 @@ export default function VisaSimulator() {
     }
     baseAnswerRef.current = answer.trim();
     const rec = createRecognizer({
-      lang: "en-US",
+      lang: STT_LOCALE[lang],
       onTranscript: (text) => {
         const base = baseAnswerRef.current;
         setAnswer(base ? `${base} ${text}` : text);
@@ -117,7 +129,7 @@ export default function VisaSimulator() {
     const synth = window.speechSynthesis;
     synth.cancel();
     const utterance = new SpeechSynthesisUtterance(current.question);
-    utterance.lang = "en-US";
+    utterance.lang = STT_LOCALE[lang];
     synth.speak(utterance);
   };
 
@@ -132,6 +144,42 @@ export default function VisaSimulator() {
       />
 
       <Disclaimer />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="eyebrow">Rehearsal language</span>
+        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="Rehearsal language">
+          {(["en", "de"] as const).map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => {
+                stopDictation();
+                setLang(l);
+              }}
+              aria-pressed={lang === l}
+              className={
+                "rounded px-3 py-1 text-sm transition-colors " +
+                (lang === l
+                  ? "bg-primary/10 font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-muted")
+              }
+            >
+              {l === "en" ? "English" : "Deutsch"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {lang === "de" && (
+        <Alert variant="info" className="text-sm">
+          <Volume2 aria-hidden />
+          <AlertDescription>
+            German rehearsal mode: <strong>dictation and read-aloud switch to German</strong> so you can
+            practise spoken answers for a German-medium interview. The prompts on screen stay in English —
+            answer them aloud in German. Whether your mission interviews in German is mission-specific.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -349,6 +397,14 @@ export default function VisaSimulator() {
           </div>
         </CardContent>
       </Card>
+
+      <p className="text-sm text-muted-foreground">
+        A confident interview lowers the odds of a refusal — but if it happens anyway,{" "}
+        <Link to="/visa/refusal" className="text-primary hover:underline">
+          here's what to do next
+        </Link>
+        .
+      </p>
     </div>
   );
 }
