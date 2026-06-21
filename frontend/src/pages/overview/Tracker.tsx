@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, FileBadge, Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { uid } from "@/lib/doc/export";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useTableSync } from "@/lib/persist/useTableSync";
 import { stableUuid, type OwnedRow } from "@/lib/persist/syncTable";
+import { emptyOffer, normalizeOffer, OFFERS_KEY, type Offer } from "@/lib/offers/offers";
 import { cn } from "@/lib/utils";
 
 type Stage = "researching" | "applying" | "submitted" | "decision";
@@ -56,8 +58,20 @@ export default function TrackerPage() {
       url: (r.url as string | null) ?? undefined,
     }),
   });
+  // Offers store — the spine link (G5-04). A decision-stage app can spawn/jump to its linked offer.
+  const [rawOffers, setOffers] = useSyncedState<Offer[]>(OFFERS_KEY, []);
+  const offers = rawOffers.map(normalizeOffer);
   const [university, setUniversity] = useState("");
   const [program, setProgram] = useState("");
+
+  /** Create an offer linked to this application (shared programme identity), if one doesn't exist yet. */
+  const recordOffer = (a: Application) => {
+    if (offers.some((o) => o.appId === a.id)) return;
+    setOffers((prev) => [
+      ...prev.map(normalizeOffer),
+      { ...emptyOffer(uid("offer")), appId: a.id, programme: a.program, university: a.university },
+    ]);
+  };
 
   const add = () => {
     const u = university.trim();
@@ -138,7 +152,9 @@ export default function TrackerPage() {
                     Nothing here yet.
                   </li>
                 ) : (
-                  items.map((a) => (
+                  items.map((a) => {
+                    const linkedOffer = a.stage === "decision" ? offers.find((o) => o.appId === a.id) : undefined;
+                    return (
                     <li key={a.id} className="rounded-md border bg-card p-3 shadow-sm">
                       <p className="text-sm font-medium leading-snug">{a.university}</p>
                       <p className="text-xs text-muted-foreground">{a.program}</p>
@@ -151,6 +167,18 @@ export default function TrackerPage() {
                         >
                           Programme page <ExternalLink className="h-3 w-3" aria-hidden />
                         </a>
+                      )}
+                      {/* Spine hand-off: at decision, record/jump to the offer (G5-04). */}
+                      {a.stage === "decision" && (
+                        linkedOffer ? (
+                          <Link to="/offers/compare" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline">
+                            <Check className="h-3 w-3" aria-hidden /> Offer recorded ({linkedOffer.status})
+                          </Link>
+                        ) : (
+                          <button type="button" onClick={() => recordOffer(a)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <FileBadge className="h-3 w-3" aria-hidden /> Record an offer
+                          </button>
+                        )
                       )}
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex gap-1">
@@ -183,7 +211,8 @@ export default function TrackerPage() {
                         </button>
                       </div>
                     </li>
-                  ))
+                    );
+                  })
                 )}
               </ul>
             </section>
