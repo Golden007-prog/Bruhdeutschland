@@ -15,6 +15,7 @@ import {
   Briefcase,
   Building2,
   Calculator,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   CircleHelp,
@@ -29,6 +30,7 @@ import {
   FileSearch,
   FileText,
   FileX2,
+  FlaskConical,
   FolderCheck,
   FolderLock,
   Gauge,
@@ -188,6 +190,7 @@ const LanguageFsp = lazy(() => import("@/pages/language/Fsp"));
 const LanguageTms = lazy(() => import("@/pages/language/Tms"));
 const LanguageExamsHub = lazy(() => import("@/pages/language/ExamsHub"));
 const LanguageExamTracker = lazy(() => import("@/pages/language/ExamTracker"));
+const LanguageTestCenters = lazy(() => import("@/pages/language/TestCenters"));
 const ExamIelts = lazy(() => import("@/pages/language/exams/Ielts"));
 const ExamToefl = lazy(() => import("@/pages/language/exams/Toefl"));
 const ExamToeflLegacy = lazy(() => import("@/pages/language/exams/ToeflLegacy"));
@@ -195,6 +198,8 @@ const ExamTestdaf = lazy(() => import("@/pages/language/exams/Testdaf"));
 const ExamGoethe = lazy(() => import("@/pages/language/exams/Goethe"));
 const ExamGre = lazy(() => import("@/pages/language/exams/Gre"));
 const ExamGmat = lazy(() => import("@/pages/language/exams/Gmat"));
+const ExamTestas = lazy(() => import("@/pages/language/exams/Testas"));
+const ExamTms = lazy(() => import("@/pages/language/exams/Tms"));
 const FinanceOverview = lazy(() => import("@/pages/finance/Overview"));
 const FinanceSperrkonto = lazy(() => import("@/pages/finance/Sperrkonto"));
 const FinanceCostOfLiving = lazy(() => import("@/pages/finance/CostOfLiving"));
@@ -321,6 +326,7 @@ export const NAV: NavItem[] = [
   { path: "/language/tms", label: "TMS (medicine) prep", title: "TMS — medical studies aptitude test", eyebrow: "G12 · Language", description: "The Test für Medizinische Studiengänge can lift your Medicine application. Understand the subtests and how to prepare.", group: "language", category: "language", icon: HeartPulse, Component: LanguageTms },
   { path: "/language/exams", label: "Mock exams", title: "Mock exam centre", eyebrow: "Übungstests · Mock exams", description: "Timed practice exams for every test you might need: IELTS, TOEFL, TestDaF, Goethe, GRE, and GMAT.", group: "language", category: "language", icon: ClipboardCheck, Component: LanguageExamsHub },
   { path: "/language/exam-progress", label: "Exam progress", title: "Exam progress & analytics", eyebrow: "Fortschritt · Progress", description: "Track your mock-exam scores over time: per-skill and per-question-type accuracy, ranked weaknesses, a predicted band, and a personalised study plan.", group: "language", category: "language", icon: TrendingUp, Component: LanguageExamTracker },
+  { path: "/language/test-centers", label: "Test centres & booking", title: "Test centres & booking-date reminders", eyebrow: "Übungstests · Booking", description: "Official registration links per admission test plus a personal booking-date reminder you can export to your calendar.", group: "language", category: "language", icon: CalendarClock, Component: LanguageTestCenters },
   { path: "/language/exams/ielts", label: "IELTS mock", title: "IELTS Academic — practice exam", eyebrow: "Übungstest · IELTS", description: "A timed IELTS Academic practice set across Listening, Reading, and Writing question types.", group: "language", category: "language", icon: Headphones, hide: true, Component: ExamIelts },
   { path: "/language/exams/toefl", label: "TOEFL mock", title: "TOEFL iBT — practice exam", eyebrow: "Übungstest · TOEFL", description: "A timed TOEFL iBT practice set across Reading and Listening question types.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToefl },
   { path: "/language/exams/toefl-legacy", label: "TOEFL legacy mock", title: "TOEFL iBT (legacy 0–120) — practice exam", eyebrow: "Übungstest · TOEFL legacy", description: "Practice the retired pre-2026 TOEFL format and interpret an old 0–120 score.", group: "language", category: "language", icon: Globe, hide: true, Component: ExamToeflLegacy },
@@ -328,6 +334,8 @@ export const NAV: NavItem[] = [
   { path: "/language/exams/goethe", label: "Goethe mock", title: "Goethe-Zertifikat — practice exam", eyebrow: "Übungstest · Goethe", description: "A timed CEFR-aligned German practice set (A2–B2 grammar, vocabulary, and reading).", group: "language", category: "language", icon: MessageSquare, hide: true, Component: ExamGoethe },
   { path: "/language/exams/gre", label: "GRE mock", title: "GRE General — practice exam", eyebrow: "Übungstest · GRE", description: "A timed GRE practice set across Verbal Reasoning and Quantitative Reasoning question types.", group: "language", category: "language", icon: Sigma, hide: true, Component: ExamGre },
   { path: "/language/exams/gmat", label: "GMAT mock", title: "GMAT Focus — practice exam", eyebrow: "Übungstest · GMAT", description: "A timed GMAT Focus practice set across Quantitative, Verbal, and Data Insights question types.", group: "language", category: "language", icon: TrendingUp, hide: true, Component: ExamGmat },
+  { path: "/language/exams/testas", label: "TestAS mock", title: "TestAS — Core module practice", eyebrow: "Übungstest · TestAS", description: "A timed, auto-scored practice run of the TestAS Core module (Kerntest): quantitative problems, relationship reasoning, and number/pattern series.", group: "language", category: "language", icon: FlaskConical, hide: true, Component: ExamTestas },
+  { path: "/language/exams/tms", label: "TMS mock", title: "TMS — Übungstest (practice)", eyebrow: "Übungstest · TMS", description: "A timed, auto-scored practice run of TMS reasoning subtests (in German): quantitative/formal problems and number-pattern matching.", group: "language", category: "language", icon: FlaskConical, hide: true, Component: ExamTms },
   { path: "/finance", label: "Overview", title: "Finance & Logistics", eyebrow: "Bereich D · Finance & Logistics", description: "Plan the money side: blocked account, monthly costs, health insurance, scholarships, and part-time work.", group: "finance", category: "finance", icon: Wallet, disclaimer: true, Component: FinanceOverview },
   { path: "/finance/sperrkonto", label: "Sperrkonto guide", title: "Blocked account (Sperrkonto) guide", eyebrow: "Feature 17 · Finance", description: "Understand the blocked account you need for the visa: how it works, the required amount, and which providers to use.", group: "finance", category: "finance", icon: Landmark, featureNo: 17, disclaimer: true, Component: FinanceSperrkonto },
   { path: "/finance/cost-of-living", label: "Cost-of-living calc", title: "Cost-of-living calculator", eyebrow: "Feature 18 · Finance", description: "Estimate your monthly budget by city with a transparent, deterministic breakdown you can adjust.", group: "finance", category: "finance", icon: Coins, featureNo: 18, disclaimer: true, Component: FinanceCostOfLiving },
