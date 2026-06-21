@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Award, Flame, Printer, Target, TrendingUp } from "lucide-react";
+import { Award, CalendarClock, CheckCircle2, Flame, Printer, Target, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,7 +33,16 @@ import {
   scoreHistory,
   streakFromAttempts,
 } from "@/lib/exam/analytics";
+import { bookingReadiness, type ReadinessVerdict } from "@/lib/exam/readiness";
 import { SCALE_DISCLAIMER } from "@/lib/exam/scale";
+
+const READINESS_CLS: Record<ReadinessVerdict, string> = {
+  ready: "border-emerald-300 bg-emerald-50/60",
+  almost: "border-amber-300 bg-amber-50/60",
+  keep_practising: "border-sky-200 bg-sky-50/50",
+  no_target: "border-dashed bg-muted/30",
+  insufficient: "border-dashed bg-muted/30",
+};
 
 const SKILL_LABEL: Record<string, string> = {
   listening: "Listening", reading: "Reading", writing: "Writing", speaking: "Speaking",
@@ -71,6 +80,12 @@ export default function LanguageExamTracker() {
   const best = bestOverall(attempts);
   const target = Number(targetBand);
   const gap = prediction.value != null && Number.isFinite(target) && target > 0 ? Math.max(0, target - prediction.value) : null;
+  // "Ready to book" gate (G3-2): a clear go/hold verdict from the rolling projection vs the target,
+  // with a confidence floor so one lucky attempt never reads as "ready".
+  const readiness = useMemo(
+    () => bookingReadiness(prediction.value, prediction.confidence, target),
+    [prediction.value, prediction.confidence, target],
+  );
 
   return (
     <div className="space-y-6">
@@ -135,6 +150,20 @@ export default function LanguageExamTracker() {
                     <>Gap to target: <span className="official-figure font-semibold text-foreground">{gap}</span> band{gap === 0.5 ? "" : "s"}.</>
                   )}
                 </span>
+              )}
+            </div>
+
+            {/* Ready-to-book gate (G3-2) */}
+            <div className={`mt-4 rounded-md border p-4 ${READINESS_CLS[readiness.verdict]}`}>
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                {readiness.verdict === "ready" ? <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden /> : <Target className="h-4 w-4 text-muted-foreground" aria-hidden />}
+                {readiness.headline}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{readiness.detail}</p>
+              {readiness.verdict === "ready" && (
+                <Link to="/language/test-centers" className="mt-2 inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                  <CalendarClock className="h-3.5 w-3.5" aria-hidden /> Find a test centre & book a date
+                </Link>
               )}
             </div>
           </section>

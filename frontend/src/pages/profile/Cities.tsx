@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Info, MapPin } from "lucide-react";
+import { ArrowRight, Briefcase, Info, Languages, MapPin } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { CITY_PROFILES, formatEur } from "@/lib/calc/costOfLiving";
+import { cityInsight, STRENGTH_LABEL, type Strength } from "@/lib/seed/cityInsights";
 import { cn } from "@/lib/utils";
+
+const SIGNAL_CLS: Record<Strength, string> = {
+  stronger: "bg-emerald-100 text-emerald-900",
+  mixed: "bg-amber-100 text-amber-900",
+  research: "bg-sky-100 text-sky-900",
+};
 
 const FACTORS = [
   "Rent & availability (biggest cost difference between cities)",
@@ -18,6 +26,7 @@ const FACTORS = [
 /** G17 — City explorer. Compares the rough cost baseline (grounded in CITY_PROFILES) + factors to research. */
 export default function ProfileCities() {
   const [sortByRent, setSortByRent] = useState(true);
+  const [openCity, setOpenCity] = useState<string | null>(null);
   const cities = [...CITY_PROFILES].sort((a, b) =>
     sortByRent ? a.rent - b.rent : a.city.localeCompare(b.city),
   );
@@ -57,22 +66,65 @@ export default function ProfileCities() {
               <th className="p-3 font-medium">City</th>
               <th className="p-3 text-right font-medium">~Rent/mo</th>
               <th className="p-3 text-right font-medium">~Total/mo</th>
+              <th className="p-3 text-right font-medium">Language &amp; jobs</th>
             </tr>
           </thead>
           <tbody>
             {cities.map((c, i) => {
               const total = c.rent + c.food + c.transport + c.insurance + c.other;
+              const insight = cityInsight(c.city);
+              const open = openCity === c.city;
               return (
-                <tr key={c.city} className={cn("border-t", i % 2 && "bg-muted/20")}>
-                  <td className="p-3 font-medium"><MapPin className="mr-1 inline h-3.5 w-3.5 text-category-profile" aria-hidden />{c.city}</td>
-                  <td className="official-figure p-3 text-right">{formatEur(c.rent)}</td>
-                  <td className="official-figure p-3 text-right">{formatEur(total)}</td>
-                </tr>
+                <Fragment key={c.city}>
+                  <tr className={cn("border-t", i % 2 && "bg-muted/20")}>
+                    <td className="p-3 font-medium"><MapPin className="mr-1 inline h-3.5 w-3.5 text-category-profile" aria-hidden />{c.city}</td>
+                    <td className="official-figure p-3 text-right">{formatEur(c.rent)}</td>
+                    <td className="official-figure p-3 text-right">{formatEur(total)}</td>
+                    <td className="p-3 text-right">
+                      {insight ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenCity(open ? null : c.city)}
+                          aria-expanded={open}
+                          className="inline-flex items-center gap-1.5 rounded text-xs text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Badge variant="secondary" className={cn("font-normal", SIGNAL_CLS[insight.englishSignal])}>{STRENGTH_LABEL[insight.englishSignal]}</Badge>
+                          {open ? "Hide" : "Details"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Research locally</span>
+                      )}
+                    </td>
+                  </tr>
+                  {insight && open && (
+                    <tr className="border-t bg-muted/10">
+                      <td colSpan={4} className="p-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="flex items-center gap-1.5 text-xs font-semibold"><Briefcase className="h-3.5 w-3.5 text-category-profile" aria-hidden /> Job-market character</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{insight.jobMarket}</p>
+                            <p className="mt-1.5 text-xs text-muted-foreground"><span className="font-medium text-foreground">Werkstudent:</span> {insight.werkstudent}</p>
+                          </div>
+                          <div>
+                            <p className="flex items-center gap-1.5 text-xs font-semibold"><Languages className="h-3.5 w-3.5 text-category-profile" aria-hidden /> English-friendliness</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{insight.englishFriendliness}</p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Job-market and language notes are <strong>qualitative orientation</strong>, not statistics — no
+        employment rate or English-proficiency figure is implied. Demand varies sharply by field and by
+        year; confirm current conditions for <em>your</em> field on job portals and the city&apos;s own pages.
+      </p>
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="text-sm font-semibold">What to research for a city</h2>

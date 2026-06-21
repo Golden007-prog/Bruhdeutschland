@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { Columns3, Database, LayoutGrid, List, Loader2, MapPin, Save, Search, Sparkles, X } from "lucide-react";
 
@@ -246,6 +246,21 @@ export default function ProfileMatching() {
         </AlertDescription>
       </Alert>
 
+      {/* Profile-less eligibility nudge (G2-3): cards still show the eligibility scaffold with "add X"
+          prompts so a school-leaver without a profile sees how to compare, not just bare cards. */}
+      {!hasProfile && total > 0 && (
+        <Alert variant="info" className="text-xs">
+          <Sparkles aria-hidden />
+          <AlertTitle>Add your basics to compare eligibility</AlertTitle>
+          <AlertDescription>
+            Each card below shows an eligibility checklist — but most criteria read &ldquo;add your
+            details&rdquo; until you fill in your{" "}
+            <Link to="/settings" className="font-medium underline">profile</Link> (Class-12 % or degree
+            grade, country, language level). Add them once and every programme&apos;s fit updates here.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <details className="rounded-lg border bg-card p-4">
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
           <Sparkles className="h-4 w-4 text-primary" aria-hidden /> Match with AI — describe your goal
@@ -338,7 +353,9 @@ export default function ProfileMatching() {
                   program={program}
                   relevance={relevance}
                   hasQuery={Boolean(filters.q)}
-                  eligibility={hasProfile ? eligibility(profile, program) : undefined}
+                  // Always pass eligibility — profile-less users get the "unknown / add X" scaffold
+                  // (eligibility() emits friendly unknown criteria with gapHrefs), not a bare card (G2-3).
+                  eligibility={eligibility(profile, program)}
                   shortlisted={shortlist.includes(program.id)}
                   inCompare={compare.includes(program.id)}
                   compareDisabled={compare.length >= 4}

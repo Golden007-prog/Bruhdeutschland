@@ -4,7 +4,7 @@
  * Zod, and assembles a {@link GeneratedExam}. Fallback ladder so the app never shows a broken exam:
  *   live generation → one transient retry → bundled offline seed form.
  */
-import { EXAM_SPECS, type SectionSpec } from "@/data/exam-specs";
+import { EXAM_SPECS, type ExamSpec, type SectionSpec } from "@/data/exam-specs";
 import { getSeedForm } from "@/data/seed-forms";
 import { LLMError } from "@/lib/llm/types";
 import { NoProviderError, resolveProvider } from "@/lib/llm/registry";
@@ -13,6 +13,17 @@ import { generatedSectionSchema, type GeneratedExam, type GeneratedSection } fro
 import { makeNonce, pickTopics, topicPool } from "./topics";
 
 export type GenMode = "full" | "section" | "mini";
+
+/**
+ * Resolve an exam spec by id. Falls back to a caller-supplied spec so exams that aren't in the global
+ * {@link EXAM_SPECS} registry (e.g. the in-page TestAS / TMS aptitude mocks built in lib/exam/banks)
+ * can still drive the same generation + scoring pipeline without registering globally.
+ */
+function specFor(examId: string, fallback?: ExamSpec): ExamSpec {
+  const spec = EXAM_SPECS[examId] ?? fallback;
+  if (!spec) throw new Error(`Unknown exam: ${examId}`);
+  return spec;
+}
 
 export interface GenProgress {
   step: number;
@@ -32,6 +43,13 @@ export interface GenerateOptions {
   difficulty?: Difficulty;
   /** Adaptive stage label (1 routing, 2 adapted). */
   stage?: 1 | 2;
+  /**
+   * Spec to use when `examId` isn't in the global {@link EXAM_SPECS} registry (in-page mocks like
+   * TestAS / TMS). Ignored when the id is registered.
+   */
+  spec?: ExamSpec;
+  /** Offline fallback form for an unregistered exam (replaces the {@link getSeedForm} lookup). */
+  seedForm?: GeneratedExam | null;
   signal?: AbortSignal;
   onProgress?: (p: GenProgress) => void;
 }
@@ -47,7 +65,7 @@ const delay = (ms: number, signal?: AbortSignal): Promise<void> =>
 
 /** Apply the requested mode to the spec's sections (mini ≈ half the objective questions). */
 function planSections(examId: string, opts: GenerateOptions): SectionSpec[] {
-  const spec = EXAM_SPECS[examId];
+  const spec = specFor(examId, opts.spec);
   let sections = spec.sections;
   if (opts.mode === "section" && opts.sectionSkill) {
     sections = sections.filter((s) => s.skill === opts.sectionSkill);
@@ -69,7 +87,7 @@ async function generateSection(
   nonce: string,
   opts: GenerateOptions,
 ): Promise<GeneratedSection> {
-  const spec = EXAM_SPECS[examId];
+  const spec = specFor(examId, opts.spec);
   const provider = await resolveProvider();
   const topics = pickTopics(topicPool(examId, section.skill), opts.exclude ?? [], 2, `${nonce}-${section.skill}`);
   const prompt = buildSectionPrompt({ spec, section, nonce, topics, level: opts.level, difficulty: opts.difficulty, stage: opts.stage });
@@ -96,8 +114,7 @@ async function generateSection(
  * (no provider, repeated rate-limit, invalid output) so the user always gets a usable exam.
  */
 export async function generateExam(examId: string, opts: GenerateOptions = {}): Promise<GeneratedExam> {
-  const spec = EXAM_SPECS[examId];
-  if (!spec) throw new Error(`Unknown exam: ${examId}`);
+  const spec = specFor(examId, opts.spec);
   const sections = planSections(examId, opts);
   const nonce = makeNonce();
   const total = sections.length + 1;
@@ -120,8 +137,9 @@ export async function generateExam(examId: string, opts: GenerateOptions = {}): 
     };
   } catch (err) {
     if (opts.signal?.aborted) throw err;
-    // Fallback ladder bottom rung: bundled seed bank.
-    const seed = getSeedForm(examId);
+    // Fallback ladder bottom rung: bundled seed bank (registry seed, or a caller-supplied one for
+    // in-page mocks). Clone the caller's seed so the runner can answer it without mutating the source.
+    const seed = getSeedForm(examId) ?? (opts.seedForm ? JSON.parse(JSON.stringify(opts.seedForm)) as GeneratedExam : null);
     if (seed) {
       opts.onProgress?.({ step: total, total, label: "Using an offline practice form…" });
       return seed;
@@ -129,6 +147,19 @@ export async function generateExam(examId: string, opts: GenerateOptions = {}): 
     if (err instanceof NoProviderError) throw err;
     throw err;
   }
+}
+
+/**
+ * Generate an exam from a spec that lives OUTSIDE the global {@link EXAM_SPECS} registry — used by the
+ * in-page TestAS / TMS aptitude mocks (lib/exam/banks). Identical pipeline (one LLM call per section,
+ * Zod-validated, deterministic scoring) with the same offline fallback to a bundled seed form.
+ */
+export function generateExamFromSpec(
+  spec: ExamSpec,
+  seedForm: GeneratedExam,
+  opts: Omit<GenerateOptions, "spec" | "seedForm"> = {},
+): Promise<GeneratedExam> {
+  return generateExam(spec.id, { ...opts, spec, seedForm });
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ExternalLink, GraduationCap, School, Search } from "lucide-react";
+import { BookmarkCheck, BookmarkPlus, Check, ExternalLink, GraduationCap, School, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,13 @@ import {
   type ProgramLanguage,
   type UniversityProgram,
 } from "@/lib/seed/universities";
+import { useProgramData } from "@/lib/programs/useProgramData";
+import { useSyncedState } from "@/lib/persist/useSyncedState";
+import type { Program } from "@/lib/programs/types";
 import { cn } from "@/lib/utils";
+
+/** Normalise a name for matching the explorer's curated row to the canonical SEED_PROGRAMS row. */
+const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 type LanguageFilter = "all" | ProgramLanguage;
 
@@ -35,11 +41,19 @@ function ProgramCard({
   selected,
   canSelect,
   onToggleCompare,
+  shortlisted,
+  canShortlist,
+  onToggleShortlist,
 }: {
   program: UniversityProgram;
   selected: boolean;
   canSelect: boolean;
   onToggleCompare: (id: string) => void;
+  /** True when this programme is already in the matching shortlist. */
+  shortlisted: boolean;
+  /** False when no canonical programme could be resolved (so it can't feed the shared shortlist). */
+  canShortlist: boolean;
+  onToggleShortlist: (id: string) => void;
 }) {
   const compareDisabled = !selected && !canSelect;
   return (
@@ -78,19 +92,34 @@ function ProgramCard({
             <span className="sr-only"> for {program.program} at {program.university} (opens in a new tab)</span>
           </a>
 
-          <Button
-            type="button"
-            variant={selected ? "secondary" : "outline"}
-            size="sm"
-            role="checkbox"
-            aria-checked={selected}
-            aria-disabled={compareDisabled}
-            disabled={compareDisabled}
-            onClick={() => onToggleCompare(program.id)}
-          >
-            {selected ? <Check aria-hidden /> : null}
-            {selected ? "Comparing" : "Compare"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={shortlisted ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={shortlisted}
+              aria-disabled={!canShortlist}
+              disabled={!canShortlist}
+              title={canShortlist ? undefined : "This explorer entry isn't linked to a matching programme yet."}
+              onClick={() => onToggleShortlist(program.id)}
+            >
+              {shortlisted ? <BookmarkCheck aria-hidden /> : <BookmarkPlus aria-hidden />}
+              {shortlisted ? "Shortlisted" : "Shortlist"}
+            </Button>
+            <Button
+              type="button"
+              variant={selected ? "secondary" : "outline"}
+              size="sm"
+              role="checkbox"
+              aria-checked={selected}
+              aria-disabled={compareDisabled}
+              disabled={compareDisabled}
+              onClick={() => onToggleCompare(program.id)}
+            >
+              {selected ? <Check aria-hidden /> : null}
+              {selected ? "Comparing" : "Compare"}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -107,6 +136,34 @@ export default function UniversitiesExplorer() {
   const [language, setLanguage] = useState<LanguageFilter>("all");
   const [query, setQuery] = useState("");
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  // G2-5: feed the SAME shortlist store Matching/Shortlist use, so a programme found here isn't re-found.
+  const { programs } = useProgramData();
+  const [shortlist, setShortlist] = useSyncedState<string[]>("programs:shortlist", []);
+
+  // Resolve each explorer entry to its canonical SEED_PROGRAMS row (by university + programme name) so
+  // "Shortlist" adds the id Matching/Shortlist resolve against — the two datasets are otherwise separate.
+  const canonicalIdFor = useMemo(() => {
+    const byKey = new Map<string, Program>();
+    for (const p of programs) byKey.set(`${norm(p.university)}|${norm(p.name)}`, p);
+    const map = new Map<string, string>();
+    for (const u of UNIVERSITY_PROGRAMS) {
+      const hit =
+        byKey.get(`${norm(u.university)}|${norm(u.program)}`) ??
+        programs.find((p) => norm(p.university) === norm(u.university) && norm(p.name).includes(norm(u.program)));
+      if (hit) map.set(u.id, hit.id);
+    }
+    return map;
+  }, [programs]);
+
+  const toggleShortlist = (uniProgramId: string) => {
+    const canonical = canonicalIdFor.get(uniProgramId);
+    if (!canonical) return;
+    setShortlist((prev) => (prev.includes(canonical) ? prev.filter((x) => x !== canonical) : [...prev, canonical]));
+  };
+  const isShortlisted = (uniProgramId: string) => {
+    const canonical = canonicalIdFor.get(uniProgramId);
+    return canonical ? shortlist.includes(canonical) : false;
+  };
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -174,14 +231,27 @@ export default function UniversitiesExplorer() {
             .
           </p>
           <p>
-            Found programmes that fit? Use them to plan your{" "}
+            Found programmes that fit? <span className="font-medium text-foreground">Shortlist</span> them
+            here and they feed the same list your{" "}
             <Link
               to="/profile/matching"
               className="font-medium text-category-profile underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               course &amp; university matching
             </Link>{" "}
-            shortlist.
+            and{" "}
+            <Link
+              to="/profile/shortlist"
+              className="font-medium text-category-profile underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              reach/match/safety shortlist
+            </Link>{" "}
+            use — no need to re-find them.
+            {shortlist.length > 0 && (
+              <span className="ml-1 font-medium text-foreground">
+                {shortlist.length} programme{shortlist.length === 1 ? "" : "s"} shortlisted.
+              </span>
+            )}
           </p>
         </CardContent>
       </Card>
@@ -349,6 +419,9 @@ export default function UniversitiesExplorer() {
               selected={compareIds.includes(p.id)}
               canSelect={canSelectMore}
               onToggleCompare={toggleCompare}
+              shortlisted={isShortlisted(p.id)}
+              canShortlist={canonicalIdFor.has(p.id)}
+              onToggleShortlist={toggleShortlist}
             />
           ))}
         </div>
