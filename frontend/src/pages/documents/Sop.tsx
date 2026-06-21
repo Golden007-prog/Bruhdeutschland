@@ -1,4 +1,5 @@
-import { FileText, Lightbulb, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileText, Lightbulb, Loader2, Sparkles, Target, Wand2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { DocActions } from "@/components/common/DocActions";
@@ -15,6 +16,7 @@ import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { useProfile } from "@/lib/profile/useProfile";
 import { currentYM, formatYearsMonths, summarizeExperience } from "@/lib/profile/experience";
 import { anyProviderConfigured } from "@/lib/llm/registry";
+import { programmeTargets, type OfferLike, type TrackerApp } from "@/lib/documents/programmes";
 
 interface SopForm {
   program: string;
@@ -25,7 +27,13 @@ interface SopForm {
   careerGoal: string;
 }
 
-const EMPTY: SopForm = {
+/** One per-program SOP: its inputs and its editable draft, kept together and keyed by programme. */
+interface SopEntry {
+  form: SopForm;
+  draft: string;
+}
+
+const EMPTY_FORM: SopForm = {
   program: "",
   university: "",
   background: "",
@@ -34,12 +42,20 @@ const EMPTY: SopForm = {
   careerGoal: "",
 };
 
+/** Per-program SOP store: a map of programme-key → {form, draft}. "free" is the un-linked scratch draft. */
+type SopMap = Record<string, SopEntry>;
+const FREE_KEY = "free";
+
 /** Split a textarea of newline-separated bullets into clean lines. */
 function lines(text: string): string[] {
   return text
     .split("\n")
     .map((l) => l.replace(/^[-*•]\s*/, "").trim())
     .filter(Boolean);
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
 /** Deterministic, template-based SOP composition — no LLM, no backend. */
@@ -88,10 +104,6 @@ function composeDraft(f: SopForm): string {
   ].join("\n");
 }
 
-function lowerFirst(s: string): string {
-  return s.charAt(0).toLowerCase() + s.slice(1);
-}
-
 /** Assemble the AI's structured SOP into the same editable plain-text format as the template. */
 function assembleAi(f: SopForm, ai: SopResult): string {
   const program = f.program.trim() || "[target program]";
@@ -114,19 +126,48 @@ function assembleAi(f: SopForm, ai: SopResult): string {
   ].join("\n");
 }
 
-/** Statement of Purpose generator (Feature 06). Form → template-composed editable draft. */
+/**
+ * Statement of Purpose generator (Feature 06), now per-program (gap G4-01). Pick a target from your
+ * tracker/offers (or work on the un-linked scratch draft); each programme keeps its own inputs and
+ * editable draft, so applying to 6–10 programmes no longer means retyping the target and losing drafts.
+ */
 export default function DocumentsSop() {
-  const [form, setForm] = useSyncedState<SopForm>("doc:sop:form", EMPTY);
-  const [draft, setDraft] = useSyncedState<string>("doc:sop:draft", "");
+  const [sops, setSops] = useSyncedState<SopMap>("doc:sop:byProgram", {});
+  // Back-compat: the old single-draft key still feeds VaultMatrix's "is the SOP written?" check.
+  const setLegacyDraft = useSyncedState<string>("doc:sop:draft", "")[1];
+  const [apps] = useSyncedState<TrackerApp[]>("tracker:apps", []);
+  const [offers] = useSyncedState<OfferLike[]>("offers:list", []);
   const { profile } = useProfile();
   const exp = summarizeExperience(profile, currentYM());
   const ai = useGenerate<SopResult>();
   const configured = anyProviderConfigured();
 
+  const targets = useMemo(() => programmeTargets(apps, offers), [apps, offers]);
+  const [activeKey, setActiveKey] = useState<string>(FREE_KEY);
+
+  // The active entry, seeded from the linked target's programme/university the first time it's opened.
+  const entry: SopEntry = useMemo(() => {
+    const existing = sops[activeKey];
+    if (existing) return existing;
+    const t = activeKey === FREE_KEY ? undefined : targets.find((x) => x.key === activeKey);
+    return { form: { ...EMPTY_FORM, program: t?.programme ?? "", university: t?.university ?? "" }, draft: "" };
+  }, [sops, activeKey, targets]);
+
+  const { form, draft } = entry;
+
+  const writeEntry = (next: Partial<SopEntry>) => {
+    const merged: SopEntry = { form: next.form ?? form, draft: next.draft ?? draft };
+    setSops((prev) => ({ ...prev, [activeKey]: merged }));
+    // Mirror to the legacy single-draft key so VaultMatrix sees "an SOP exists" once any draft is written.
+    if (next.draft !== undefined) setLegacyDraft(next.draft || draftedAny({ ...sops, [activeKey]: merged }));
+  };
+
   const set =
     <K extends keyof SopForm>(key: K) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+      writeEntry({ form: { ...form, [key]: e.target.value } });
+
+  const setDraft = (value: string) => writeEntry({ draft: value });
 
   const generate = () => setDraft(composeDraft(form));
 
@@ -168,12 +209,14 @@ export default function DocumentsSop() {
     if (result) setDraft(assembleAi(form, result));
   };
 
+  const draftCount = Object.values(sops).filter((e) => e.draft.trim()).length;
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Feature 06 · Documents"
-        title="Statement of Purpose generator"
-        description="Build a tailored SOP from your profile and a target program — structured, specific, and yours to edit."
+        title="Statement of Purpose studio"
+        description="A tailored SOP per programme, not one generic draft. Pick a target from your tracker or offers — each keeps its own inputs and editable draft, so a 6–10 programme shortlist stays organised."
         category="documents"
       />
 
@@ -186,6 +229,34 @@ export default function DocumentsSop() {
           introduction, motivation, fit with the program, and career goals.
         </AlertDescription>
       </Alert>
+
+      {/* Per-programme target picker. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 shadow-sm">
+        <label htmlFor="sop-target" className="flex items-center gap-2 text-sm font-medium">
+          <Target className="h-4 w-4 text-category-documents" aria-hidden /> Working on
+        </label>
+        <select
+          id="sop-target"
+          value={activeKey}
+          onChange={(e) => setActiveKey(e.target.value)}
+          className="h-9 min-w-[16rem] flex-1 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value={FREE_KEY}>Scratch draft (not linked to a programme)</option>
+          {targets.map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.label} ({t.origin}){sops[t.key]?.draft.trim() ? " · drafted" : ""}
+            </option>
+          ))}
+        </select>
+        <span className="official-figure text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">{draftCount}</span> draft{draftCount === 1 ? "" : "s"} saved
+        </span>
+      </div>
+      {targets.length === 0 && (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Add programmes in your application tracker to draft an SOP per programme; for now you're on the scratch draft.
+        </p>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -351,4 +422,10 @@ export default function DocumentsSop() {
       </div>
     </div>
   );
+}
+
+/** First non-empty draft across all programmes — used to keep the legacy "an SOP exists" signal truthful. */
+function draftedAny(map: SopMap): string {
+  for (const e of Object.values(map)) if (e.draft.trim()) return e.draft;
+  return "";
 }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CheckCircle2, Clock, FileCheck, Plus, Send, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle2, Clock, FileCheck, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Checklist } from "@/components/common/Checklist";
@@ -15,6 +15,10 @@ import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { source } from "@/lib/sources";
 import type { OfficialFact } from "@/lib/types";
 import { VPD_PREREQUISITES } from "@/lib/seed/documents";
+import { deriveRequirementNeeds } from "@/lib/documents/programmes";
+
+/** Captured per-programme requirement record (read-only here) — drives VPD-needed seeding (G4-05). */
+interface ReqRecord { id: string; programme: string; requirements: string }
 
 type VpdStatus = "requested" | "processing" | "received";
 
@@ -52,13 +56,33 @@ const VPD_VALIDITY: OfficialFact = {
 /** VPD (Vorprüfungsdokumentation) tracker (Feature 10). */
 export default function DocumentsVpd() {
   const [entries, setEntries] = useSyncedState<VpdEntry[]>("doc:vpd:entries", []);
+  const [reqs] = useSyncedState<ReqRecord[]>("programme:requirements", []);
   const [draft, setDraft] = useState("");
+
+  // Programmes whose captured requirements mention a VPD — surfaced so the student seeds the right universities (G4-05).
+  const vpdProgrammes = useMemo(
+    () =>
+      reqs
+        .filter((r) => deriveRequirementNeeds(r.requirements, "").find((n) => n.id === "vpd")?.needed === true)
+        .map((r) => r.programme.trim())
+        .filter(Boolean),
+    [reqs],
+  );
+  const unseeded = useMemo(() => {
+    const have = new Set(entries.map((e) => e.university.trim().toLowerCase()));
+    return vpdProgrammes.filter((p) => !have.has(p.toLowerCase()));
+  }, [vpdProgrammes, entries]);
 
   const addEntry = () => {
     const name = draft.trim();
     if (!name) return;
     setEntries((prev) => [...prev, { id: uid("vpd"), university: name, status: "requested" }]);
     setDraft("");
+  };
+
+  const seedFromReqs = () => {
+    if (!unseeded.length) return;
+    setEntries((prev) => [...prev, ...unseeded.map((p) => ({ id: uid("vpd"), university: p, status: "requested" as const }))]);
   };
 
   const cycleStatus = (id: string) =>
@@ -93,6 +117,20 @@ export default function DocumentsVpd() {
           it takes weeks to produce, request it as early as possible.
         </AlertDescription>
       </Alert>
+
+      {unseeded.length > 0 && (
+        <Alert variant="info" className="text-sm">
+          <Sparkles aria-hidden />
+          <AlertDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              Your captured requirements flag a VPD for: <span className="font-medium">{unseeded.join("; ")}</span>.
+            </span>
+            <Button onClick={seedFromReqs} size="sm" variant="outline" className="h-7">
+              <Plus aria-hidden /> Add to tracker
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <section aria-labelledby="vpd-facts" className="space-y-3">
         <h2 id="vpd-facts" className="eyebrow">

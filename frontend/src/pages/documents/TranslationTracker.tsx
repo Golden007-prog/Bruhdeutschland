@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Plus, Sparkles, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSyncedState } from "@/lib/persist/useSyncedState";
 import { uid } from "@/lib/doc/export";
+import { deriveRequirementNeeds } from "@/lib/documents/programmes";
 import { cn } from "@/lib/utils";
 
 type TStatus = "needed" | "sent" | "received";
 interface TransRow { id: string; document: string; translator: string; cost: string; status: TStatus }
+
+/** Captured per-programme requirement record (read-only here) — drives the "translation needed?" seeding. */
+interface ReqRecord { id: string; programme: string; requirements: string }
 
 const META: Record<TStatus, { label: string; cls: string }> = {
   needed: { label: "Needed", cls: "bg-muted text-muted-foreground" },
@@ -20,15 +24,33 @@ const META: Record<TStatus, { label: string; cls: string }> = {
 };
 const ORDER: TStatus[] = ["needed", "sent", "received"];
 
-/** G21 — Certified-translation tracker (per-document status). */
+/** The default rows we offer to seed when a programme's pasted requirements mention a translation. */
+const SEED_DOCS = ["Bachelor's degree certificate", "Transcript of records"];
+
+/** G21 / G4-05 — Certified-translation tracker, now seeded from programmes that actually require one. */
 export default function DocumentsTranslationTracker() {
   const [rows, setRows] = useSyncedState<TransRow[]>("translation:tracker", []);
+  const [reqs] = useSyncedState<ReqRecord[]>("programme:requirements", []);
   const [doc, setDoc] = useState("");
+
+  // Programmes whose captured requirements mention a certified/sworn translation (deterministic, country-agnostic).
+  const needingProgrammes = useMemo(
+    () =>
+      reqs
+        .filter((r) => deriveRequirementNeeds(r.requirements, "").find((n) => n.id === "translation")?.needed === true)
+        .map((r) => r.programme),
+    [reqs],
+  );
 
   const add = () => {
     if (!doc.trim()) return;
     setRows((p) => [...p, { id: uid("tr"), document: doc.trim(), translator: "", cost: "", status: "needed" }]);
     setDoc("");
+  };
+  const seed = () => {
+    const have = new Set(rows.map((r) => r.document.toLowerCase()));
+    const toAdd = SEED_DOCS.filter((d) => !have.has(d.toLowerCase())).map((d) => ({ id: uid("tr"), document: d, translator: "", cost: "", status: "needed" as const }));
+    if (toAdd.length) setRows((p) => [...p, ...toAdd]);
   };
   const patch = (id: string, p: Partial<TransRow>) => setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...p } : r)));
   const cycle = (id: string) => setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: ORDER[(ORDER.indexOf(r.status) + 1) % ORDER.length] } : r)));
@@ -43,11 +65,22 @@ export default function DocumentsTranslationTracker() {
         category="documents"
       />
 
+      {needingProgrammes.length > 0 && (
+        <Alert variant="info" className="text-sm">
+          <Sparkles aria-hidden />
+          <AlertDescription>
+            From your captured requirements, {needingProgrammes.length === 1 ? "this programme calls" : "these programmes call"} for a certified translation:{" "}
+            <span className="font-medium">{needingProgrammes.join("; ")}</span>. Seed the usual documents below to get started.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold">Documents to translate</h2>
-        <div className="flex gap-2">
-          <Input value={doc} onChange={(e) => setDoc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="e.g. Bachelor's degree certificate" aria-label="Document name" />
+        <div className="flex flex-wrap gap-2">
+          <Input value={doc} onChange={(e) => setDoc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="e.g. Bachelor's degree certificate" aria-label="Document name" className="min-w-[12rem] flex-1" />
           <Button onClick={add} variant="outline"><Plus aria-hidden /> Add</Button>
+          <Button onClick={seed} variant="outline"><Sparkles aria-hidden /> Seed usual documents</Button>
         </div>
 
         {rows.length === 0 && (
@@ -84,9 +117,14 @@ export default function DocumentsTranslationTracker() {
         </AlertDescription>
       </Alert>
 
-      <Link to="/documents/translation" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
-        Find a sworn translator <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-      </Link>
+      <section className="flex flex-wrap gap-2">
+        <Link to="/documents/translation" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
+          Find a sworn translator <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+        <Link to="/documents/requirements" className="inline-flex items-center gap-1 rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted">
+          Per-programme requirements <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      </section>
     </div>
   );
 }
