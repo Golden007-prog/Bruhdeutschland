@@ -1,7 +1,7 @@
 {
   "name": "deutschprep",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "DeutschPrep — German Master's admission copilot. Monorepo: /frontend (SPA), /backend (FastAPI pro target), /tools/claude-bridge (Owner-Mode, local only).",
   "scripts": {
     "setup": "node tools/ensure-deps.mjs",

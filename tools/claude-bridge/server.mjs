@@ -26,6 +26,10 @@ const opt = (name, fallback) => {
 const PORT = Number(opt("--port", process.env.BRIDGE_PORT || 8787));
 const SERVE_DIR = args.includes("--serve") ? resolve(opt("--serve", "")) : null;
 const OPEN = args.includes("--open");
+// When the bridge comes up, optionally open an extra URL in the browser (in addition to the local app).
+// Owner Mode points this at the HOSTED Settings page so a user can connect their plan to the hosted
+// site, which auto-probes http://localhost:8787/health. Set via `--open-url <url>` or OWNER_OPEN_URL.
+const OPEN_URL = (opt("--open-url", process.env.OWNER_OPEN_URL || "") || "").trim();
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
 // Bind loopback-only by default (qa SEC-2): never expose the bridge to the LAN. A `--host 0.0.0.0`
 // override exists for advanced/trusted setups but is opt-in.
@@ -226,8 +230,15 @@ server.listen(PORT, BIND_HOST, () => {
     console.log(`⚠️  Bound to ${BIND_HOST} (non-loopback) — the bridge is reachable beyond this machine.`);
   }
   console.log(`Using Claude CLI: ${CLAUDE_BIN} (relies on your existing Claude login).`);
-  if (OPEN && SERVE_DIR) {
+  if (OPEN) {
     const opener = process.platform === "win32" ? "start" : process.platform === "darwin" ? "open" : "xdg-open";
-    spawn(opener, [`http://localhost:${PORT}/`], { shell: true, stdio: "ignore", detached: true });
+    const urls = [];
+    if (SERVE_DIR) urls.push(`http://localhost:${PORT}/`); // local app
+    if (OPEN_URL) urls.push(OPEN_URL); // hosted Settings page (connect your plan)
+    for (const u of urls) {
+      // On win32 `start <url>` treats a quoted first arg as a window title, so pass an empty title first.
+      const a = process.platform === "win32" ? ["", u] : [u];
+      spawn(opener, a, { shell: true, stdio: "ignore", detached: true });
+    }
   }
 });

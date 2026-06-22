@@ -37,6 +37,9 @@ REPO_DIRNAME="Bruhdeutschland"         # final on-disk folder name
 BRIDGE_PORT="8787"
 BRIDGE_URL="http://localhost:${BRIDGE_PORT}"
 CLAUDE_PKG="@anthropic-ai/claude-code"
+# Hosted GitHub Pages app -- after the local bridge is up we open its Settings page so the user can
+# connect their plan to the hosted site (it auto-probes ${BRIDGE_URL}/health).
+HOSTED_SETTINGS="https://golden007-prog.github.io/Bruhdeutschland/#/settings"
 
 # --- Colors (degrade gracefully if not a TTY) --------------------------------
 if [ -t 1 ]; then
@@ -306,14 +309,15 @@ start_owner() {
   (
     cd "$REPO_PATH"
     unset ANTHROPIC_API_KEY || true
-    npm run owner
+    # OWNER_OPEN_URL: once the bridge is up it opens BOTH the local app and the hosted Settings
+    # page so you can connect your plan to the hosted site (it auto-probes ${BRIDGE_URL}/health).
+    OWNER_OPEN_URL="$HOSTED_SETTINGS" npm run owner
   ) >"$logf" 2>&1 &
   owner_pid=$!
   ok "Owner Mode launched (PID ${owner_pid}); log: ${logf}"
-  step "It builds the app, then serves ${BRIDGE_URL}. Opening your browser shortly..."
-  # Give the build a moment, then open the browser (bridge --open also tries).
-  sleep 6
-  open_url "$BRIDGE_URL"
+  step "It builds the app, then serves ${BRIDGE_URL}; the bridge opens your browser when ready."
+  printf '  Connect your plan on the hosted app: %s%s%s\n' "$C_CY" "$HOSTED_SETTINGS" "$C_RS"
+  printf '  (local copy, always works: %s)\n' "$BRIDGE_URL"
 }
 
 # ============================================================================

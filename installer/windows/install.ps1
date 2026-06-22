@@ -27,7 +27,8 @@
       verify it with a clean machine-readable probe (`claude -p ... --output-format json`).
    8. Start the bridge with `npm run owner`.
    9. OPTIONAL Cloudflare tunnel (only if the user opts in).
-  10. Open http://localhost:8787 in the browser.
+  10. When the bridge is up, open BOTH the local app (http://localhost:8787) and the
+      HOSTED app's Settings page so the user can connect their plan to the hosted site.
   11. Write a start-owner.cmd launcher + a Desktop shortcut for next time.
 
  SECURITY / HONESTY
@@ -77,6 +78,11 @@ $ZIP_INNER_DIR  = "Bruhdeutschland-main"   # folder name inside the downloaded z
 $REPO_DIRNAME   = "Bruhdeutschland"        # final on-disk folder name
 $BRIDGE_PORT    = 8787
 $BRIDGE_URL     = "http://localhost:$BRIDGE_PORT"
+# Hosted GitHub Pages app. After the local bridge is up we open its Settings page so the user can
+# connect THEIR Claude plan to the hosted site (the page auto-probes $BRIDGE_URL/health). Same shared
+# deployment for every user, so the bridge's CORS allowlist already trusts this origin.
+$HOSTED_BASE     = "https://golden007-prog.github.io/Bruhdeutschland"
+$HOSTED_SETTINGS = "$HOSTED_BASE/#/settings"
 $CLAUDE_PKG     = "@anthropic-ai/claude-code"
 # Cloudflared pinned download (used only if winget is unavailable AND user opts in).
 $CLOUDFLARED_URL = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
@@ -170,7 +176,8 @@ function Show-Banner {
     Write-Host "   4. Run 'npm install' to fetch app dependencies." -ForegroundColor Gray
     Write-Host "   5. Install Claude Code globally ($CLAUDE_PKG)." -ForegroundColor Gray
     Write-Host "   6. Ask you to log in to YOUR OWN Claude subscription (in Claude Code)." -ForegroundColor Gray
-    Write-Host "   7. Start Owner Mode (npm run owner) on $BRIDGE_URL." -ForegroundColor Gray
+    Write-Host "   7. Start Owner Mode (local bridge on $BRIDGE_URL) and open the hosted" -ForegroundColor Gray
+    Write-Host "      app's Settings so you can use your plan from the hosted site." -ForegroundColor Gray
     Write-Host "   8. (Optional) Start a Cloudflare tunnel -- only if you opt in." -ForegroundColor Gray
     Write-Host ""
     Write-Host " It stores NO credentials. Your Claude login is kept by Claude Code" -ForegroundColor Yellow
@@ -745,7 +752,11 @@ cd /d "%~dp0"
 REM CRITICAL: keep the subscription path -- never bill the API.
 set "ANTHROPIC_API_KEY="
 
+REM When the bridge is up, also open the hosted app's Settings to connect your plan.
+set "OWNER_OPEN_URL=$HOSTED_SETTINGS"
+
 echo Starting DeutschPrep Owner Mode on $BRIDGE_URL ...
+echo (the local app AND the hosted Settings page will open once it is ready)
 call npm run owner
 pause
 "@
@@ -778,18 +789,43 @@ pause
 function Start-OwnerMode($repoPath, $npmPath) {
     Write-Step "Launching Owner Mode (npm run owner) in a new window..."
     try {
-        # A small wrapper command: UTF-8 code page (FIX 1), cd, clear the API key, run owner.
-        $inner = "chcp 65001>nul && cd /d `"$repoPath`" && set ANTHROPIC_API_KEY= && npm run owner"
+        # UTF-8 code page (FIX 1), cd, clear the API key (subscription path), and set OWNER_OPEN_URL so
+        # the bridge -- once it's actually listening -- opens BOTH the local app and the hosted Settings
+        # page. Quoted `set "VAR=..."` avoids cmd's trailing-space-before-&& gotcha.
+        $inner = "chcp 65001>nul && cd /d `"$repoPath`" && set `"ANTHROPIC_API_KEY=`" && set `"OWNER_OPEN_URL=$HOSTED_SETTINGS`" && npm run owner"
         Start-Process -FilePath "cmd.exe" -ArgumentList @("/k", $inner) -WorkingDirectory $repoPath | Out-Null
-        Write-Ok "Owner Mode is starting; it builds the app then serves $BRIDGE_URL."
+        Write-Ok "Owner Mode is starting; it builds the app then serves the bridge on $BRIDGE_URL."
     } catch {
         Write-Err2 "Could not auto-start Owner Mode: $($_.Exception.Message)"
         Write-Step "Start it manually: open '$repoPath' and run 'npm run owner'."
+        return
     }
 
-    # Fallback browser open (the bridge also opens it via --open once it's up).
-    Write-Step "Opening $BRIDGE_URL in your browser (give the build a few seconds)..."
-    try { Start-Process $BRIDGE_URL | Out-Null } catch {}
+    # Wait for the bridge to answer /health (the first build can take a minute). The bridge opens the
+    # browser tabs itself once it's up, so we don't open them here -- we just report accurate status.
+    Write-Step "Waiting for the bridge to come up (first build can take a minute)..."
+    $up = $false
+    for ($i = 0; $i -lt 150 -and -not $up; $i++) {
+        Start-Sleep -Seconds 1
+        try {
+            $resp = Invoke-WebRequest -Uri "$BRIDGE_URL/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            if ($resp.StatusCode -eq 200) { $up = $true }
+        } catch {}
+    }
+    Write-Host ""
+    if ($up) {
+        Write-Ok "Bridge is up at $BRIDGE_URL. Two browser tabs open automatically:"
+        Write-Host "    - Hosted app (connect your plan):  $HOSTED_SETTINGS" -ForegroundColor Cyan
+        Write-Host "    - Local copy (always works):       $BRIDGE_URL" -ForegroundColor Cyan
+        Write-Host "  On the hosted page, the 'Claude (your plan)' card should read 'Detected'." -ForegroundColor Gray
+        Write-Host "  If the browser asks to allow access to your local network, click Allow." -ForegroundColor Gray
+        Write-Host "  If it stays 'Not detected', use the local copy, or start the optional Cloudflare" -ForegroundColor Gray
+        Write-Host "  tunnel (next) and paste its HTTPS URL into Settings -> Bridge URL." -ForegroundColor Gray
+    } else {
+        Write-Warn2 "Bridge isn't answering yet -- it may still be building in the other window."
+        Write-Host "  It will open your browser when ready. To connect the hosted app manually:" -ForegroundColor Gray
+        Write-Host "    $HOSTED_SETTINGS   (local copy: $BRIDGE_URL)" -ForegroundColor Cyan
+    }
 }
 
 # ==============================================================================
@@ -844,6 +880,10 @@ try {
     }
     Write-Host ""
     Write-Ok "Owner Mode should be reachable at $BRIDGE_URL shortly."
+    Write-Host ""
+    Write-Host "  Use your plan on the HOSTED app (opens automatically once the bridge is up):" -ForegroundColor White
+    Write-Host "    $HOSTED_SETTINGS" -ForegroundColor Cyan
+    Write-Host "  Pick 'Claude (your plan)' there -- it auto-detects the bridge on $BRIDGE_URL." -ForegroundColor White
     Write-Host ""
     Write-Host "  Next time, just run 'start-owner.cmd' in the repo (or the Desktop" -ForegroundColor White
     Write-Host "  shortcut) -- no reinstall needed." -ForegroundColor White

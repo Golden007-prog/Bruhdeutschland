@@ -40,6 +40,9 @@ HTTPS→HTTPS means no mixed-content/PNA; the bridge already sends permissive CO
 ## Notes
 - Heavy batch generation draws from your Claude plan's usage limits — generate deliberately.
 - Configure the binary/port with `CLAUDE_BIN` and `--port` / `BRIDGE_PORT`.
+- With `--open`, set `OWNER_OPEN_URL` (or `--open-url <url>`) to also open a second page once the
+  bridge is listening — Owner Mode points it at the hosted Settings page so you can connect your plan
+  to the deployed site (which auto-probes `http://localhost:8787/health`).
 - This tool is intentionally dependency-free (Node built-ins only).
 - **Isolated generation context.** The bridge invokes `claude -p` with `--strict-mcp-config`
   (loads **no** MCP servers — neither your personal global ones nor this repo's `.mcp.json`) and

@@ -53,7 +53,13 @@ Both `windows/install.ps1` and `unix/install.sh` perform the same idempotent, re
 8. **Start Owner Mode** — `npm run owner` (build + serve on `:8787`).
 9. **Optional Cloudflare tunnel** — only if you opt in at the prompt. Captures the printed
    `https://*.trycloudflare.com` URL to paste into the hosted site's Owner-Mode card.
-10. **Open** http://localhost:8787 in your browser.
+10. **Open** the local app (http://localhost:8787) **and** the hosted app's Settings page
+    (`https://golden007-prog.github.io/Bruhdeutschland/#/settings`) once the bridge is up — so you
+    can use your plan from the hosted site. The hosted page defaults its Bridge URL to
+    `http://localhost:8787` and auto-detects the running bridge → **"Detected — using Claude (your
+    plan)"**. (Chrome/Edge allow the HTTPS page to reach `http://localhost`; approve the one-time
+    "Local Network Access" prompt if shown. If your browser blocks it, use the local copy or the
+    Cloudflare tunnel above.)
 11. (Windows) Write a **`start-owner.cmd`** launcher in the repo + a **Desktop shortcut** so
     re-launching skips install.
 
