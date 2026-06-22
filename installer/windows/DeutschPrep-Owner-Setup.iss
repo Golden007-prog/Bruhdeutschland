@@ -31,7 +31,7 @@
 ; =============================================================================
 
 #define MyAppName "DeutschPrep Owner Mode"
-#define MyAppVersion "0.1.1"
+#define MyAppVersion "0.1.2"
 #define MyAppPublisher "DeutschPrep"
 #define MyAppURL "https://github.com/Golden007-prog/Bruhdeutschland"
 

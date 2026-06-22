@@ -42,11 +42,14 @@ Both `windows/install.ps1` and `unix/install.sh` perform the same idempotent, re
    exists (idempotent), or a **ZIP fallback** (`Invoke-WebRequest`/`curl` + extract +
    normalize the `Bruhdeutschland-main/` folder name) when git is unavailable.
 5. **`npm install`** in the repo root.
-6. **Install Claude Code** globally (`npm install -g @anthropic-ai/claude-code`) and run
-   `claude doctor`.
+6. **Install Claude Code** — only if it isn't already present (detect-first; one method, no
+   duplicate npm-global + native installs). No raw `claude doctor` wall is printed; if both an
+   npm-global and a native install are detected, a one-line cleanup hint is shown instead.
 7. **Subscription login** — **unsets `ANTHROPIC_API_KEY`** for the session (so Claude Code
    uses your subscription, *not* the metered API — see the critical note below), explains
-   why, then runs the interactive `claude` login.
+   why, runs the interactive `claude` login **inheriting the console** (its output is never
+   captured or parsed), then **verifies** the login with a clean machine-readable probe
+   (`claude -p "ping" --output-format json --strict-mcp-config`) and reports *Connected*.
 8. **Start Owner Mode** — `npm run owner` (build + serve on `:8787`).
 9. **Optional Cloudflare tunnel** — only if you opt in at the prompt. Captures the printed
    `https://*.trycloudflare.com` URL to paste into the hosted site's Owner-Mode card.

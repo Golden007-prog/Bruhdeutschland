@@ -20,9 +20,11 @@
       Handles the PATH-refresh gotcha so freshly-installed tools are usable.
    4. Clone the repo (or `git pull` if it already exists; zip fallback).
    5. `npm install` in the repo root.
-   6. Install Claude Code globally; run `claude doctor`.
+   6. Install Claude Code -- ONLY if it isn't already present (one method, no
+      duplicate installs). No raw `claude doctor` wall is ever printed.
    7. Unset ANTHROPIC_API_KEY, then prompt an interactive `claude` login so
-      Owner Mode draws from the user's Pro/Max SUBSCRIPTION (not the API).
+      Owner Mode draws from the user's Pro/Max SUBSCRIPTION (not the API), and
+      verify it with a clean machine-readable probe (`claude -p ... --output-format json`).
    8. Start the bridge with `npm run owner`.
    9. OPTIONAL Cloudflare tunnel (only if the user opts in).
   10. Open http://localhost:8787 in the browser.
@@ -54,6 +56,19 @@ param(
 
 # Be strict but stay resilient: we handle most failures explicitly with try/catch.
 $ErrorActionPreference = "Stop"
+
+# ==============================================================================
+#  FIX 1 -- force UTF-8 so Claude Code's Unicode TUI/diagnostics render correctly.
+#  Without this the default OEM code page mangles box-drawing + emoji into mojibake
+#  (the "ÒêÆ" garbage seen during the login step). Each line is wrapped in try/catch:
+#  [Console]::InputEncoding can throw when stdin is redirected, and $PSStyle only
+#  exists on PowerShell 7+. The generated start-owner.cmd does the same via `chcp`.
+# ==============================================================================
+try { chcp 65001 > $null } catch {}
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+try { [Console]::InputEncoding  = [System.Text.Encoding]::UTF8 } catch {}
+try { $OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+try { if ($PSStyle) { $PSStyle.OutputRendering = 'PlainText' } } catch {}
 
 # --- Constants (the FACTS this bootstrapper is pinned to) ----------------------
 $REPO_URL       = "https://github.com/Golden007-prog/Bruhdeutschland.git"
@@ -422,9 +437,68 @@ function Install-Deps($repoPath, $npmPath) {
 }
 
 # ==============================================================================
-#  STEP 6 -- Install Claude Code globally + doctor
+#  Resolve a SINGLE 'claude' launcher that is a .cmd/.exe -- NEVER a .ps1.
+#  Why this matters (FIX 2 root cause): invoking the npm-generated `claude.ps1`
+#  shim with `&` runs it inside THIS PowerShell runspace, where Claude's stdout
+#  (e.g. its auto-update line "changed 2 packages in 7s") can get parsed as a
+#  command -> the bogus "... is not recognized as the name of a cmdlet" error.
+#  A .cmd/.exe runs as a clean child process whose output is never re-parsed.
+# ==============================================================================
+function Resolve-ClaudeLauncher {
+    $all = @(Get-Command claude -All -ErrorAction SilentlyContinue)
+    # Prefer a real executable / cmd wrapper; explicitly skip the .ps1 shim.
+    foreach ($ext in @(".cmd", ".exe", ".bat")) {
+        $hit = $all |
+            Where-Object { $_.Source -and ([System.IO.Path]::GetExtension([string]$_.Source)).ToLower() -eq $ext } |
+            Select-Object -First 1
+        if ($hit) { return [string]$hit.Source }
+    }
+    # Any remaining non-.ps1 source (e.g. an extensionless native shim).
+    $nonPs1 = $all |
+        Where-Object { $_.Source -and ([System.IO.Path]::GetExtension([string]$_.Source)).ToLower() -ne ".ps1" } |
+        Select-Object -First 1
+    if ($nonPs1) { return [string]$nonPs1.Source }
+    # Probe well-known install locations as a last resort.
+    $dirs = @("$env:APPDATA\npm", "$env:LOCALAPPDATA\Programs\claude", "$env:ProgramFiles\nodejs", "$env:USERPROFILE\.local\bin")
+    foreach ($d in $dirs) {
+        foreach ($n in @("claude.cmd", "claude.exe", "claude.bat")) {
+            $p = Join-Path $d $n
+            if (Test-Path $p) { return [string](Resolve-Path $p).Path }
+        }
+    }
+    return $null
+}
+
+# One-LINE multi-install hint (FIX 3). We detect npm-global + native side-by-side
+# ourselves instead of running `claude doctor` and dumping its diagnostic wall.
+function Show-ClaudeMultiInstallHint {
+    $hasNpm = Test-Path (Join-Path "$env:APPDATA\npm" "claude.cmd")
+    $hasNative = $false
+    foreach ($d in @("$env:LOCALAPPDATA\Programs\claude", "$env:USERPROFILE\.local\bin")) {
+        foreach ($n in @("claude.exe", "claude")) {
+            if (Test-Path (Join-Path $d $n)) { $hasNative = $true }
+        }
+    }
+    if ($hasNpm -and $hasNative) {
+        Write-Warn2 "Multiple Claude Code installs detected (npm-global + native). Optional cleanup: npm -g uninstall $CLAUDE_PKG"
+    }
+}
+
+# ==============================================================================
+#  STEP 6 -- Install Claude Code (detect-first, one method, no doctor dump)
 # ==============================================================================
 function Install-ClaudeCode($npmPath) {
+    # FIX 3: detect an existing install FIRST so we never install a second copy.
+    Update-SessionPath
+    $existing = Resolve-ClaudeLauncher
+    if ($existing) {
+        $ver = (& $existing --version 2>$null | Select-Object -First 1)
+        if ($ver) { Write-Ok "Claude Code already installed: $ver" }
+        else       { Write-Ok "Claude Code already installed: $existing" }
+        Show-ClaudeMultiInstallHint   # one-line hint only; never the raw doctor wall
+        return $existing
+    }
+
     Write-Step "Installing Claude Code globally ($CLAUDE_PKG)..."
     try {
         & $npmPath install -g $CLAUDE_PKG
@@ -436,25 +510,67 @@ function Install-ClaudeCode($npmPath) {
 
     # Make sure the global npm bin (where 'claude' lands) is on this session PATH.
     Update-SessionPath
-    $claude = Resolve-Tool "claude" @("$env:APPDATA\npm", "$env:ProgramFiles\nodejs")
+    $claude = Resolve-ClaudeLauncher
     if (-not $claude) {
         Write-Warn2 "'claude' not on PATH yet -- it usually lands in $env:APPDATA\npm. A new terminal will pick it up."
         $claude = Join-Path "$env:APPDATA\npm" "claude.cmd"
     }
-
-    Write-Step "Running 'claude doctor' (health check)..."
-    try {
-        & $claude doctor
-    } catch {
-        Write-Warn2 "'claude doctor' could not run cleanly: $($_.Exception.Message). You can run it manually later."
-    }
+    $ver = (& $claude --version 2>$null | Select-Object -First 1)
+    if ($ver) { Write-Ok "Claude Code $ver" }
     return $claude
 }
 
 # ==============================================================================
 #  STEP 7 -- Claude subscription login (CRITICAL: unset ANTHROPIC_API_KEY)
 # ==============================================================================
-function Invoke-ClaudeLogin($claudePath) {
+
+# FIX 2 (verify half): confirm the login with a clean, machine-readable probe --
+# NOT by scraping the interactive TUI. `claude -p ... --output-format json` returns
+# a JSON envelope ({subtype:"success", is_error:false, ...}); plain `-p` (never
+# --bare) uses the OAuth/subscription credential. --strict-mcp-config + the limited
+# setting-sources keep the operator's personal MCP servers/hooks out of the probe so
+# their auth noise can't pollute the JSON (FIX 4). stderr is discarded.
+function Test-ClaudeConnected($launcher, $repoPath) {
+    Write-Step "Verifying the subscription login (clean JSON probe)..."
+    if (-not $launcher) {
+        Write-Warn2 "Could not locate 'claude' to verify. Run 'claude' yourself and sign in to your plan."
+        return $false
+    }
+    $pushed = $false
+    if ($repoPath -and (Test-Path $repoPath)) { Push-Location $repoPath; $pushed = $true }
+    try {
+        $sw  = [System.Diagnostics.Stopwatch]::StartNew()
+        $raw = & $launcher -p "ping" --output-format json --strict-mcp-config --setting-sources project,local 2>$null | Out-String
+        $sw.Stop()
+        $obj = $raw | ConvertFrom-Json -ErrorAction Stop
+
+        $props     = $obj.PSObject.Properties.Name
+        $isErr     = ($props -contains "is_error") -and [bool]$obj.is_error
+        $subtypeOk = ($props -contains "subtype") -and ($obj.subtype -eq "success")
+        if ((-not $isErr) -or $subtypeOk) {
+            # Model name lives under modelUsage keys (e.g. "claude-opus-4-8[1m]"); no top-level field.
+            $model = $null
+            if ($props -contains "model") { $model = [string]$obj.model }
+            if (-not $model -and ($props -contains "modelUsage") -and $obj.modelUsage) {
+                $model = ($obj.modelUsage.PSObject.Properties.Name | Select-Object -First 1)
+            }
+            $ms = if ($props -contains "duration_ms") { [int]$obj.duration_ms } else { [int]$sw.ElapsedMilliseconds }
+            $modelText = if ($model) { "$model, " } else { "" }
+            Write-Ok "Claude (your plan): Connected (${modelText}${ms} ms)"
+            return $true
+        }
+        Write-Warn2 "Claude responded but reported an error. Run 'claude' and confirm you're logged in to your plan."
+        return $false
+    } catch {
+        Write-Warn2 "Could not confirm the Claude login: $($_.Exception.Message)"
+        Write-Step  "Open a terminal, run 'claude' to finish logging in, then re-run start-owner.cmd."
+        return $false
+    } finally {
+        if ($pushed) { Pop-Location }
+    }
+}
+
+function Invoke-ClaudeLogin($claudePath, $repoPath) {
     Write-Section "Log in to YOUR Claude subscription"
     Write-Host ""
     Write-Host "  IMPORTANT: Owner Mode should use your Claude Pro/Max SUBSCRIPTION," -ForegroundColor Yellow
@@ -474,8 +590,14 @@ function Invoke-ClaudeLogin($claudePath) {
         Write-Ok "ANTHROPIC_API_KEY is unset for this session."
     }
 
+    # Resolve a .cmd/.exe launcher (never the .ps1 shim) so the interactive login
+    # runs as a clean child process whose output is NEVER re-parsed by PowerShell.
+    $launcher = Resolve-ClaudeLauncher
+    if (-not $launcher) { $launcher = $claudePath }
+
     if ($NoPrompt) {
         Write-Warn2 "Non-interactive run: skipping the interactive 'claude' login. Run 'claude' yourself to log in."
+        Test-ClaudeConnected $launcher $repoPath | Out-Null
         return
     }
 
@@ -484,15 +606,24 @@ function Invoke-ClaudeLogin($claudePath) {
     Write-Host "  that has your Pro/Max plan. When you see the chat prompt, you're in --" -ForegroundColor White
     Write-Host "  you can type /exit (or Ctrl+C) to return here." -ForegroundColor White
     Write-Host ""
-    Read-Host " Press Enter to start the Claude login"
+    Read-Host " Press Enter to start the Claude login" | Out-Null
+
+    $pushed = $false
+    if ($repoPath -and (Test-Path $repoPath)) { Push-Location $repoPath; $pushed = $true }
     try {
-        # Interactive login: this launches Claude Code's own auth flow. We do NOT
-        # capture or store anything -- Claude Code keeps the session in its own store.
-        & $claudePath
+        # FIX 2: launch interactively, INHERITING this console. We do NOT capture its
+        # output to a variable, do NOT pipe it, and do NOT Invoke-Expression/& its text.
+        # Claude Code keeps the credential in its OWN store; nothing is scraped here.
+        & $launcher
     } catch {
-        Write-Warn2 "The interactive 'claude' session ended with: $($_.Exception.Message)"
+        Write-Warn2 "The Claude login session ended unexpectedly: $($_.Exception.Message)"
+    } finally {
+        if ($pushed) { Pop-Location }
     }
     Write-Ok "Returned from Claude login."
+
+    # Verify with the clean probe instead of trusting the TUI text.
+    Test-ClaudeConnected $launcher $repoPath | Out-Null
 }
 
 # ==============================================================================
@@ -607,6 +738,8 @@ REM ============================================================
 REM  DeutschPrep -- relaunch Owner Mode (no reinstall).
 REM  Built by installer\windows\install.ps1.
 REM ============================================================
+REM FIX 1: force the UTF-8 code page so Claude Code output isn't mojibake.
+chcp 65001 >nul
 cd /d "%~dp0"
 
 REM CRITICAL: keep the subscription path -- never bill the API.
@@ -645,8 +778,8 @@ pause
 function Start-OwnerMode($repoPath, $npmPath) {
     Write-Step "Launching Owner Mode (npm run owner) in a new window..."
     try {
-        # A small wrapper command: cd, clear the API key, run owner.
-        $inner = "cd /d `"$repoPath`" && set ANTHROPIC_API_KEY= && npm run owner"
+        # A small wrapper command: UTF-8 code page (FIX 1), cd, clear the API key, run owner.
+        $inner = "chcp 65001>nul && cd /d `"$repoPath`" && set ANTHROPIC_API_KEY= && npm run owner"
         Start-Process -FilePath "cmd.exe" -ArgumentList @("/k", $inner) -WorkingDirectory $repoPath | Out-Null
         Write-Ok "Owner Mode is starting; it builds the app then serves $BRIDGE_URL."
     } catch {
@@ -690,8 +823,8 @@ try {
     $claudePath = Install-ClaudeCode $npmPath
     $summary["Claude Code"] = $claudePath
 
-    # Step 6 -- subscription login (also unsets ANTHROPIC_API_KEY).
-    Invoke-ClaudeLogin $claudePath
+    # Step 6 -- subscription login (also unsets ANTHROPIC_API_KEY) + clean probe.
+    Invoke-ClaudeLogin $claudePath $repoPath
 
     Write-Section "Step 7/8 -- Write launcher + shortcut"
     $launcher = Write-Launcher $repoPath $npmPath

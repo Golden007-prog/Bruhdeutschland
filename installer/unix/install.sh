@@ -238,6 +238,12 @@ install_deps() {
 #  STEP 6 -- Install Claude Code + doctor
 # ============================================================================
 install_claude() {
+  # FIX 3 parity: detect an existing install first -- never install a second copy,
+  # and never dump the raw `claude doctor` diagnostic wall into the UI.
+  if command -v claude >/dev/null 2>&1; then
+    ok "Claude Code already installed: $(claude --version 2>/dev/null | head -n1)"
+    return 0
+  fi
   step "Installing Claude Code globally (${CLAUDE_PKG})..."
   # If a global install needs sudo (system Node), tell the user rather than guess.
   if npm install -g "$CLAUDE_PKG"; then
@@ -247,8 +253,20 @@ install_claude() {
     warn "Try:  sudo npm install -g ${CLAUDE_PKG}   (or set a user prefix: npm config set prefix ~/.npm-global)"
     return 1
   fi
-  step "Running 'claude doctor'..."
-  claude doctor || warn "'claude doctor' did not run cleanly; you can run it later."
+}
+
+# FIX 2 parity: confirm the login with a clean machine-readable probe, not by
+# scraping the TUI. Plain `-p` (never --bare) uses the OAuth/subscription credential;
+# --strict-mcp-config + limited setting-sources keep personal MCP servers/hooks out.
+verify_claude() {
+  step "Verifying the subscription login (clean JSON probe)..."
+  out="$(claude -p "ping" --output-format json --strict-mcp-config --setting-sources project,local 2>/dev/null || true)"
+  case "$out" in
+    *'"subtype":"success"'*|*'"is_error":false'*)
+      ok "Claude (your plan): Connected." ;;
+    *)
+      warn "Could not confirm the Claude login. Run 'claude' and sign in to your plan, then re-run." ;;
+  esac
 }
 
 # ============================================================================
@@ -273,6 +291,9 @@ claude_login() {
   # Interactive login; nothing captured/stored here -- Claude Code owns the session.
   claude || warn "The interactive 'claude' session ended."
   ok "Returned from Claude login."
+
+  # Verify with the clean probe instead of trusting the TUI text.
+  verify_claude
 }
 
 # ============================================================================

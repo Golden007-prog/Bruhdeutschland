@@ -41,3 +41,10 @@ HTTPS→HTTPS means no mixed-content/PNA; the bridge already sends permissive CO
 - Heavy batch generation draws from your Claude plan's usage limits — generate deliberately.
 - Configure the binary/port with `CLAUDE_BIN` and `--port` / `BRIDGE_PORT`.
 - This tool is intentionally dependency-free (Node built-ins only).
+- **Isolated generation context.** The bridge invokes `claude -p` with `--strict-mcp-config`
+  (loads **no** MCP servers — neither your personal global ones nor this repo's `.mcp.json`) and
+  `--setting-sources project,local` (skips your user-global `settings.json`, so personal hooks don't
+  load). This keeps generation quiet and fast and prevents unrelated MCP auth failures (e.g.
+  `github`/`supabase` HTTP 401) from surfacing. It deliberately does **not** use `--bare`, which
+  would stop Claude Code from reading your OAuth/keychain credential — plain `-p` keeps drawing from
+  your Pro/Max **subscription**.

@@ -66,10 +66,19 @@ function runClaude(prompt) {
     // --bare, which would skip the OAuth/keychain read and demand an API key.)
     const childEnv = { ...process.env };
     delete childEnv.ANTHROPIC_API_KEY;
-    const child = spawn(CLAUDE_BIN, ["-p", "--output-format", "json"], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: childEnv,
-    });
+    // The bridge only needs Claude for *generation*, so we run it with a minimal,
+    // isolated config (work-order Fix 4): `--strict-mcp-config` loads NO MCP servers
+    // (ignoring the operator's personal github/supabase servers AND this repo's own
+    // .mcp.json), and `--setting-sources project,local` skips the user-global
+    // settings.json so personal hooks don't load either. Both are quieter and faster,
+    // and neither touches auth — we deliberately do NOT pass `--bare` (which would stop
+    // Claude Code reading the OAuth/keychain credential and force an API key). Plain
+    // `-p` keeps drawing from the operator's Pro/Max subscription.
+    const child = spawn(
+      CLAUDE_BIN,
+      ["-p", "--output-format", "json", "--strict-mcp-config", "--setting-sources", "project,local"],
+      { stdio: ["pipe", "pipe", "pipe"], env: childEnv },
+    );
     let out = "";
     let err = "";
     child.stdout.on("data", (d) => (out += d));
